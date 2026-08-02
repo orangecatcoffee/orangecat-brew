@@ -59,6 +59,8 @@
   <div id="omakaseSlotBlock" style="display:none;">
     <div class="field-hint">แตะเลือกแก้วที่ 1/2/3 แล้วเลือกเมนูจากช่องด้านล่าง — เมนูทดลองรายสัปดาห์ (omakase_only) จะโผล่ในนี้ด้วย</div>
     <div class="chip-row" id="omakaseSlotChips"></div>
+    <div class="field-hint" style="margin-top:8px;">วันที่ชงของแก้วที่กำลังเลือกอยู่ (แต่ละแก้วเลือกวันต่างกันได้)</div>
+    <div class="date-row" id="omakaseCupDateRow"></div>
     <button type="button" class="submit-btn" id="openSecretFormBtn" style="margin-top:8px;background:#5A361B;">✨ สร้างเมนูลับใหม่สำหรับแก้วที่กำลังเลือกอยู่</button>
 
     <div id="secretMenuForm" style="display:none;margin-top:10px;padding:12px;border:1px solid #E0D5C5;border-radius:12px;background:#FBF7F0;">
@@ -160,6 +162,7 @@
   let selectedBeanIds = [];
   let orderMode = 'normal'; // 'normal' | 'omakase'
   let omakaseSlots = [null, null, null];
+  let omakaseDates = [null, null, null]; // wanted_date แยกต่อแก้ว — ไม่ผูกกับ selectedDate ตัวเดียวอีกต่อไป
   let omakaseActiveSlot = 0;
   let pendingReplaceOrderId = null; // preorders.id ของแถว omakase_pending ที่กำลังจะถูกแทนที่ด้วย 3 แก้วจริง
   const OMAKASE_SECRET_IMAGE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/674F30B8-8598-4DF6-B827-09D5B538E3F5.png";
@@ -467,8 +470,10 @@
     orderMode = 'omakase';
     document.getElementById('omakaseSlotBlock').style.display = 'block';
     omakaseSlots = [null, null, null];
+    omakaseDates = [order.wanted_date, order.wanted_date, order.wanted_date];
     omakaseActiveSlot = 0;
     renderOmakaseSlotChips();
+    renderOmakaseCupDateRow();
     updateLinkHint();
     updateSubmitState();
   }
@@ -506,10 +511,42 @@
       const chip = document.createElement('div');
       chip.className = 'chip' + (i === omakaseActiveSlot ? ' selected' : '');
       const name = omakaseSlots[i] ? omakaseSlots[i].name : '(ยังไม่เลือก)';
-      chip.textContent = `${label}: ${name}`;
-      chip.addEventListener('click', () => { omakaseActiveSlot = i; renderOmakaseSlotChips(); });
+      const dateLabel = omakaseDates[i] ? ` · ${fmtDate(new Date(omakaseDates[i]))}` : '';
+      chip.textContent = `${label}: ${name}${dateLabel}`;
+      chip.addEventListener('click', () => { omakaseActiveSlot = i; renderOmakaseSlotChips(); renderOmakaseCupDateRow(); });
       row.appendChild(chip);
     });
+  }
+
+  function renderOmakaseCupDateRow() {
+    const row = document.getElementById('omakaseCupDateRow');
+    row.innerHTML = '';
+    const today = new Date();
+    const dayNames = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+    const todayDow = today.getDay();
+    const diffToMonday = todayDow === 0 ? -6 : (1 - todayDow);
+    const thisMonday = new Date(today);
+    thisMonday.setDate(today.getDate() + diffToMonday);
+    const todayISO = toISODate(today);
+    const activeDate = omakaseDates[omakaseActiveSlot] || selectedDate || todayISO;
+
+    for (let w = 0; w < 2; w++) {
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(thisMonday);
+        d.setDate(thisMonday.getDate() + (w * 7) + i);
+        const dISO = toISODate(d);
+        if (dISO < todayISO) continue;
+        const btn = document.createElement('button');
+        btn.className = 'date-btn' + (dISO === activeDate ? ' selected' : '');
+        btn.textContent = dISO === todayISO ? 'วันนี้' : `${dayNames[d.getDay()]} ${d.getDate()}`;
+        btn.addEventListener('click', () => {
+          omakaseDates[omakaseActiveSlot] = dISO;
+          renderOmakaseSlotChips();
+          renderOmakaseCupDateRow();
+        });
+        row.appendChild(btn);
+      }
+    }
   }
 
   document.getElementById('orderModeRow').addEventListener('click', (e) => {
@@ -521,10 +558,11 @@
     document.getElementById('omakaseSlotBlock').style.display = orderMode === 'omakase' ? 'block' : 'none';
     document.getElementById('secretMenuForm').style.display = 'none';
     omakaseSlots = [null, null, null];
+    omakaseDates = [selectedDate, selectedDate, selectedDate];
     omakaseActiveSlot = 0;
     selectedMenu = null;
     document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
-    if (orderMode === 'omakase') renderOmakaseSlotChips();
+    if (orderMode === 'omakase') { renderOmakaseSlotChips(); renderOmakaseCupDateRow(); }
     updateSubmitState();
   });
 
@@ -966,11 +1004,11 @@
     let insertRows;
     if (orderMode === 'omakase') {
       const omakaseSetId = crypto.randomUUID();
-      insertRows = omakaseSlots.map(item => ({
+      insertRows = omakaseSlots.map((item, i) => ({
         customer_name: name,
         menu_item_name: item.name,
         price: isFree ? 0 : item.price,
-        wanted_date: selectedDate,
+        wanted_date: omakaseDates[i] || selectedDate,
         bean_name: item.bean ? beanName : null,
         line_user_id: selectedMemberLineId,
         order_type: orderType,
@@ -1041,8 +1079,8 @@
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
     orderMode = 'normal';
     omakaseSlots = [null, null, null];
+    omakaseDates = [null, null, null];
     omakaseActiveSlot = 0;
-    secretRecipeSelections = {};
     document.getElementById('omakaseSlotBlock').style.display = 'none';
     document.getElementById('secretMenuForm').style.display = 'none';
     document.querySelectorAll('#orderModeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.orderMode === 'normal'));
