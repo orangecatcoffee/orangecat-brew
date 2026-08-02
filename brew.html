@@ -50,6 +50,17 @@
 
   <div class="link-hint" id="linkHint"></div>
 
+  <div class="field-label">โหมดสั่ง</div>
+  <div class="sweetness-row" id="orderModeRow">
+    <button type="button" class="sweetness-btn selected" data-order-mode="normal">ปกติ (1 แก้ว)</button>
+    <button type="button" class="sweetness-btn" data-order-mode="omakase">🎴 Omakase (3 แก้ว)</button>
+  </div>
+
+  <div id="omakaseSlotBlock" style="display:none;">
+    <div class="field-hint">แตะเลือกแก้วที่ 1/2/3 แล้วเลือกเมนูจากช่องด้านล่าง — เมนูทดลองรายสัปดาห์ (omakase_only) จะโผล่ในนี้ด้วย</div>
+    <div class="chip-row" id="omakaseSlotChips"></div>
+  </div>
+
   <div class="field-label">เลือกเมนู</div>
   <div class="menu-grid" id="menuGrid"></div>
 
@@ -135,6 +146,9 @@
   let membersCache = [];
   let beanOptionsCache = [];
   let selectedBeanIds = [];
+  let orderMode = 'normal'; // 'normal' | 'omakase'
+  let omakaseSlots = [null, null, null];
+  let omakaseActiveSlot = 0;
 
   function switchScreen(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -349,11 +363,12 @@
       const typeBadge = order.order_type === 'staff' ? ' <span style="color:#A8876F;">☕ staff</span>'
         : order.order_type === 'reward' ? ' <span style="color:#E8863A;">🎁 reward</span>'
         : '';
+      const omakaseBadge = order.omakase_set_id ? ' <span style="color:#E8621A;">🎴 Omakase</span>' : '';
       const div = document.createElement('div');
       div.className = 'card' + (isToday ? ' today' : '');
       div.innerHTML = `
         <div class="card-top">
-          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${typeBadge}</span>
+          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${typeBadge}${omakaseBadge}</span>
           <div class="card-top-right">
             <span class="card-date">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
             <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
@@ -401,14 +416,48 @@
         : `<div class="icon">${item.icon}</div>`;
       div.innerHTML = `${iconHtml}<div class="name">${item.name}</div><div class="price">${item.price}฿</div>`;
       div.addEventListener('click', () => {
-        document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
-        div.classList.add('selected');
-        selectedMenu = item;
+        if (orderMode === 'omakase') {
+          omakaseSlots[omakaseActiveSlot] = item;
+          renderOmakaseSlotChips();
+          if (omakaseActiveSlot < 2) { omakaseActiveSlot++; renderOmakaseSlotChips(); }
+        } else {
+          document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
+          div.classList.add('selected');
+          selectedMenu = item;
+        }
         updateSubmitState();
       });
       grid.appendChild(div);
     });
   }
+
+  function renderOmakaseSlotChips() {
+    const row = document.getElementById('omakaseSlotChips');
+    row.innerHTML = '';
+    ['แก้วที่ 1', 'แก้วที่ 2', 'แก้วที่ 3'].forEach((label, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (i === omakaseActiveSlot ? ' selected' : '');
+      const name = omakaseSlots[i] ? omakaseSlots[i].name : '(ยังไม่เลือก)';
+      chip.textContent = `${label}: ${name}`;
+      chip.addEventListener('click', () => { omakaseActiveSlot = i; renderOmakaseSlotChips(); });
+      row.appendChild(chip);
+    });
+  }
+
+  document.getElementById('orderModeRow').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-order-mode]');
+    if (!btn) return;
+    document.querySelectorAll('#orderModeRow .sweetness-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    orderMode = btn.dataset.orderMode;
+    document.getElementById('omakaseSlotBlock').style.display = orderMode === 'omakase' ? 'block' : 'none';
+    omakaseSlots = [null, null, null];
+    omakaseActiveSlot = 0;
+    selectedMenu = null;
+    document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
+    if (orderMode === 'omakase') renderOmakaseSlotChips();
+    updateSubmitState();
+  });
 
   function renderDateRow() {
     const row = document.getElementById('dateRow');
@@ -690,7 +739,10 @@
       const payload = getBlendGramsPayload();
       blendOk = payload && !payload.incomplete;
     }
-    btn.disabled = !(customerName && selectedMenu && selectedDate && blendOk);
+    const menuOk = orderMode === 'omakase'
+      ? omakaseSlots.every(s => s !== null)
+      : !!selectedMenu;
+    btn.disabled = !(customerName && menuOk && selectedDate && blendOk);
   }
 
   document.getElementById('submitBtn').addEventListener('click', async () => {
@@ -705,20 +757,39 @@
     const beanName = document.getElementById('beanName').value.trim() || null;
     const blendPayload = selectedBeanIds.length >= 2 ? getBlendGramsPayload() : null;
     const isFree = orderType !== 'customer';
-    const finalPrice = isFree ? 0 : selectedMenu.price;
 
-    const { data: inserted, error } = await sb.from('preorders').insert([{
-      customer_name: name,
-      menu_item_name: selectedMenu.name,
-      price: finalPrice,
-      wanted_date: selectedDate,
-      bean_name: beanName,
-      line_user_id: selectedMemberLineId,
-      order_type: orderType,
-      paid: isFree,
-      sweetness: selectedSweetness,
-      channel: 'walk-in',
-    }]).select('id');
+    let insertRows;
+    if (orderMode === 'omakase') {
+      const omakaseSetId = crypto.randomUUID();
+      insertRows = omakaseSlots.map(item => ({
+        customer_name: name,
+        menu_item_name: item.name,
+        price: isFree ? 0 : item.price,
+        wanted_date: selectedDate,
+        bean_name: item.bean ? beanName : null,
+        line_user_id: selectedMemberLineId,
+        order_type: orderType,
+        paid: isFree,
+        sweetness: selectedSweetness,
+        channel: 'walk-in',
+        omakase_set_id: omakaseSetId,
+      }));
+    } else {
+      insertRows = [{
+        customer_name: name,
+        menu_item_name: selectedMenu.name,
+        price: isFree ? 0 : selectedMenu.price,
+        wanted_date: selectedDate,
+        bean_name: beanName,
+        line_user_id: selectedMemberLineId,
+        order_type: orderType,
+        paid: isFree,
+        sweetness: selectedSweetness,
+        channel: 'walk-in',
+      }];
+    }
+
+    const { data: inserted, error } = await sb.from('preorders').insert(insertRows).select('id');
 
     if (error) {
       statusEl.textContent = `บันทึกไม่สำเร็จ: ${error.message}`;
@@ -758,6 +829,11 @@
     orderType = 'customer';
     selectedSweetness = 'หวานปกติ';
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
+    orderMode = 'normal';
+    omakaseSlots = [null, null, null];
+    omakaseActiveSlot = 0;
+    document.getElementById('omakaseSlotBlock').style.display = 'none';
+    document.querySelectorAll('#orderModeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.orderMode === 'normal'));
     updateLinkHint();
     btn.textContent = 'บันทึกออเดอร์';
     setTimeout(() => { statusEl.textContent = ''; switchScreen('today'); }, 800);
