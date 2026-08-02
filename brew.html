@@ -59,6 +59,17 @@
   <div id="omakaseSlotBlock" style="display:none;">
     <div class="field-hint">แตะเลือกแก้วที่ 1/2/3 แล้วเลือกเมนูจากช่องด้านล่าง — เมนูทดลองรายสัปดาห์ (omakase_only) จะโผล่ในนี้ด้วย</div>
     <div class="chip-row" id="omakaseSlotChips"></div>
+    <button type="button" class="submit-btn" id="openSecretFormBtn" style="margin-top:8px;background:#5A361B;">✨ สร้างเมนูลับใหม่สำหรับแก้วที่กำลังเลือกอยู่</button>
+
+    <div id="secretMenuForm" style="display:none;margin-top:10px;padding:12px;border:1px solid #E0D5C5;border-radius:12px;background:#FBF7F0;">
+      <div class="field-label">ชื่อเมนูลับ</div>
+      <input type="text" id="secretMenuName" placeholder="เช่น ลาเต้เผือกมะพร้าวคั่ว">
+      <div class="field-label" style="margin-top:10px;">ส่วนผสม (แตะเลือกจากวัตถุดิบที่มี แล้วใส่ปริมาณ)</div>
+      <div class="chip-row" id="secretIngredientChips"></div>
+      <div id="secretIngredientQtyBlock"></div>
+      <button type="button" class="submit-btn" id="saveSecretMenuBtn" style="margin-top:10px;" disabled>บันทึกเมนูลับ + ใช้แก้วนี้</button>
+      <div class="status-msg" id="secretMenuStatus"></div>
+    </div>
   </div>
 
   <div class="field-label">เลือกเมนู</div>
@@ -149,6 +160,9 @@
   let orderMode = 'normal'; // 'normal' | 'omakase'
   let omakaseSlots = [null, null, null];
   let omakaseActiveSlot = 0;
+  const OMAKASE_SECRET_IMAGE_URL = null; // TODO: Fah จะส่งรูปมาร์กแก้วลับมาให้ — ใส่ URL ตรงนี้ทีเดียวใช้ตลอด
+  let allIngredientsCache = [];
+  let secretRecipeSelections = {}; // { ingredient_id: { ingredient, grams } }
 
   function switchScreen(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -451,12 +465,148 @@
     btn.classList.add('selected');
     orderMode = btn.dataset.orderMode;
     document.getElementById('omakaseSlotBlock').style.display = orderMode === 'omakase' ? 'block' : 'none';
+    document.getElementById('secretMenuForm').style.display = 'none';
     omakaseSlots = [null, null, null];
     omakaseActiveSlot = 0;
     selectedMenu = null;
     document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
     if (orderMode === 'omakase') renderOmakaseSlotChips();
     updateSubmitState();
+  });
+
+  async function loadAllIngredients() {
+    if (allIngredientsCache.length) return allIngredientsCache;
+    const { data, error } = await sb
+      .from('ingredients')
+      .select('id, name, category, base_unit, stock_quantity')
+      .eq('active', true)
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+    if (!error && data) allIngredientsCache = data;
+    return allIngredientsCache;
+  }
+
+  function renderSecretIngredientChips() {
+    const row = document.getElementById('secretIngredientChips');
+    row.innerHTML = '';
+    allIngredientsCache.forEach(ing => {
+      const chip = document.createElement('div');
+      const isSel = !!secretRecipeSelections[ing.id];
+      chip.className = 'chip' + (isSel ? ' selected' : '');
+      chip.textContent = `${ing.name}`;
+      chip.addEventListener('click', () => {
+        if (secretRecipeSelections[ing.id]) {
+          delete secretRecipeSelections[ing.id];
+        } else {
+          secretRecipeSelections[ing.id] = { ingredient: ing, grams: null };
+        }
+        renderSecretIngredientChips();
+        renderSecretIngredientQtyBlock();
+        updateSecretSaveState();
+      });
+      row.appendChild(chip);
+    });
+  }
+
+  function renderSecretIngredientQtyBlock() {
+    const block = document.getElementById('secretIngredientQtyBlock');
+    block.innerHTML = '';
+    Object.values(secretRecipeSelections).forEach(sel => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;';
+      wrap.innerHTML = `
+        <span style="flex:1;font-size:13px;">${sel.ingredient.name}</span>
+        <input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">
+      `;
+      const input = wrap.querySelector('input');
+      if (sel.grams !== null) input.value = sel.grams;
+      input.addEventListener('input', () => {
+        sel.grams = input.value ? Number(input.value) : null;
+        updateSecretSaveState();
+      });
+      block.appendChild(wrap);
+    });
+  }
+
+  function updateSecretSaveState() {
+    const btn = document.getElementById('saveSecretMenuBtn');
+    const name = document.getElementById('secretMenuName').value.trim();
+    const sels = Object.values(secretRecipeSelections);
+    const allQtyFilled = sels.length > 0 && sels.every(s => s.grams && s.grams > 0);
+    btn.disabled = !(name && allQtyFilled);
+  }
+
+  document.getElementById('secretMenuName').addEventListener('input', updateSecretSaveState);
+
+  document.getElementById('openSecretFormBtn').addEventListener('click', async () => {
+    document.getElementById('secretMenuForm').style.display = 'block';
+    document.getElementById('secretMenuStatus').textContent = '';
+    secretRecipeSelections = {};
+    document.getElementById('secretMenuName').value = '';
+    await loadAllIngredients();
+    renderSecretIngredientChips();
+    renderSecretIngredientQtyBlock();
+    updateSecretSaveState();
+  });
+
+  document.getElementById('saveSecretMenuBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('saveSecretMenuBtn');
+    const statusEl = document.getElementById('secretMenuStatus');
+    const name = document.getElementById('secretMenuName').value.trim();
+    const sels = Object.values(secretRecipeSelections);
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+
+    const needsBean = sels.some(s => s.ingredient.category === 'coffee_bean');
+
+    const { data: newItem, error: menuErr } = await sb.from('menu_items').insert([{
+      name,
+      price: 0,
+      category: 'secret',
+      needs_bean: needsBean,
+      image_url: OMAKASE_SECRET_IMAGE_URL,
+      omakase_only: true,
+    }]).select('id, name, price, category, needs_bean, image_url').maybeSingle();
+
+    if (menuErr || !newItem) {
+      statusEl.textContent = `บันทึกไม่สำเร็จ: ${menuErr ? menuErr.message : 'unknown error'}`;
+      statusEl.className = 'status-msg error';
+      btn.disabled = false;
+      btn.textContent = 'บันทึกเมนูลับ + ใช้แก้วนี้';
+      return;
+    }
+
+    const recipeRows = sels.map(s => ({
+      menu_item_id: newItem.id,
+      ingredient_id: s.ingredient.id,
+      quantity: s.grams,
+    }));
+    const { error: recipeErr } = await sb.from('menu_recipes').insert(recipeRows);
+    if (recipeErr) {
+      statusEl.textContent = `บันทึกเมนูแล้ว แต่บันทึกสูตรไม่สำเร็จ: ${recipeErr.message}`;
+      statusEl.className = 'status-msg error';
+      btn.disabled = false;
+      btn.textContent = 'บันทึกเมนูลับ + ใช้แก้วนี้';
+      return;
+    }
+
+    // เติม MENU cache ทันทีโดยไม่ต้อง reload ทั้งหมด แล้วเลือกเป็นแก้วที่กำลังแอคทีฟ
+    const iconFallback = CATEGORY_ICON[newItem.category] || '✨';
+    const menuItem = { name: newItem.name, price: Number(newItem.price), icon: iconFallback, image_url: newItem.image_url, bean: newItem.needs_bean };
+    MENU.push(menuItem);
+    renderMenuGrid();
+
+    omakaseSlots[omakaseActiveSlot] = menuItem;
+    renderOmakaseSlotChips();
+    if (omakaseActiveSlot < 2) omakaseActiveSlot++;
+    renderOmakaseSlotChips();
+    updateSubmitState();
+
+    statusEl.textContent = '✅ สร้างเมนูลับแล้ว ใช้เป็นแก้วนี้เรียบร้อย';
+    statusEl.className = 'status-msg success';
+    document.getElementById('secretMenuForm').style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = 'บันทึกเมนูลับ + ใช้แก้วนี้';
   });
 
   function renderDateRow() {
@@ -832,7 +982,9 @@
     orderMode = 'normal';
     omakaseSlots = [null, null, null];
     omakaseActiveSlot = 0;
+    secretRecipeSelections = {};
     document.getElementById('omakaseSlotBlock').style.display = 'none';
+    document.getElementById('secretMenuForm').style.display = 'none';
     document.querySelectorAll('#orderModeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.orderMode === 'normal'));
     updateLinkHint();
     btn.textContent = 'บันทึกออเดอร์';
