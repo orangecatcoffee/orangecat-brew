@@ -161,6 +161,7 @@
   let omakaseSlots = [null, null, null];
   let omakaseActiveSlot = 0;
   const OMAKASE_SECRET_IMAGE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/674F30B8-8598-4DF6-B827-09D5B538E3F5.png";
+  const OMAKASE_WEEKLY_PRICE = 230; // ราคาแพ็กเกจ Omakase ที่เรียกเก็บลูกค้าจริง (ไม่ใช่ผลรวมราคาเมนูแต่ละแก้ว)
   let allIngredientsCache = [];
   let secretRecipeSelections = {}; // { ingredient_id: { ingredient, grams } }
 
@@ -1018,9 +1019,32 @@
       grouped[o.customer_name].push(o);
     });
 
+    // แปลงรายการดิบของลูกค้าคนหนึ่ง ให้ Omakase set (omakase_set_id เดียวกัน) รวมเป็น 1 บรรทัดราคา 230฿
+    // แทนการรวมราคาจริงของแต่ละแก้ว — ลูกค้าเห็น/ถูกเรียกเก็บเป็นแพ็กเกจเดียว ไม่เห็นราคาต่อแก้ว
+    function buildBillingLines(orders) {
+      const lines = [];
+      const seenSets = new Set();
+      orders.forEach(o => {
+        if (o.omakase_set_id) {
+          if (seenSets.has(o.omakase_set_id)) return;
+          seenSets.add(o.omakase_set_id);
+          const cupNames = orders.filter(x => x.omakase_set_id === o.omakase_set_id).map(x => x.menu_item_name);
+          lines.push({
+            label: `🎴 Omakase Set (${cupNames.join(' / ')})`,
+            price: OMAKASE_WEEKLY_PRICE,
+            ids: orders.filter(x => x.omakase_set_id === o.omakase_set_id).map(x => x.id),
+          });
+        } else {
+          lines.push({ label: `${o.menu_item_name}${o.bean_name ? ` · ${o.bean_name}` : ''}`, price: Number(o.price), ids: [o.id] });
+        }
+      });
+      return lines;
+    }
+
     listEl.innerHTML = '';
     Object.entries(grouped).forEach(([name, orders]) => {
-      const total = orders.reduce((sum, o) => sum + Number(o.price), 0);
+      const billingLines = buildBillingLines(orders);
+      const total = billingLines.reduce((sum, l) => sum + l.price, 0);
       const groupLineId = (orders.find(o => o.line_user_id) || {}).line_user_id || null;
       const alreadyRequested = orders.some(o => o.payment_requested_at);
       const lastRequestedAt = orders
@@ -1031,10 +1055,10 @@
 
       const div = document.createElement('div');
       div.className = 'bill-card';
-      const itemsHtml = orders.map(o => `
-        <div class="bill-item" data-id="${o.id}">
-          <span>${o.menu_item_name} ${o.price}฿${o.bean_name ? ` · ${o.bean_name}` : ''}</span>
-          <button class="btn-item-delete" data-id="${o.id}" title="ลบแก้วนี้">✕</button>
+      const itemsHtml = billingLines.map(l => `
+        <div class="bill-item" data-ids="${l.ids.join(',')}">
+          <span>${l.label} — ${l.price}฿</span>
+          <button class="btn-item-delete" data-ids="${l.ids.join(',')}" title="ลบรายการนี้">✕</button>
         </div>
       `).join('');
 
@@ -1109,9 +1133,10 @@
 
       div.querySelectorAll('.btn-item-delete').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const order = orders.find(o => o.id === btn.dataset.id);
-          if (!confirm(`ลบ "${order.menu_item_name} ${order.price}฿" ของ ${name} ใช่ไหม?`)) return;
-          const { error } = await sb.from('preorders').delete().eq('id', order.id);
+          const ids = btn.dataset.ids.split(',');
+          const line = billingLines.find(l => l.ids.join(',') === btn.dataset.ids);
+          if (!confirm(`ลบ "${line.label} — ${line.price}฿" ของ ${name} ใช่ไหม?`)) return;
+          const { error } = await sb.from('preorders').delete().in('id', ids);
           if (error) {
             alert('ลบไม่สำเร็จ: ' + error.message);
             return;
@@ -1130,7 +1155,7 @@
           errBox.style.display = 'none';
 
           try {
-            const items = orders.map(o => `${o.menu_item_name} ${o.price}฿`);
+            const items = billingLines.map(l => `${l.label} ${l.price}฿`);
             const res = await fetch(REQUEST_PAYMENT_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
