@@ -130,6 +130,7 @@
     const { data, error } = await sb
       .from('menu_items')
       .select('id, name, price, category, needs_bean, image_url')
+      .eq('is_omakase_placeholder', false)
       .order('category', { ascending: true })
       .order('name', { ascending: true });
     if (error || !data) {
@@ -160,6 +161,7 @@
   let orderMode = 'normal'; // 'normal' | 'omakase'
   let omakaseSlots = [null, null, null];
   let omakaseActiveSlot = 0;
+  let pendingReplaceOrderId = null; // preorders.id ของแถว omakase_pending ที่กำลังจะถูกแทนที่ด้วย 3 แก้วจริง
   const OMAKASE_SECRET_IMAGE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/674F30B8-8598-4DF6-B827-09D5B538E3F5.png";
   const OMAKASE_WEEKLY_PRICE = 230; // ราคาแพ็กเกจ Omakase ที่เรียกเก็บลูกค้าจริง (ไม่ใช่ผลรวมราคาเมนูแต่ละแก้ว)
   let allIngredientsCache = [];
@@ -375,6 +377,34 @@
     listEl.innerHTML = '';
     data.forEach(order => {
       const isToday = order.wanted_date === todayISO;
+
+      if (order.omakase_pending) {
+        const div = document.createElement('div');
+        div.className = 'card' + (isToday ? ' today' : '');
+        div.style.borderLeftColor = '#E8621A';
+        div.innerHTML = `
+          <div class="card-top">
+            <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#E8621A;">🎴 Omakase — รอเลือกเมนู</span></span>
+            <div class="card-top-right">
+              <span class="card-date">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
+              <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
+            </div>
+          </div>
+          <div class="card-menu">ลูกค้าสั่ง Omakase ไว้แล้ว (230฿) — รอ Fah เลือก 3 เมนู</div>
+          <button class="btn-done" style="background:#E8621A;color:#fff;">🎴 เลือก 3 เมนู →</button>
+        `;
+        div.querySelector('.btn-delete').addEventListener('click', async () => {
+          if (!confirm(`ยกเลิกออเดอร์ Omakase ของ "${order.customer_name}" ใช่ไหม?`)) return;
+          const { error } = await sb.from('preorders').delete().eq('id', order.id);
+          if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+          div.style.opacity = '0';
+          setTimeout(() => loadToday(), 200);
+        });
+        div.querySelector('.btn-done').addEventListener('click', () => startOmakaseFulfillment(order));
+        listEl.appendChild(div);
+        return;
+      }
+
       const typeBadge = order.order_type === 'staff' ? ' <span style="color:#A8876F;">☕ staff</span>'
         : order.order_type === 'reward' ? ' <span style="color:#E8863A;">🎁 reward</span>'
         : '';
@@ -418,6 +448,29 @@
       });
       listEl.appendChild(div);
     });
+  }
+
+  function startOmakaseFulfillment(order) {
+    pendingReplaceOrderId = order.id;
+    switchScreen('add');
+
+    // prefill ลูกค้า/LINE/วันที่ จากออเดอร์ที่ลูกค้าสั่งไว้ ไม่ต้องพิมพ์ใหม่
+    customerName = order.customer_name;
+    document.getElementById('customerName').value = order.customer_name;
+    selectedMemberLineId = order.line_user_id || null;
+    selectedDate = order.wanted_date;
+    const matchingDateBtn = Array.from(document.querySelectorAll('.date-btn')).find(b => b.dataset.iso === order.wanted_date);
+    document.querySelectorAll('.date-btn').forEach(b => b.classList.toggle('selected', b === matchingDateBtn));
+
+    // สลับเป็นโหมด Omakase
+    document.querySelectorAll('#orderModeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.orderMode === 'omakase'));
+    orderMode = 'omakase';
+    document.getElementById('omakaseSlotBlock').style.display = 'block';
+    omakaseSlots = [null, null, null];
+    omakaseActiveSlot = 0;
+    renderOmakaseSlotChips();
+    updateLinkHint();
+    updateSubmitState();
   }
 
   function renderMenuGrid() {
@@ -640,6 +693,7 @@
 
         const btn = document.createElement('button');
         btn.className = 'date-btn';
+        btn.dataset.iso = dISO;
         const label = dISO === todayISO ? 'วันนี้' : `${dayNames[d.getDay()]} ${d.getDate()}`;
         btn.textContent = label;
         if (!firstButtonSet) {
@@ -965,6 +1019,11 @@
         btn.textContent = 'บันทึกออเดอร์';
         return;
       }
+    }
+
+    if (pendingReplaceOrderId) {
+      await sb.from('preorders').delete().eq('id', pendingReplaceOrderId);
+      pendingReplaceOrderId = null;
     }
 
     statusEl.textContent = '✅ บันทึกแล้ว';
