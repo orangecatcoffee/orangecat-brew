@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Brew Tracker - กาแฟแมวส้ม</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: #FFF8F0; color: #4A3428; padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, #FFF3E8, #FFE4CC); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: #A8876F; letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: #4A3428; } .header .date { font-size: 13px; color: #E8863A; font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: #4A3428; color: #FFF8F0; border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid #E0D2C2; } .card.today { border-left-color: #E8863A; } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: #A8876F; } .card-menu { font-size: 13px; color: #6B5445; margin-bottom: 10px; } .card-menu .price { color: #E8863A; font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #F0E4D8; color: #4A3428; font-size: 13px; font-weight: 600; } .btn-done.checked { background: #4A9B5C; color: #fff; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; margin-bottom: 6px; background: #fff; color: #4A3428; } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #E8863A; color: #fff; font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: #D8C4B0; } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #A8876F; font-size: 12px; } .bean-empty-note { font-size: 11px; color: #D64545; } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: #D64545; font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: #6B5445; border-bottom: 1px solid #F5EEE5; } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: #D64545; font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: #A8876F; font-size: 14px; } .field-label { font-size: 12px; color: #8a6a4a; margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: #A8876F; margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: #E8863A; border-color: #E8863A; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; } .chip.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 15px; font-family: inherit; } input[type="text"]:focus { outline: none; border-color: #E8863A; } .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; } .menu-btn { padding: 12px 10px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; text-align: left; line-height: 1.4; } .menu-btn .icon { font-size: 18px; } .menu-btn .name { font-weight: 600; display: block; } .menu-btn .price { color: #E8863A; font-size: 12px; } .menu-btn.selected { border-color: #E8863A; background: #FFF3E8; } .date-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .date-btn { padding: 10px 4px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 12px; text-align: center; line-height: 1.3; } .date-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: #E8863A; color: #fff; font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: #D8C4B0; } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: #4A9B5C; } .status-msg.error { color: #D64545; } .link-hint { font-size: 11px; color: #A8876F; margin-top: 6px; } .link-hint.linked { color: #4A9B5C; font-weight: 600; } .bill-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: #E8863A; } .bill-detail { font-size: 12px; color: #A8876F; margin-bottom: 12px; } .btn-paid { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #4A3428; color: #fff; font-size: 13px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #E8863A; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: #D8C4B0; } .request-note { font-size: 11.5px; color: #A8876F; text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: #4A9B5C; font-weight: 600; } .bill-err { color: #D64545; font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: #E8863A; font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed #F0E4D8; border-radius: 10px; font-size: 12.5px; color: #8a6a4a; cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: #FFF3E8; } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid #F0E4D8; cursor: pointer; display: block; margin-bottom: 4px; background: #FFF8F0; } .slip-label { font-size: 11px; color: #4A9B5C; font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #F0E4D8; padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: #A8876F; font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: #E8863A; font-weight: 700; } .loading { text-align: center; color: #A8876F; font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFF3E8; border: 2px solid #F0E4D8; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: #4A3428; } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: #E8863A; margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: #A8876F; margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,#4A3428,#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; }</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">กาแฟแมวส้ม · BREW TRACKER</div>
+  <h1 id="screenTitle">วันนี้ต้องชงอะไร</h1>
+  <div class="date" id="todayDate"></div>
+</div>
+
+<div class="theme-banner" id="themeBanner" style="display:none;"></div>
+
+<div class="screen active" id="screen-today">
+  <div class="summary-bar" id="todaySummary">กำลังโหลด...</div>
+  <div id="todayList"></div>
+</div>
+
+<div class="screen" id="screen-add">
+  <div class="field-label">ประเภทออเดอร์</div>
+  <div class="sweetness-row" id="orderTypeRow">
+    <button type="button" class="sweetness-btn selected" data-order-type="customer">ลูกค้า</button>
+    <button type="button" class="sweetness-btn" data-order-type="staff">Staff กินเอง</button>
+    <button type="button" class="sweetness-btn" data-order-type="reward">แลกแต้ม (ฟรี)</button>
+  </div>
+  <div class="field-hint" id="orderTypeHint" style="display:none;"></div>
+
+  <div class="field-label">ลูกค้าคนนี้เป็นสมาชิกไหม?</div>
+  <div class="sweetness-row" id="customerTypeRow">
+    <button type="button" class="sweetness-btn" data-type="guest">ลูกค้าทั่วไป</button>
+    <button type="button" class="sweetness-btn selected" data-type="member">สมาชิก</button>
+  </div>
+
+  <div id="memberPickerBlock">
+    <div class="field-label">เลือกสมาชิก</div>
+    <div class="chip-row" id="memberChips"></div>
+  </div>
+
+  <div id="guestNameBlock" style="display:none;">
+    <div class="field-label">ชื่อลูกค้า</div>
+    <input type="text" id="customerName" placeholder="พิมพ์ชื่อ...">
+    <div class="chip-row" id="recentCustomers" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="link-hint" id="linkHint"></div>
+
+  <div class="field-label">เลือกเมนู</div>
+  <div class="menu-grid" id="menuGrid"></div>
+
+  <div class="field-label">เมล็ดกาแฟ (ไม่บังคับ — ข้ามได้ถ้าเป็นเมนู Matcha)</div>
+  <div class="field-hint">เลือกจากสต็อกจริง — ตัวที่ขึ้น "หมด" คือของเหลือไม่พอกับ 1 โดส (20g) เลือกไม่ได้ · เลือกได้มากกว่า 1 ตัวเพื่อทำเฮ้าส์เบลนด์ (สูงสุด 3 ตัว)</div>
+  <div class="chip-row" id="recentBeans"></div>
+  <div id="blendGramsBlock"></div>
+  <input type="hidden" id="beanName">
+
+  <div class="field-label">ความหวาน</div>
+  <div class="sweetness-row" id="sweetnessRow">
+    <button type="button" class="sweetness-btn" data-sweet="ไม่หวาน">ไม่หวาน</button>
+    <button type="button" class="sweetness-btn" data-sweet="หวานน้อย">หวานน้อย</button>
+    <button type="button" class="sweetness-btn selected" data-sweet="หวานปกติ">หวานปกติ</button>
+  </div>
+
+  <div class="field-label">วันที่ต้องการ</div>
+  <div class="date-row" id="dateRow"></div>
+
+  <button class="submit-btn" id="submitBtn" disabled>บันทึกออเดอร์</button>
+  <div class="status-msg" id="addStatus"></div>
+</div>
+
+<div class="screen" id="screen-bill">
+  <div id="billList"></div>
+</div>
+
+<div class="nav">
+  <button class="nav-btn active" data-screen="today" onclick="switchScreen('today')">
+    <span class="nav-icon">☕</span>วันนี้
+  </button>
+  <button class="nav-btn" data-screen="add" onclick="switchScreen('add')">
+    <span class="nav-icon">➕</span>เพิ่ม
+  </button>
+  <button class="nav-btn" data-screen="bill" onclick="switchScreen('bill')">
+    <span class="nav-icon">💰</span>บิล
+  </button>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oempudXR2aXJqZ2ljbGtrZmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMjc3NjEsImV4cCI6MjA5ODcwMzc2MX0.Bv2zsjmo3yd9YpmfxUAmXf-aaFy7SbY77fmM_k4f7eg";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const REQUEST_PAYMENT_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/request-payment";
+  const NOTIFY_READY_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/notify-ready";
+
+  const BEAN_DOSE_G = 20;
+  const MAX_BLEND_BEANS = 3;
+
+  let MENU = [];
+  const CATEGORY_ICON = {
+    espresso: "☕", dirty: "🤤", matcha: "🍵", cocoa: "🍫", thai_tea: "🧋", signature: "🍊", yogurt: "🥤"
+  };
+
+  async function loadMenuItems() {
+    const { data, error } = await sb
+      .from('menu_items')
+      .select('id, name, price, category, needs_bean')
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+    if (error || !data) {
+      alert('โหลดเมนูไม่สำเร็จ: ' + (error ? error.message : 'unknown error'));
+      MENU = [];
+      return;
+    }
+    MENU = data.map(m => ({
+      name: m.name,
+      price: Number(m.price),
+      icon: CATEGORY_ICON[m.category] || '☕',
+      bean: m.needs_bean,
+    }));
+  }
+
+  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย" };
+  let selectedMenu = null;
+  let selectedDate = null;
+  let selectedMemberLineId = null;
+  let customerName = '';
+  let customerType = 'member';
+  let orderType = 'customer';
+  let selectedSweetness = 'หวานปกติ';
+  let membersCache = [];
+  let beanOptionsCache = [];
+  let selectedBeanIds = [];
+
+  function switchScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.nav-btn[data-screen="${name}"]`).classList.add('active');
+    document.getElementById('screenTitle').textContent = TITLES[name];
+    if (name === 'today') loadToday();
+    if (name === 'bill') loadBills();
+    if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); }
+  }
+
+  function fmtDate(d) {
+    return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+  }
+  function toISODate(d) {
+    return d.toISOString().split('T')[0];
+  }
+  function fmtDateTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ' +
+           d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  document.getElementById('todayDate').textContent = fmtDate(new Date());
+
+  function needsBean(menuName) {
+    const m = MENU.find(x => x.name === menuName);
+    return !!(m && m.bean);
+  }
+
+  const SWEETNESS_RULES = {
+    'Coconut syrup': { 'หวานปกติ': 15, 'หวานน้อย': 7, 'ไม่หวาน': 0 },
+    'Syrup': { 'หวานปกติ': 15, 'หวานน้อย': 7, 'ไม่หวาน': 0 },
+    'Condensed milk': { 'หวานปกติ': 20, 'หวานน้อย': 10, 'ไม่หวาน': 0 },
+  };
+
+  async function deductRecipeIngredients(order) {
+    const warnings = [];
+    const { data: menuItem } = await sb.from('menu_items').select('id').eq('name', order.menu_item_name).maybeSingle();
+    if (!menuItem) return warnings;
+
+    const { data: recipeRows } = await sb
+      .from('menu_recipes')
+      .select('quantity, ingredients(id, name, category, stock_quantity, base_unit)')
+      .eq('menu_item_id', menuItem.id);
+    if (!recipeRows) return warnings;
+
+    for (const row of recipeRows) {
+      const ing = row.ingredients;
+      if (!ing || ing.category === 'coffee_bean') continue;
+
+      let deductQty = Number(row.quantity);
+      const rule = SWEETNESS_RULES[ing.name];
+      if (rule && rule[order.sweetness] !== undefined) {
+        deductQty = rule[order.sweetness];
+      }
+      if (deductQty === 0) continue;
+
+      const newStock = Number(ing.stock_quantity) - deductQty;
+      await sb.from('ingredients')
+        .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
+        .eq('id', ing.id);
+      if (newStock < 0) warnings.push(`${ing.name} เหลือ ${newStock}${ing.base_unit} (ติดลบ — เช็คสต็อกจริง)`);
+    }
+    return warnings;
+  }
+
+  async function markBrewed(order, cardEl, beanIngredient) {
+    const updates = { brewed: true, brewed_at: new Date().toISOString() };
+    if (beanIngredient) updates.bean_name = beanIngredient.name;
+
+    if (beanIngredient) {
+      const newStock = Number(beanIngredient.stock_quantity) - BEAN_DOSE_G;
+      const { error: stockErr } = await sb.from('ingredients')
+        .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
+        .eq('id', beanIngredient.id);
+      if (stockErr) {
+        alert('ตัดสต็อกไม่สำเร็จ: ' + stockErr.message);
+        return false;
+      }
+    }
+
+    const warnings = await deductRecipeIngredients(order);
+
+    const { error } = await sb.from('preorders').update(updates).eq('id', order.id);
+    if (error) {
+      alert('บันทึกไม่สำเร็จ: ' + error.message);
+      return false;
+    }
+
+    if (order.line_user_id) {
+      fetch(NOTIFY_READY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          line_user_id: order.line_user_id,
+          customer_name: order.customer_name,
+          menu_item_name: order.menu_item_name,
+        }),
+      }).catch(err => console.error('notify-ready failed:', err));
+    }
+    if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
+    cardEl.style.opacity = '0';
+    setTimeout(() => loadToday(), 200);
+    return true;
+  }
+
+  async function showBeanPicker(cardEl, order, doneBtn) {
+    doneBtn.disabled = true;
+    doneBtn.textContent = 'กำลังโหลดเมล็ด...';
+
+    const { data: beans, error } = await sb
+      .from('ingredients')
+      .select('id, name, stock_quantity')
+      .eq('category', 'coffee_bean')
+      .eq('active', true)
+      .gte('stock_quantity', BEAN_DOSE_G)
+      .order('name', { ascending: true });
+
+    if (error) {
+      alert('โหลดเมล็ดไม่สำเร็จ: ' + error.message);
+      doneBtn.disabled = false;
+      doneBtn.textContent = 'ชงแล้ว';
+      return;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'bean-picker';
+
+    if (!beans || beans.length === 0) {
+      wrap.innerHTML = `
+        <div class="bean-empty-note">⚠️ ไม่มีเมล็ดที่สต็อกพอ (ต้อง ≥ ${BEAN_DOSE_G}g) — เติมสต็อกก่อน หรือข้ามการตัดสต็อก</div>
+        <div class="bean-picker-row" style="margin-top:6px;">
+          <button class="btn-bean-cancel">ยกเลิก</button>
+          <button class="btn-bean-confirm">ชงแล้ว (ไม่ตัดสต็อก)</button>
+        </div>
+      `;
+      doneBtn.replaceWith(wrap);
+      wrap.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
+      wrap.querySelector('.btn-bean-confirm').addEventListener('click', async () => {
+        const btn = wrap.querySelector('.btn-bean-confirm');
+        btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+        await markBrewed(order, cardEl, null);
+      });
+      return;
+    }
+
+    const options = beans.map(b => `<option value="${b.id}">${b.name} (เหลือ ${b.stock_quantity}g)</option>`).join('');
+    const preselect = beans.find(b => (b.name || '').trim().toLowerCase() === (order.bean_name || '').trim().toLowerCase());
+
+    wrap.innerHTML = `
+      <select class="bean-select">
+        <option value="">— เลือกเมล็ดที่ใช้ชง —</option>
+        ${options}
+      </select>
+      <div class="bean-picker-row">
+        <button class="btn-bean-cancel">ยกเลิก</button>
+        <button class="btn-bean-confirm" disabled>ยืนยันชง (-${BEAN_DOSE_G}g)</button>
+      </div>
+    `;
+    doneBtn.replaceWith(wrap);
+
+    const selectEl = wrap.querySelector('.bean-select');
+    if (preselect) selectEl.value = preselect.id;
+    const confirmBtn = wrap.querySelector('.btn-bean-confirm');
+    confirmBtn.disabled = !selectEl.value;
+    selectEl.addEventListener('change', () => { confirmBtn.disabled = !selectEl.value; });
+
+    wrap.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
+    confirmBtn.addEventListener('click', async () => {
+      const chosen = beans.find(b => b.id === selectEl.value);
+      if (!chosen) return;
+      confirmBtn.disabled = true; confirmBtn.textContent = 'กำลังบันทึก...';
+      await markBrewed(order, cardEl, chosen);
+    });
+  }
+
+  async function loadToday() {
+    const listEl = document.getElementById('todayList');
+    const summaryEl = document.getElementById('todaySummary');
+    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+    const { data, error } = await sb
+      .from('preorders')
+      .select('*')
+      .eq('brewed', false)
+      .order('wanted_date', { ascending: true });
+
+    if (error) {
+      listEl.innerHTML = `<div class="empty-state">โหลดไม่สำเร็จ: ${error.message}</div>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      summaryEl.textContent = 'ไม่มีออเดอร์ค้างชง 🎉';
+      listEl.innerHTML = '<div class="empty-state">ว่างครับ พักได้เลย</div>';
+      return;
+    }
+
+    const todayISO = toISODate(new Date());
+    const todayOrders = data.filter(o => o.wanted_date === todayISO);
+    const staffCount = todayOrders.filter(o => o.order_type === 'staff').length;
+    const rewardCount = todayOrders.filter(o => o.order_type === 'reward').length;
+    const extraNote = (staffCount || rewardCount)
+      ? ` (staff ${staffCount} · reward ${rewardCount})`
+      : '';
+    summaryEl.textContent = `วันนี้ ${todayOrders.length} แก้ว${extraNote} · ทั้งหมดค้างชง ${data.length} แก้ว`;
+
+    listEl.innerHTML = '';
+    data.forEach(order => {
+      const isToday = order.wanted_date === todayISO;
+      const typeBadge = order.order_type === 'staff' ? ' <span style="color:#A8876F;">☕ staff</span>'
+        : order.order_type === 'reward' ? ' <span style="color:#E8863A;">🎁 reward</span>'
+        : '';
+      const div = document.createElement('div');
+      div.className = 'card' + (isToday ? ' today' : '');
+      div.innerHTML = `
+        <div class="card-top">
+          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${typeBadge}</span>
+          <div class="card-top-right">
+            <span class="card-date">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
+            <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
+          </div>
+        </div>
+        <div class="card-menu">${order.menu_item_name} <span class="price">${order.price}฿</span>${order.bean_name ? ` · ${order.bean_name}` : ''}</div>
+        <button class="btn-done" data-id="${order.id}">ชงแล้ว</button>
+      `;
+      div.querySelector('.btn-delete').addEventListener('click', async () => {
+        if (!confirm(`ลบออเดอร์ "${order.customer_name} - ${order.menu_item_name}" ใช่ไหม?`)) return;
+        const { error } = await sb.from('preorders').delete().eq('id', order.id);
+        if (error) {
+          alert('ลบไม่สำเร็จ: ' + error.message);
+          return;
+        }
+        div.style.opacity = '0';
+        setTimeout(() => loadToday(), 200);
+      });
+      const doneBtn = div.querySelector('.btn-done');
+      doneBtn.addEventListener('click', async () => {
+        if (needsBean(order.menu_item_name)) {
+          await showBeanPicker(div, order, doneBtn);
+        } else {
+          doneBtn.textContent = 'กำลังบันทึก...';
+          doneBtn.disabled = true;
+          const ok = await markBrewed(order, div, null);
+          if (!ok) {
+            doneBtn.textContent = 'ชงแล้ว';
+            doneBtn.disabled = false;
+          }
+        }
+      });
+      listEl.appendChild(div);
+    });
+  }
+
+  function renderMenuGrid() {
+    const grid = document.getElementById('menuGrid');
+    grid.innerHTML = '';
+    MENU.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'menu-btn';
+      btn.innerHTML = `<span class="icon">${item.icon}</span><span class="name">${item.name}</span><span class="price">${item.price}฿</span>`;
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedMenu = item;
+        updateSubmitState();
+      });
+      grid.appendChild(btn);
+    });
+  }
+
+  function renderDateRow() {
+    const row = document.getElementById('dateRow');
+    row.innerHTML = '';
+    const today = new Date();
+    const dayNames = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+
+    // Align to calendar weeks (Mon-Sun): this week + next week = up to 2 weeks ahead
+    const todayDow = today.getDay(); // 0 = Sun ... 6 = Sat
+    const diffToMonday = todayDow === 0 ? -6 : (1 - todayDow);
+    const thisMonday = new Date(today);
+    thisMonday.setDate(today.getDate() + diffToMonday);
+
+    const todayISO = toISODate(today);
+    let firstButtonSet = false;
+    const weekLabels = ['สัปดาห์นี้', 'สัปดาห์หน้า'];
+
+    for (let w = 0; w < 2; w++) {
+      const labelEl = document.createElement('div');
+      labelEl.className = 'week-label';
+      labelEl.textContent = weekLabels[w];
+      row.appendChild(labelEl);
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(thisMonday);
+        d.setDate(thisMonday.getDate() + (w * 7) + i);
+        const dISO = toISODate(d);
+        if (dISO < todayISO) continue; // can't create an order for a past date
+
+        const btn = document.createElement('button');
+        btn.className = 'date-btn';
+        const label = dISO === todayISO ? 'วันนี้' : `${dayNames[d.getDay()]} ${d.getDate()}`;
+        btn.textContent = label;
+        if (!firstButtonSet) {
+          btn.classList.add('selected');
+          selectedDate = dISO;
+          firstButtonSet = true;
+        }
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          selectedDate = dISO;
+          updateSubmitState();
+        });
+        row.appendChild(btn);
+      }
+    }
+  }
+
+  async function loadRecentCustomers() {
+    const el = document.getElementById('recentCustomers');
+    const { data } = await sb
+      .from('preorders')
+      .select('customer_name')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (!data) return;
+    const uniqueNames = [...new Set(data.map(d => d.customer_name))].slice(0, 6);
+    el.innerHTML = '';
+    uniqueNames.forEach(name => {
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.textContent = name;
+      chip.addEventListener('click', () => {
+        document.getElementById('customerName').value = name;
+        customerName = name;
+        updateSubmitState();
+      });
+      el.appendChild(chip);
+    });
+  }
+
+  function renderBlendGramsBlock() {
+    const el = document.getElementById('blendGramsBlock');
+    el.innerHTML = '';
+    if (selectedBeanIds.length < 2) return;
+
+    const hint = document.createElement('div');
+    hint.className = 'blend-gram-hint';
+    hint.textContent = `🧪 โหมดเฮ้าส์เบลนด์ — ใส่กรัมของแต่ละเมล็ด (${selectedBeanIds.length}/${MAX_BLEND_BEANS})`;
+    el.appendChild(hint);
+
+    selectedBeanIds.forEach(id => {
+      const bean = beanOptionsCache.find(b => b.id === id);
+      if (!bean) return;
+      const row = document.createElement('div');
+      row.className = 'blend-gram-row';
+      row.innerHTML = `
+        <span class="blend-bean-name">${bean.name}</span>
+        <input type="number" min="1" step="1" placeholder="กรัม" data-bean-id="${id}" class="blend-gram-input">
+      `;
+      el.appendChild(row);
+    });
+
+    el.querySelectorAll('.blend-gram-input').forEach(inp => {
+      inp.addEventListener('input', updateSubmitState);
+    });
+  }
+
+  function updateBeanNameField() {
+    const beanNameInput = document.getElementById('beanName');
+    if (selectedBeanIds.length === 0) {
+      beanNameInput.value = '';
+    } else if (selectedBeanIds.length === 1) {
+      const bean = beanOptionsCache.find(b => b.id === selectedBeanIds[0]);
+      beanNameInput.value = bean ? bean.name : '';
+    } else {
+      const parts = selectedBeanIds.map(id => {
+        const bean = beanOptionsCache.find(b => b.id === id);
+        const gramInput = document.querySelector(`.blend-gram-input[data-bean-id="${id}"]`);
+        const g = gramInput && gramInput.value ? `${gramInput.value}g` : '';
+        return bean ? `${bean.name}${g ? ' ' + g : ''}` : '';
+      }).filter(Boolean);
+      beanNameInput.value = parts.length ? `เบลนด์: ${parts.join(' + ')}` : '';
+    }
+  }
+
+  function getBlendGramsPayload() {
+    if (selectedBeanIds.length < 2) return null;
+    const payload = [];
+    for (const id of selectedBeanIds) {
+      const gramInput = document.querySelector(`.blend-gram-input[data-bean-id="${id}"]`);
+      const grams = gramInput ? Number(gramInput.value) : 0;
+      if (!grams || grams <= 0) return { incomplete: true };
+      payload.push({ ingredient_id: id, grams });
+    }
+    return payload;
+  }
+
+  async function loadBeanOptions() {
+    const el = document.getElementById('recentBeans');
+    el.innerHTML = '<span style="font-size:11px;color:#A8876F;">กำลังโหลด...</span>';
+    selectedBeanIds = [];
+    document.getElementById('blendGramsBlock').innerHTML = '';
+
+    const { data, error } = await sb
+      .from('ingredients')
+      .select('id, name, stock_quantity')
+      .eq('category', 'coffee_bean')
+      .eq('active', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      el.innerHTML = '<span style="font-size:11px;color:#D64545;">โหลดเมล็ดไม่สำเร็จ</span>';
+      return;
+    }
+    if (!data || data.length === 0) {
+      el.innerHTML = '<span style="font-size:11px;color:#A8876F;">ยังไม่มีเมล็ดในระบบสต็อก — ไปเพิ่มที่ระบบจัดซื้อก่อน</span>';
+      return;
+    }
+
+    beanOptionsCache = data;
+    el.innerHTML = '';
+    document.getElementById('beanName').value = '';
+    data.forEach(bean => {
+      const stock = Number(bean.stock_quantity);
+      const low = stock < BEAN_DOSE_G;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = low ? `${bean.name} (หมด)` : `${bean.name} (${stock}g)`;
+      chip.disabled = low;
+      chip.addEventListener('click', () => {
+        const idx = selectedBeanIds.indexOf(bean.id);
+        if (idx >= 0) {
+          selectedBeanIds.splice(idx, 1);
+          chip.classList.remove('selected');
+        } else {
+          if (selectedBeanIds.length >= MAX_BLEND_BEANS) {
+            alert(`เลือกเมล็ดได้สูงสุด ${MAX_BLEND_BEANS} ตัวต่อแก้ว`);
+            return;
+          }
+          selectedBeanIds.push(bean.id);
+          chip.classList.add('selected');
+        }
+        renderBlendGramsBlock();
+        updateBeanNameField();
+        updateSubmitState();
+      });
+      el.appendChild(chip);
+    });
+  }
+
+  async function loadMembers() {
+    const { data, error } = await sb
+      .from('members')
+      .select('line_user_id, display_name')
+      .order('display_name', { ascending: true });
+    membersCache = (!error && data) ? data : [];
+    renderMemberChips();
+  }
+
+  function renderMemberChips() {
+    const el = document.getElementById('memberChips');
+    el.innerHTML = '';
+    if (membersCache.length === 0) {
+      el.innerHTML = '<span style="font-size:11px;color:#A8876F;">ยังไม่มีสมาชิกลงทะเบียนในระบบ</span>';
+      return;
+    }
+    membersCache.forEach(m => {
+      const chip = document.createElement('button');
+      chip.className = 'chip member';
+      chip.textContent = m.display_name;
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#memberChips .chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        customerName = m.display_name;
+        selectedMemberLineId = m.line_user_id;
+        updateLinkHint();
+        updateSubmitState();
+      });
+      el.appendChild(chip);
+    });
+  }
+
+  function updateLinkHint() {
+    const hintEl = document.getElementById('linkHint');
+    if (customerType === 'member' && selectedMemberLineId) {
+      hintEl.textContent = '🔗 ผูกกับ LINE แล้ว — เรียกเก็บเงินอัตโนมัติได้ตอนขึ้นบิล';
+      hintEl.className = 'link-hint linked';
+    } else if (customerType === 'member') {
+      hintEl.textContent = 'แตะเลือกสมาชิกด้านบนก่อนนะครับ';
+      hintEl.className = 'link-hint';
+    } else {
+      hintEl.textContent = 'ลูกค้าทั่วไป — ไม่ผูก LINE ต้องแจ้งเก็บเงินเองหน้าร้าน';
+      hintEl.className = 'link-hint';
+    }
+  }
+
+  document.getElementById('orderTypeRow').addEventListener('click', (e) => {
+    const btn = e.target.closest('.sweetness-btn');
+    if (!btn) return;
+    orderType = btn.dataset.orderType;
+    document.querySelectorAll('#orderTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b === btn));
+    const hintEl = document.getElementById('orderTypeHint');
+    if (orderType === 'customer') {
+      hintEl.style.display = 'none';
+    } else {
+      hintEl.style.display = 'block';
+      hintEl.textContent = orderType === 'staff'
+        ? '☕ ของกินเอง/ให้พนักงาน — ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ)'
+        : '🎁 แลกฟรีจากแต้มสะสม — ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ)';
+    }
+  });
+
+  document.getElementById('sweetnessRow').addEventListener('click', (e) => {
+    const btn = e.target.closest('.sweetness-btn');
+    if (!btn) return;
+    selectedSweetness = btn.dataset.sweet;
+    document.querySelectorAll('#sweetnessRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b === btn));
+  });
+
+  document.getElementById('customerTypeRow').addEventListener('click', (e) => {
+    const btn = e.target.closest('.sweetness-btn');
+    if (!btn) return;
+    customerType = btn.dataset.type;
+    document.querySelectorAll('#customerTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b === btn));
+    document.getElementById('memberPickerBlock').style.display = customerType === 'member' ? 'block' : 'none';
+    document.getElementById('guestNameBlock').style.display = customerType === 'guest' ? 'block' : 'none';
+
+    customerName = '';
+    selectedMemberLineId = null;
+    document.getElementById('customerName').value = '';
+    document.querySelectorAll('#memberChips .chip').forEach(c => c.classList.remove('selected'));
+    updateLinkHint();
+    updateSubmitState();
+  });
+
+  document.getElementById('customerName').addEventListener('input', (e) => {
+    customerName = e.target.value.trim();
+    updateSubmitState();
+  });
+
+  function updateSubmitState() {
+    const btn = document.getElementById('submitBtn');
+    updateBeanNameField();
+    let blendOk = true;
+    if (selectedBeanIds.length >= 2) {
+      const payload = getBlendGramsPayload();
+      blendOk = payload && !payload.incomplete;
+    }
+    btn.disabled = !(customerName && selectedMenu && selectedDate && blendOk);
+  }
+
+  document.getElementById('submitBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('submitBtn');
+    const statusEl = document.getElementById('addStatus');
+    const name = customerName;
+
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+
+    updateBeanNameField();
+    const beanName = document.getElementById('beanName').value.trim() || null;
+    const blendPayload = selectedBeanIds.length >= 2 ? getBlendGramsPayload() : null;
+    const isFree = orderType !== 'customer';
+    const finalPrice = isFree ? 0 : selectedMenu.price;
+
+    const { data: inserted, error } = await sb.from('preorders').insert([{
+      customer_name: name,
+      menu_item_name: selectedMenu.name,
+      price: finalPrice,
+      wanted_date: selectedDate,
+      bean_name: beanName,
+      line_user_id: selectedMemberLineId,
+      order_type: orderType,
+      paid: isFree,
+      sweetness: selectedSweetness,
+      channel: 'walk-in',
+    }]).select('id');
+
+    if (error) {
+      statusEl.textContent = `บันทึกไม่สำเร็จ: ${error.message}`;
+      statusEl.className = 'status-msg error';
+      btn.disabled = false;
+      btn.textContent = 'บันทึกออเดอร์';
+      return;
+    }
+
+    if (blendPayload && !blendPayload.incomplete && inserted && inserted[0]) {
+      const preorderId = inserted[0].id;
+      const rows = blendPayload.map(p => ({
+        preorder_id: preorderId,
+        ingredient_id: p.ingredient_id,
+        grams: p.grams,
+      }));
+      const { error: blendErr } = await sb.from('preorder_bean_blend').insert(rows);
+      if (blendErr) {
+        statusEl.textContent = `บันทึกออเดอร์แล้ว แต่บันทึกสูตรเบลนด์ไม่สำเร็จ: ${blendErr.message}`;
+        statusEl.className = 'status-msg error';
+        btn.disabled = false;
+        btn.textContent = 'บันทึกออเดอร์';
+        return;
+      }
+    }
+
+    statusEl.textContent = '✅ บันทึกแล้ว';
+    statusEl.className = 'status-msg success';
+    document.getElementById('customerName').value = '';
+    document.getElementById('beanName').value = '';
+    selectedBeanIds = [];
+    document.getElementById('blendGramsBlock').innerHTML = '';
+    document.querySelectorAll('.menu-btn, .date-btn, #memberChips .chip, #recentBeans .chip').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('#orderTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.orderType === 'customer'));
+    document.querySelectorAll('#sweetnessRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.sweet === 'หวานปกติ'));
+    document.getElementById('orderTypeHint').style.display = 'none';
+    orderType = 'customer';
+    selectedSweetness = 'หวานปกติ';
+    selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
+    updateLinkHint();
+    btn.textContent = 'บันทึกออเดอร์';
+    setTimeout(() => { statusEl.textContent = ''; switchScreen('today'); }, 800);
+  });
+
+  async function loadBills() {
+    const listEl = document.getElementById('billList');
+    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+    const { data, error } = await sb
+      .from('preorders')
+      .select('*')
+      .eq('paid', false)
+      .eq('brewed', true)
+      .eq('order_type', 'customer')
+      .order('customer_name', { ascending: true });
+
+    if (error) {
+      listEl.innerHTML = `<div class="empty-state">โหลดไม่สำเร็จ: ${error.message}</div>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">ไม่มีบิลค้างจ่าย 🎉</div>';
+      return;
+    }
+
+    const grouped = {};
+    data.forEach(o => {
+      if (!grouped[o.customer_name]) grouped[o.customer_name] = [];
+      grouped[o.customer_name].push(o);
+    });
+
+    listEl.innerHTML = '';
+    Object.entries(grouped).forEach(([name, orders]) => {
+      const total = orders.reduce((sum, o) => sum + Number(o.price), 0);
+      const groupLineId = (orders.find(o => o.line_user_id) || {}).line_user_id || null;
+      const alreadyRequested = orders.some(o => o.payment_requested_at);
+      const lastRequestedAt = orders
+        .map(o => o.payment_requested_at)
+        .filter(Boolean)
+        .sort()
+        .slice(-1)[0];
+
+      const div = document.createElement('div');
+      div.className = 'bill-card';
+      const itemsHtml = orders.map(o => `
+        <div class="bill-item" data-id="${o.id}">
+          <span>${o.menu_item_name} ${o.price}฿${o.bean_name ? ` · ${o.bean_name}` : ''}</span>
+          <button class="btn-item-delete" data-id="${o.id}" title="ลบแก้วนี้">✕</button>
+        </div>
+      `).join('');
+
+      let requestSection = '';
+      if (groupLineId) {
+        requestSection = `
+          <button class="btn-request">🔔 ${alreadyRequested ? 'แจ้งเก็บเงินซ้ำ' : 'เรียกเก็บเงิน'} · ${total}฿</button>
+          <div class="request-note ${alreadyRequested ? 'sent' : ''}">${alreadyRequested ? `📨 แจ้งไปแล้วเมื่อ ${fmtDateTime(lastRequestedAt)}` : '🔗 ผูก LINE แล้ว — กดแล้วส่งข้อความยอดเงินไปหาลูกค้าทันที'}</div>
+        `;
+      } else {
+        requestSection = `<div class="request-note">ยังไม่ผูก LINE ของลูกค้าคนนี้ — ต้องแจ้งเก็บเงินเอง (ผูกได้ตอนเพิ่มออเดอร์ครั้งถัดไป ถ้าลูกค้าลงทะเบียนผ่าน register.html แล้ว)</div>`;
+      }
+
+      const existingSlip = orders.find(o => o.slip_url)?.slip_url || null;
+      const slipSection = existingSlip
+        ? `<div class="slip-box">
+             <img src="${existingSlip}" alt="สลิปโอนเงิน" class="slip-thumb" data-full="${existingSlip}">
+             <span class="slip-label">✅ แนบสลิปแล้ว — แตะรูปเพื่อดูเต็ม</span>
+           </div>`
+        : `<div class="slip-box">
+             <label class="btn-slip">
+               📎 แนบสลิปโอนเงิน
+               <input type="file" accept="image/*" class="slip-input" style="display:none;">
+             </label>
+           </div>`;
+
+      div.innerHTML = `
+        <div class="bill-top">
+          <span class="bill-name">${name}${groupLineId ? ' 🔗' : ''}</span>
+          <span class="bill-total">${total}฿</span>
+        </div>
+        <div class="bill-items">${itemsHtml}</div>
+        ${requestSection}
+        ${slipSection}
+        <button class="btn-paid">เก็บเงินแล้ว</button>
+        <div class="stamp-note" style="display:none;"></div>
+        <div class="bill-err" style="display:none;"></div>
+      `;
+
+      const slipThumb = div.querySelector('.slip-thumb');
+      if (slipThumb) {
+        slipThumb.addEventListener('click', () => window.open(slipThumb.dataset.full, '_blank'));
+      }
+      const slipInput = div.querySelector('.slip-input');
+      if (slipInput) {
+        slipInput.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const slipBox = div.querySelector('.slip-box');
+          slipBox.innerHTML = '<span style="font-size:11.5px;color:#A8876F;">กำลังอัปโหลด...</span>';
+          try {
+            const filename = `${Date.now()}-${file.name}`.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+            const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/payment-slips/${filename}`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': file.type || 'image/jpeg',
+              },
+              body: file,
+            });
+            if (!uploadRes.ok) throw new Error(await uploadRes.text());
+            const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/payment-slips/${filename}`;
+            const ids = orders.map(o => o.id);
+            await sb.from('preorders').update({ slip_url: publicUrl, slip_uploaded_at: new Date().toISOString() }).in('id', ids);
+            loadBills();
+          } catch (err) {
+            slipBox.innerHTML = `<span style="font-size:11.5px;color:#D64545;">แนบสลิปไม่สำเร็จ: ${err.message}</span>`;
+          }
+        });
+      }
+
+      div.querySelectorAll('.btn-item-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const order = orders.find(o => o.id === btn.dataset.id);
+          if (!confirm(`ลบ "${order.menu_item_name} ${order.price}฿" ของ ${name} ใช่ไหม?`)) return;
+          const { error } = await sb.from('preorders').delete().eq('id', order.id);
+          if (error) {
+            alert('ลบไม่สำเร็จ: ' + error.message);
+            return;
+          }
+          loadBills();
+        });
+      });
+
+      const requestBtn = div.querySelector('.btn-request');
+      if (requestBtn) {
+        requestBtn.addEventListener('click', async () => {
+          const originalText = requestBtn.textContent;
+          requestBtn.disabled = true;
+          requestBtn.textContent = 'กำลังส่ง...';
+          const errBox = div.querySelector('.bill-err');
+          errBox.style.display = 'none';
+
+          try {
+            const items = orders.map(o => `${o.menu_item_name} ${o.price}฿`);
+            const res = await fetch(REQUEST_PAYMENT_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                line_user_id: groupLineId,
+                customer_name: name,
+                amount: total,
+                items: items,
+              }),
+            });
+            const result = await res.json();
+            if (!res.ok || result.ok === false) {
+              throw new Error(result.error || 'ส่งไม่สำเร็จ');
+            }
+            const ids = orders.map(o => o.id);
+            await sb.from('preorders').update({ payment_requested_at: new Date().toISOString() }).in('id', ids);
+            loadBills();
+          } catch (err) {
+            errBox.textContent = 'แจ้งเก็บเงินไม่สำเร็จ: ' + err.message;
+            errBox.style.display = 'block';
+            requestBtn.disabled = false;
+            requestBtn.textContent = originalText;
+          }
+        });
+      }
+
+      const paidBtn = div.querySelector('.btn-paid');
+      const errBox = div.querySelector('.bill-err');
+      paidBtn.addEventListener('click', async (e) => {
+        const originalText = paidBtn.textContent;
+        paidBtn.textContent = 'กำลังบันทึก...';
+        paidBtn.disabled = true;
+        errBox.style.display = 'none';
+        const ids = orders.map(o => o.id);
+        const { error, data: updated } = await sb
+          .from('preorders')
+          .update({ paid: true })
+          .in('id', ids)
+          .select('id');
+
+        if (error) {
+          errBox.textContent = 'บันทึกไม่สำเร็จ: ' + error.message;
+          errBox.style.display = 'block';
+          paidBtn.textContent = originalText;
+          paidBtn.disabled = false;
+          return;
+        }
+        if (!updated || updated.length !== ids.length) {
+          errBox.textContent = 'บันทึกไม่ครบ กรุณาลองใหม่ (อาจติด permission)';
+          errBox.style.display = 'block';
+          paidBtn.textContent = originalText;
+          paidBtn.disabled = false;
+          return;
+        }
+
+        paidBtn.textContent = '🎁 ให้แต้มสะสมแล้ว';
+        paidBtn.style.background = '#E8863A';
+        paidBtn.disabled = false;
+        paidBtn.onclick = () => {
+          div.style.opacity = '0';
+          setTimeout(() => loadBills(), 300);
+        };
+      });
+      listEl.appendChild(div);
+    });
+  }
+
+  async function loadThemeBanner() {
+    const banner = document.getElementById('themeBanner');
+    const { data, error } = await sb.from('theme_periods').select('title, start_date, end_date');
+    if (error || !data) return;
+    const todayISO = toISODate(new Date());
+    const active = data.filter(t => t.start_date <= todayISO && (!t.end_date || t.end_date >= todayISO));
+    if (active.length === 0) {
+      banner.style.display = 'none';
+      return;
+    }
+    banner.textContent = '🎮 Theme ตอนนี้: ' + active.map(t => t.title).join(' · ');
+    banner.style.display = 'block';
+  }
+
+  async function init() {
+    await loadMenuItems();
+    renderMenuGrid();
+    renderDateRow();
+    loadToday();
+    loadThemeBanner();
+  }
+  init();
+</script>
+
+</body>
+</html>
