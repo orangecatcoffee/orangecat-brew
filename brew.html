@@ -61,6 +61,10 @@
     <div class="chip-row" id="omakaseSlotChips"></div>
     <div class="field-hint" style="margin-top:8px;">วันที่ชงของแก้วที่กำลังเลือกอยู่ (แต่ละแก้วเลือกวันต่างกันได้)</div>
     <div class="date-row" id="omakaseCupDateRow"></div>
+
+    <div class="field-hint" style="margin-top:10px;" id="omakaseBeanHint">เมล็ดของแก้วที่กำลังเลือกอยู่ — เลือกได้มากกว่า 1 ตัวเพื่อทำเฮ้าส์เบลนด์ (สูงสุด 3 ตัว ต่างกันได้ทุกแก้ว)</div>
+    <div class="chip-row" id="omakaseBeanChips"></div>
+    <div id="omakaseBlendGramsBlock"></div>
     <button type="button" class="submit-btn" id="openSecretFormBtn" style="margin-top:8px;background:#5A361B;">✨ สร้างเมนูลับใหม่สำหรับแก้วที่กำลังเลือกอยู่</button>
 
     <div id="secretMenuForm" style="display:none;margin-top:10px;padding:12px;border:1px solid #E0D5C5;border-radius:12px;background:#FBF7F0;">
@@ -163,6 +167,7 @@
   let orderMode = 'normal'; // 'normal' | 'omakase'
   let omakaseSlots = [null, null, null];
   let omakaseDates = [null, null, null]; // wanted_date แยกต่อแก้ว — ไม่ผูกกับ selectedDate ตัวเดียวอีกต่อไป
+  let omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }]; // เมล็ด/เฮ้าส์เบลนด์แยกต่อแก้ว
   let omakaseActiveSlot = 0;
   let pendingReplaceOrderId = null; // preorders.id ของแถว omakase_pending ที่กำลังจะถูกแทนที่ด้วย 3 แก้วจริง
   const OMAKASE_SECRET_IMAGE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/674F30B8-8598-4DF6-B827-09D5B538E3F5.png";
@@ -471,9 +476,11 @@
     document.getElementById('omakaseSlotBlock').style.display = 'block';
     omakaseSlots = [null, null, null];
     omakaseDates = [order.wanted_date, order.wanted_date, order.wanted_date];
+    omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }];
     omakaseActiveSlot = 0;
     renderOmakaseSlotChips();
     renderOmakaseCupDateRow();
+    renderOmakaseBeanPicker();
     updateLinkHint();
     updateSubmitState();
   }
@@ -492,7 +499,13 @@
         if (orderMode === 'omakase') {
           omakaseSlots[omakaseActiveSlot] = item;
           renderOmakaseSlotChips();
-          if (omakaseActiveSlot < 2) { omakaseActiveSlot++; renderOmakaseSlotChips(); }
+          renderOmakaseBeanPicker();
+          if (omakaseActiveSlot < 2) {
+            omakaseActiveSlot++;
+            renderOmakaseSlotChips();
+            renderOmakaseCupDateRow();
+            renderOmakaseBeanPicker();
+          }
         } else {
           document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
           div.classList.add('selected');
@@ -513,7 +526,7 @@
       const name = omakaseSlots[i] ? omakaseSlots[i].name : '(ยังไม่เลือก)';
       const dateLabel = omakaseDates[i] ? ` · ${fmtDate(new Date(omakaseDates[i]))}` : '';
       chip.textContent = `${label}: ${name}${dateLabel}`;
-      chip.addEventListener('click', () => { omakaseActiveSlot = i; renderOmakaseSlotChips(); renderOmakaseCupDateRow(); });
+      chip.addEventListener('click', () => { omakaseActiveSlot = i; renderOmakaseSlotChips(); renderOmakaseCupDateRow(); renderOmakaseBeanPicker(); });
       row.appendChild(chip);
     });
   }
@@ -549,6 +562,125 @@
     }
   }
 
+  function computeBeanNameForSlot(i) {
+    const state = omakaseBeanState[i];
+    if (!state || state.ids.length === 0) return null;
+    if (state.ids.length === 1) {
+      const bean = beanOptionsCache.find(b => b.id === state.ids[0]);
+      return bean ? bean.name : null;
+    }
+    const parts = state.ids.map(id => {
+      const bean = beanOptionsCache.find(b => b.id === id);
+      const g = state.grams[id];
+      return bean ? `${bean.name}${g ? ' ' + g + 'g' : ''}` : '';
+    }).filter(Boolean);
+    return parts.length ? `เบลนด์: ${parts.join(' + ')}` : null;
+  }
+
+  function omakaseBlendPayloadForSlot(i) {
+    const state = omakaseBeanState[i];
+    if (!state || state.ids.length < 2) return null;
+    const payload = [];
+    for (const id of state.ids) {
+      const grams = Number(state.grams[id]);
+      if (!grams || grams <= 0) return { incomplete: true };
+      payload.push({ ingredient_id: id, grams });
+    }
+    return payload;
+  }
+
+  async function renderOmakaseBeanPicker() {
+    const hintEl = document.getElementById('omakaseBeanHint');
+    const chipsEl = document.getElementById('omakaseBeanChips');
+    const gramsEl = document.getElementById('omakaseBlendGramsBlock');
+    const item = omakaseSlots[omakaseActiveSlot];
+
+    if (!item) {
+      hintEl.textContent = 'เลือกเมนูของแก้วนี้ก่อน ถึงจะเลือกเมล็ดได้';
+      chipsEl.innerHTML = '';
+      gramsEl.innerHTML = '';
+      return;
+    }
+    if (!item.bean) {
+      hintEl.textContent = `"${item.name}" ไม่ต้องใช้เมล็ดกาแฟ`;
+      chipsEl.innerHTML = '';
+      gramsEl.innerHTML = '';
+      return;
+    }
+
+    hintEl.textContent = `เมล็ดของ "${item.name}" (แก้วที่ ${omakaseActiveSlot + 1}) — เลือกได้สูงสุด ${MAX_BLEND_BEANS} ตัว`;
+
+    if (!beanOptionsCache.length) {
+      const { data } = await sb
+        .from('ingredients')
+        .select('id, name, stock_quantity')
+        .eq('category', 'coffee_bean')
+        .eq('active', true)
+        .order('name', { ascending: true });
+      beanOptionsCache = data || [];
+    }
+
+    const state = omakaseBeanState[omakaseActiveSlot];
+    chipsEl.innerHTML = '';
+    beanOptionsCache.forEach(bean => {
+      const stock = Number(bean.stock_quantity);
+      const low = stock < BEAN_DOSE_G;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (state.ids.includes(bean.id) ? ' selected' : '');
+      chip.textContent = low ? `${bean.name} (หมด)` : `${bean.name} (${stock}g)`;
+      chip.disabled = low;
+      chip.addEventListener('click', () => {
+        const idx = state.ids.indexOf(bean.id);
+        if (idx >= 0) {
+          state.ids.splice(idx, 1);
+          delete state.grams[bean.id];
+        } else {
+          if (state.ids.length >= MAX_BLEND_BEANS) {
+            alert(`เลือกเมล็ดได้สูงสุด ${MAX_BLEND_BEANS} ตัวต่อแก้ว`);
+            return;
+          }
+          state.ids.push(bean.id);
+        }
+        renderOmakaseBeanPicker();
+        updateSubmitState();
+      });
+      chipsEl.appendChild(chip);
+    });
+
+    renderOmakaseBlendGramsBlock();
+  }
+
+  function renderOmakaseBlendGramsBlock() {
+    const el = document.getElementById('omakaseBlendGramsBlock');
+    el.innerHTML = '';
+    const state = omakaseBeanState[omakaseActiveSlot];
+    if (state.ids.length < 2) return;
+
+    const hint = document.createElement('div');
+    hint.className = 'blend-gram-hint';
+    hint.textContent = `🧪 โหมดเฮ้าส์เบลนด์ — ใส่กรัมของแต่ละเมล็ด (${state.ids.length}/${MAX_BLEND_BEANS})`;
+    el.appendChild(hint);
+
+    state.ids.forEach(id => {
+      const bean = beanOptionsCache.find(b => b.id === id);
+      if (!bean) return;
+      const row = document.createElement('div');
+      row.className = 'blend-gram-row';
+      row.innerHTML = `
+        <span class="blend-bean-name">${bean.name}</span>
+        <input type="number" min="1" step="1" placeholder="กรัม" data-bean-id="${id}" class="blend-gram-input">
+      `;
+      const input = row.querySelector('input');
+      if (state.grams[id]) input.value = state.grams[id];
+      input.addEventListener('input', () => {
+        state.grams[id] = input.value ? Number(input.value) : null;
+        updateSubmitState();
+      });
+      el.appendChild(row);
+    });
+  }
+
   document.getElementById('orderModeRow').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-order-mode]');
     if (!btn) return;
@@ -559,10 +691,11 @@
     document.getElementById('secretMenuForm').style.display = 'none';
     omakaseSlots = [null, null, null];
     omakaseDates = [selectedDate, selectedDate, selectedDate];
+    omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }];
     omakaseActiveSlot = 0;
     selectedMenu = null;
     document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
-    if (orderMode === 'omakase') { renderOmakaseSlotChips(); renderOmakaseCupDateRow(); }
+    if (orderMode === 'omakase') { renderOmakaseSlotChips(); renderOmakaseCupDateRow(); renderOmakaseBeanPicker(); }
     updateSubmitState();
   });
 
@@ -690,8 +823,13 @@
 
     omakaseSlots[omakaseActiveSlot] = menuItem;
     renderOmakaseSlotChips();
-    if (omakaseActiveSlot < 2) omakaseActiveSlot++;
-    renderOmakaseSlotChips();
+    renderOmakaseBeanPicker();
+    if (omakaseActiveSlot < 2) {
+      omakaseActiveSlot++;
+      renderOmakaseSlotChips();
+      renderOmakaseCupDateRow();
+      renderOmakaseBeanPicker();
+    }
     updateSubmitState();
 
     statusEl.textContent = '✅ สร้างเมนูลับแล้ว ใช้เป็นแก้วนี้เรียบร้อย';
@@ -978,7 +1116,12 @@
     const btn = document.getElementById('submitBtn');
     updateBeanNameField();
     let blendOk = true;
-    if (selectedBeanIds.length >= 2) {
+    if (orderMode === 'omakase') {
+      blendOk = [0, 1, 2].every(i => {
+        const payload = omakaseBlendPayloadForSlot(i);
+        return !payload || !payload.incomplete;
+      });
+    } else if (selectedBeanIds.length >= 2) {
       const payload = getBlendGramsPayload();
       blendOk = payload && !payload.incomplete;
     }
@@ -1009,7 +1152,7 @@
         menu_item_name: item.name,
         price: isFree ? 0 : item.price,
         wanted_date: omakaseDates[i] || selectedDate,
-        bean_name: item.bean ? beanName : null,
+        bean_name: item.bean ? computeBeanNameForSlot(i) : null,
         line_user_id: selectedMemberLineId,
         order_type: orderType,
         paid: isFree,
@@ -1042,14 +1185,20 @@
       return;
     }
 
-    if (blendPayload && !blendPayload.incomplete && inserted && inserted[0]) {
-      const preorderId = inserted[0].id;
-      const rows = blendPayload.map(p => ({
-        preorder_id: preorderId,
-        ingredient_id: p.ingredient_id,
-        grams: p.grams,
-      }));
-      const { error: blendErr } = await sb.from('preorder_bean_blend').insert(rows);
+    let blendRows = [];
+    if (orderMode === 'omakase' && inserted) {
+      inserted.forEach((row, i) => {
+        const payload = omakaseBlendPayloadForSlot(i);
+        if (payload && !payload.incomplete) {
+          payload.forEach(p => blendRows.push({ preorder_id: row.id, ingredient_id: p.ingredient_id, grams: p.grams }));
+        }
+      });
+    } else if (blendPayload && !blendPayload.incomplete && inserted && inserted[0]) {
+      blendRows = blendPayload.map(p => ({ preorder_id: inserted[0].id, ingredient_id: p.ingredient_id, grams: p.grams }));
+    }
+
+    if (blendRows.length) {
+      const { error: blendErr } = await sb.from('preorder_bean_blend').insert(blendRows);
       if (blendErr) {
         statusEl.textContent = `บันทึกออเดอร์แล้ว แต่บันทึกสูตรเบลนด์ไม่สำเร็จ: ${blendErr.message}`;
         statusEl.className = 'status-msg error';
@@ -1080,6 +1229,7 @@
     orderMode = 'normal';
     omakaseSlots = [null, null, null];
     omakaseDates = [null, null, null];
+    omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }];
     omakaseActiveSlot = 0;
     document.getElementById('omakaseSlotBlock').style.display = 'none';
     document.getElementById('secretMenuForm').style.display = 'none';
