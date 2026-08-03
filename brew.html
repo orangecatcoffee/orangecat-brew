@@ -30,6 +30,7 @@
     <button type="button" class="sweetness-btn" data-order-type="reward">แลกแต้ม (ฟรี)</button>
   </div>
   <div class="field-hint" id="orderTypeHint" style="display:none;"></div>
+  <div class="chip-row" id="staffChips" style="display:none;margin-top:6px;"></div>
 
   <div class="field-label">ลูกค้าคนนี้เป็นสมาชิกไหม?</div>
   <div class="sweetness-row" id="customerTypeRow">
@@ -1074,15 +1075,42 @@
     orderType = btn.dataset.orderType;
     document.querySelectorAll('#orderTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b === btn));
     const hintEl = document.getElementById('orderTypeHint');
+    const staffChipsEl = document.getElementById('staffChips');
     if (orderType === 'customer') {
       hintEl.style.display = 'none';
+      staffChipsEl.style.display = 'none';
     } else {
       hintEl.style.display = 'block';
       hintEl.textContent = orderType === 'staff'
         ? '☕ ของกินเอง/ให้พนักงาน — ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ)'
         : '🎁 แลกฟรีจากแต้มสะสม — ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ)';
+      if (orderType === 'staff') {
+        renderStaffChips();
+        staffChipsEl.style.display = 'flex';
+      } else {
+        staffChipsEl.style.display = 'none';
+      }
     }
   });
+
+  const STAFF_NAMES = ['Fah', 'ซีเซีย']; // แก้ตรงนี้ถ้ามีพนักงานเพิ่ม/เปลี่ยนชื่อ
+  function renderStaffChips() {
+    const el = document.getElementById('staffChips');
+    el.innerHTML = '';
+    STAFF_NAMES.forEach(staffName => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (customerName === staffName ? ' selected' : '');
+      chip.textContent = staffName;
+      chip.addEventListener('click', () => {
+        customerName = staffName;
+        document.getElementById('customerName').value = staffName;
+        renderStaffChips();
+        updateSubmitState();
+      });
+      el.appendChild(chip);
+    });
+  }
 
   document.getElementById('sweetnessRow').addEventListener('click', (e) => {
     const btn = e.target.closest('.sweetness-btn');
@@ -1223,6 +1251,7 @@
     document.querySelectorAll('#orderTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.orderType === 'customer'));
     document.querySelectorAll('#sweetnessRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.sweet === 'หวานปกติ'));
     document.getElementById('orderTypeHint').style.display = 'none';
+    document.getElementById('staffChips').style.display = 'none';
     orderType = 'customer';
     selectedSweetness = 'หวานปกติ';
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
