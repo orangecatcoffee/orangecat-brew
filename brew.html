@@ -284,6 +284,141 @@
     return true;
   }
 
+  function formatBlendName(blendRows) {
+    if (blendRows.length === 1) return blendRows[0].name;
+    return 'เบลนด์: ' + blendRows.map(b => `${b.name} ${b.grams}g`).join(' + ');
+  }
+
+  async function deductBlendStock(blendRows) {
+    for (const b of blendRows) {
+      const { data: ing } = await sb.from('ingredients').select('stock_quantity').eq('id', b.id).maybeSingle();
+      if (!ing) continue;
+      const newStock = Number(ing.stock_quantity) - Number(b.grams);
+      await sb.from('ingredients').update({ stock_quantity: newStock, updated_at: new Date().toISOString() }).eq('id', b.id);
+    }
+  }
+
+  async function markBrewedWithBlend(order, cardEl, blendRows, opts) {
+    opts = opts || {};
+    const updates = { brewed: true, brewed_at: new Date().toISOString() };
+    if (opts.updateBeanName && blendRows && blendRows.length) {
+      updates.bean_name = formatBlendName(blendRows);
+    }
+
+    if (blendRows && blendRows.length) {
+      await deductBlendStock(blendRows);
+    }
+
+    const warnings = await deductRecipeIngredients(order);
+
+    const { error } = await sb.from('preorders').update(updates).eq('id', order.id);
+    if (error) {
+      alert('บันทึกไม่สำเร็จ: ' + error.message);
+      return false;
+    }
+
+    if (opts.replaceBlendRows) {
+      await sb.from('preorder_bean_blend').delete().eq('preorder_id', order.id);
+      if (blendRows && blendRows.length >= 2) {
+        const rows = blendRows.map(b => ({ preorder_id: order.id, ingredient_id: b.id, grams: b.grams }));
+        await sb.from('preorder_bean_blend').insert(rows);
+      }
+    }
+
+    if (order.line_user_id) {
+      fetch(NOTIFY_READY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          line_user_id: order.line_user_id,
+          customer_name: order.customer_name,
+          menu_item_name: order.menu_item_name,
+        }),
+      }).catch(err => console.error('notify-ready failed:', err));
+    }
+    if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
+    cardEl.style.opacity = '0';
+    setTimeout(() => loadToday(), 200);
+    return true;
+  }
+
+  function renderBlendEditor(wrap, cardEl, order, beans, prefill) {
+    const state = { ids: prefill.map(b => b.id), grams: Object.fromEntries(prefill.map(b => [b.id, b.grams])) };
+
+    function updateConfirmState() {
+      const btn = wrap.querySelector('.btn-bean-confirm');
+      if (!btn) return;
+      let ok = state.ids.length > 0;
+      if (state.ids.length >= 2) {
+        ok = state.ids.every(id => state.grams[id] && state.grams[id] > 0);
+      }
+      btn.disabled = !ok;
+    }
+
+    function render() {
+      const chipsHtml = beans.map(b => {
+        const stock = Number(b.stock_quantity);
+        const low = stock < 1;
+        const selected = state.ids.includes(b.id);
+        return `<button type="button" class="chip${selected ? ' selected' : ''}" data-bean-id="${b.id}" ${low ? 'disabled' : ''}>${low ? `${b.name} (หมด)` : `${b.name} (${stock}g)`}</button>`;
+      }).join('');
+
+      const gramsHtml = state.ids.map(id => {
+        const bean = beans.find(b => b.id === id);
+        const val = state.grams[id] || (state.ids.length === 1 ? BEAN_DOSE_G : '');
+        return `<div class="blend-gram-row"><span class="blend-bean-name">${bean ? bean.name : ''}</span><input type="number" min="1" step="1" placeholder="กรัม" data-bean-id="${id}" class="blend-gram-input" value="${val}"></div>`;
+      }).join('');
+
+      wrap.innerHTML = `
+        <div style="font-size:11px;color:#A8876F;margin-bottom:6px;">เลือกเมล็ด (เลือกได้สูงสุด ${MAX_BLEND_BEANS} ตัวสำหรับเฮาส์เบลนด์)</div>
+        <div class="chip-row" style="margin-bottom:8px;">${chipsHtml}</div>
+        <div>${gramsHtml}</div>
+        <div class="bean-picker-row">
+          <button class="btn-bean-cancel">ยกเลิก</button>
+          <button class="btn-bean-confirm" disabled>ยืนยันชง</button>
+        </div>
+      `;
+
+      wrap.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const id = chip.dataset.beanId;
+          const idx = state.ids.indexOf(id);
+          if (idx >= 0) {
+            state.ids.splice(idx, 1);
+            delete state.grams[id];
+          } else {
+            if (state.ids.length >= MAX_BLEND_BEANS) {
+              alert(`เลือกเมล็ดได้สูงสุด ${MAX_BLEND_BEANS} ตัวต่อแก้ว`);
+              return;
+            }
+            state.ids.push(id);
+          }
+          render();
+        });
+      });
+      wrap.querySelectorAll('.blend-gram-input').forEach(inp => {
+        inp.addEventListener('input', () => {
+          state.grams[inp.dataset.beanId] = inp.value ? Number(inp.value) : null;
+          updateConfirmState();
+        });
+      });
+      wrap.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
+      wrap.querySelector('.btn-bean-confirm').addEventListener('click', async () => {
+        const chosen = state.ids.map(id => ({
+          id,
+          name: (beans.find(b => b.id === id) || {}).name || '',
+          grams: state.ids.length === 1 ? BEAN_DOSE_G : Number(state.grams[id]),
+        }));
+        const btn = wrap.querySelector('.btn-bean-confirm');
+        btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+        await markBrewedWithBlend(order, cardEl, chosen, { updateBeanName: true, replaceBlendRows: true });
+      });
+      updateConfirmState();
+    }
+
+    render();
+  }
+
   async function showBeanPicker(cardEl, order, doneBtn) {
     doneBtn.disabled = true;
     doneBtn.textContent = 'กำลังโหลดเมล็ด...';
@@ -293,7 +428,6 @@
       .select('id, name, stock_quantity')
       .eq('category', 'coffee_bean')
       .eq('active', true)
-      .gte('stock_quantity', BEAN_DOSE_G)
       .order('name', { ascending: true });
 
     if (error) {
@@ -308,7 +442,7 @@
 
     if (!beans || beans.length === 0) {
       wrap.innerHTML = `
-        <div class="bean-empty-note">⚠️ ไม่มีเมล็ดที่สต็อกพอ (ต้อง ≥ ${BEAN_DOSE_G}g) — เติมสต็อกก่อน หรือข้ามการตัดสต็อก</div>
+        <div class="bean-empty-note">⚠️ ไม่มีเมล็ดเลยในระบบ — เติมเมล็ดก่อน หรือข้ามการตัดสต็อก</div>
         <div class="bean-picker-row" style="margin-top:6px;">
           <button class="btn-bean-cancel">ยกเลิก</button>
           <button class="btn-bean-confirm">ชงแล้ว (ไม่ตัดสต็อก)</button>
@@ -324,34 +458,47 @@
       return;
     }
 
-    const options = beans.map(b => `<option value="${b.id}">${b.name} (เหลือ ${b.stock_quantity}g)</option>`).join('');
-    const preselect = beans.find(b => (b.name || '').trim().toLowerCase() === (order.bean_name || '').trim().toLowerCase());
+    // เช็คว่าออเดอร์นี้มีสูตรเฮาส์เบลนด์ตั้งไว้ตอนสั่งอยู่แล้วไหม (preorder_bean_blend)
+    const { data: existingBlend } = await sb.from('preorder_bean_blend').select('ingredient_id, grams').eq('preorder_id', order.id);
 
-    wrap.innerHTML = `
-      <select class="bean-select">
-        <option value="">— เลือกเมล็ดที่ใช้ชง —</option>
-        ${options}
-      </select>
-      <div class="bean-picker-row">
-        <button class="btn-bean-cancel">ยกเลิก</button>
-        <button class="btn-bean-confirm" disabled>ยืนยันชง (-${BEAN_DOSE_G}g)</button>
-      </div>
-    `;
+    let currentBeans = [];
+    if (existingBlend && existingBlend.length > 0) {
+      currentBeans = existingBlend.map(r => {
+        const bean = beans.find(b => b.id === r.ingredient_id);
+        return { id: r.ingredient_id, name: bean ? bean.name : '(ไม่ทราบชื่อ)', grams: r.grams };
+      });
+    } else {
+      const match = beans.find(b => (b.name || '').trim().toLowerCase() === (order.bean_name || '').trim().toLowerCase());
+      if (match) currentBeans = [{ id: match.id, name: match.name, grams: BEAN_DOSE_G }];
+    }
+
     doneBtn.replaceWith(wrap);
 
-    const selectEl = wrap.querySelector('.bean-select');
-    if (preselect) selectEl.value = preselect.id;
-    const confirmBtn = wrap.querySelector('.btn-bean-confirm');
-    confirmBtn.disabled = !selectEl.value;
-    selectEl.addEventListener('change', () => { confirmBtn.disabled = !selectEl.value; });
-
-    wrap.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
-    confirmBtn.addEventListener('click', async () => {
-      const chosen = beans.find(b => b.id === selectEl.value);
-      if (!chosen) return;
-      confirmBtn.disabled = true; confirmBtn.textContent = 'กำลังบันทึก...';
-      await markBrewed(order, cardEl, chosen);
-    });
+    if (currentBeans.length > 0) {
+      // มีสูตรอยู่แล้วจากตอนสั่ง — แสดงสรุป กดยืนยันทีเดียวจบ หรือกดเปลี่ยนได้
+      const summary = currentBeans.length === 1
+        ? currentBeans[0].name
+        : currentBeans.map(b => `${b.name} ${b.grams}g`).join(' + ');
+      wrap.innerHTML = `
+        <div style="font-size:12.5px;color:#6B5445;background:#FFF3E8;border:2px solid #F0E4D8;border-radius:10px;padding:8px 10px;margin-bottom:8px;">🌱 สูตรที่ใช้: <b>${summary}</b></div>
+        <div class="bean-picker-row">
+          <button class="btn-bean-cancel">ยกเลิก</button>
+          <button class="btn-bean-change" style="flex:1;padding:9px;border-radius:8px;border:2px solid #F0E4D8;background:#fff;color:#4A3428;font-size:12px;font-weight:700;">เปลี่ยนเมล็ด</button>
+          <button class="btn-bean-confirm">ยืนยันชง</button>
+        </div>
+      `;
+      wrap.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
+      wrap.querySelector('.btn-bean-confirm').addEventListener('click', async () => {
+        const btn = wrap.querySelector('.btn-bean-confirm');
+        btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+        await markBrewedWithBlend(order, cardEl, currentBeans, { updateBeanName: false, replaceBlendRows: false });
+      });
+      wrap.querySelector('.btn-bean-change').addEventListener('click', () => {
+        renderBlendEditor(wrap, cardEl, order, beans, currentBeans);
+      });
+    } else {
+      renderBlendEditor(wrap, cardEl, order, beans, []);
+    }
   }
 
   async function loadToday() {
