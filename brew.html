@@ -123,6 +123,7 @@
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oempudXR2aXJqZ2ljbGtrZmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMjc3NjEsImV4cCI6MjA5ODcwMzc2MX0.Bv2zsjmo3yd9YpmfxUAmXf-aaFy7SbY77fmM_k4f7eg";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const REQUEST_PAYMENT_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/request-payment";
+  const REQUEST_FEEDBACK_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/request-feedback";
   const NOTIFY_READY_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/notify-ready";
 
   const BEAN_DOSE_G = 20;
@@ -1464,7 +1465,7 @@
             const ids = orders.map(o => o.id);
             await sb.from('preorders').update({ payment_requested_at: new Date().toISOString() }).in('id', ids);
 
-            // เก็บ feedback request สำหรับแก้วที่บาริสต้าติ๊กไว้ (ไม่บล็อกการเรียกเก็บเงินถ้า insert พลาด)
+            // เก็บ feedback request สำหรับแก้วที่บาริสต้าติ๊กไว้ + ส่ง LINE push ทันที (ไม่บล็อกการเรียกเก็บเงินถ้าพลาด)
             const checkedCups = Array.from(div.querySelectorAll('.fb-check:checked'));
             if (checkedCups.length > 0 && groupLineId) {
               const fbRows = checkedCups.map(el => ({
@@ -1474,8 +1475,22 @@
                 bean_name: el.dataset.bean || null,
                 sweetness: el.dataset.sweet || null,
               }));
-              const { error: fbError } = await sb.from('feedback_requests').insert(fbRows);
-              if (fbError) console.error('feedback_requests insert failed:', fbError.message);
+              const { data: fbInserted, error: fbError } = await sb.from('feedback_requests').insert(fbRows).select('id');
+              if (fbError) {
+                console.error('feedback_requests insert failed:', fbError.message);
+              } else if (fbInserted) {
+                for (const row of fbInserted) {
+                  try {
+                    await fetch(REQUEST_FEEDBACK_URL, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ line_user_id: groupLineId, feedback_request_id: row.id }),
+                    });
+                  } catch (pushErr) {
+                    console.error('request-feedback push failed:', pushErr.message);
+                  }
+                }
+              }
             }
 
             loadBills();
