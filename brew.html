@@ -1304,14 +1304,21 @@
         if (o.omakase_set_id) {
           if (seenSets.has(o.omakase_set_id)) return;
           seenSets.add(o.omakase_set_id);
-          const cupNames = orders.filter(x => x.omakase_set_id === o.omakase_set_id).map(x => x.menu_item_name);
+          const setCups = orders.filter(x => x.omakase_set_id === o.omakase_set_id);
+          const cupNames = setCups.map(x => x.menu_item_name);
           lines.push({
             label: `🎴 Omakase Set (${cupNames.join(' / ')})`,
             price: OMAKASE_WEEKLY_PRICE,
-            ids: orders.filter(x => x.omakase_set_id === o.omakase_set_id).map(x => x.id),
+            ids: setCups.map(x => x.id),
+            cups: setCups.map(x => ({ id: x.id, name: x.menu_item_name, bean_name: x.bean_name, sweetness: x.sweetness })),
           });
         } else {
-          lines.push({ label: `${o.menu_item_name}${o.bean_name ? ` · ${o.bean_name}` : ''}`, price: Number(o.price), ids: [o.id] });
+          lines.push({
+            label: `${o.menu_item_name}${o.bean_name ? ` · ${o.bean_name}` : ''}`,
+            price: Number(o.price),
+            ids: [o.id],
+            cups: [{ id: o.id, name: o.menu_item_name, bean_name: o.bean_name, sweetness: o.sweetness }],
+          });
         }
       });
       return lines;
@@ -1336,7 +1343,14 @@
           <span>${l.label} — ${l.price}฿</span>
           <button class="btn-item-delete" data-ids="${l.ids.join(',')}" title="ลบรายการนี้">✕</button>
         </div>
-      `).join('');
+        <div class="fb-check-row" style="display:flex;flex-wrap:wrap;gap:10px;padding:2px 4px 8px;">
+          ${l.cups.map(c => `
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#A8876F;">
+              <input type="checkbox" class="fb-check" data-preorder-id="${c.id}" data-menu="${c.name}" data-bean="${c.bean_name || ''}" data-sweet="${c.sweetness || ''}">
+              🐱 อยากรู้ผล: ${c.name}
+            </label>
+          `).join('')}
+        </div>
 
       let requestSection = '';
       if (groupLineId) {
@@ -1448,6 +1462,21 @@
             }
             const ids = orders.map(o => o.id);
             await sb.from('preorders').update({ payment_requested_at: new Date().toISOString() }).in('id', ids);
+
+            // เก็บ feedback request สำหรับแก้วที่บาริสต้าติ๊กไว้ (ไม่บล็อกการเรียกเก็บเงินถ้า insert พลาด)
+            const checkedCups = Array.from(div.querySelectorAll('.fb-check:checked'));
+            if (checkedCups.length > 0 && groupLineId) {
+              const fbRows = checkedCups.map(el => ({
+                preorder_id: el.dataset.preorderId,
+                line_user_id: groupLineId,
+                menu_item_name: el.dataset.menu,
+                bean_name: el.dataset.bean || null,
+                sweetness: el.dataset.sweet || null,
+              }));
+              const { error: fbError } = await sb.from('feedback_requests').insert(fbRows);
+              if (fbError) console.error('feedback_requests insert failed:', fbError.message);
+            }
+
             loadBills();
           } catch (err) {
             errBox.textContent = 'แจ้งเก็บเงินไม่สำเร็จ: ' + err.message;
