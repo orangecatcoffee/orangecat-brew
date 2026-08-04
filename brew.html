@@ -279,53 +279,9 @@
       }).catch(err => console.error('notify-ready failed:', err));
     }
     if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
-    showFeedbackPrompt(cardEl, order, beanIngredient ? beanIngredient.name : (order.bean_name || null));
+    cardEl.style.opacity = '0';
+    setTimeout(() => loadToday(), 200);
     return true;
-  }
-
-  function showFeedbackPrompt(cardEl, order, resolvedBeanName) {
-    if (!order.line_user_id) {
-      cardEl.style.opacity = '0';
-      setTimeout(() => loadToday(), 200);
-      return;
-    }
-    cardEl.innerHTML = `
-      <div style="font-size:13px;color:#4A3428;margin-bottom:10px;">☕ ${order.customer_name} — ${order.menu_item_name} ชงเสร็จแล้ว!</div>
-      <div style="font-size:12px;color:#6B5445;margin-bottom:8px;">🐱 อยากขอฟีดแบคแก้วนี้เลยไหม? (ไม่ต้องรอเก็บเงิน ส่งได้เลยตอนนี้)</div>
-      <div style="display:flex;gap:8px;">
-        <button class="fb-skip" style="flex:1;padding:9px;border-radius:8px;border:2px solid #F0E4D8;background:#fff;color:#4A3428;font-size:12px;font-family:'Mitr',sans-serif;">ไม่ส่ง</button>
-        <button class="fb-send" style="flex:1;padding:9px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:12px;font-weight:700;font-family:'Mitr',sans-serif;">🐱 ส่งขอฟีดแบค</button>
-      </div>
-    `;
-    const finish = () => { cardEl.style.opacity = '0'; setTimeout(() => loadToday(), 200); };
-    cardEl.querySelector('.fb-skip').addEventListener('click', finish);
-    cardEl.querySelector('.fb-send').addEventListener('click', async (e) => {
-      const btn = e.currentTarget;
-      btn.disabled = true;
-      btn.textContent = 'กำลังส่ง...';
-      try {
-        const { data: inserted, error: fbErr } = await sb.from('feedback_requests').insert([{
-          preorder_id: order.id,
-          line_user_id: order.line_user_id,
-          menu_item_name: order.menu_item_name,
-          bean_name: resolvedBeanName || null,
-          sweetness: order.sweetness || null,
-        }]).select('id');
-        if (fbErr) throw fbErr;
-        const row = inserted && inserted[0];
-        if (row) {
-          fetch(REQUEST_FEEDBACK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ line_user_id: order.line_user_id, feedback_request_id: row.id }),
-          }).catch(err => console.error('request-feedback push failed:', err));
-        }
-        cardEl.innerHTML = '<div style="font-size:13px;color:#3A6B4A;text-align:center;padding:10px 0;">ส่งขอฟีดแบคแล้ว ✓</div>';
-      } catch (err) {
-        alert('ส่งไม่สำเร็จ: ' + err.message);
-      }
-      setTimeout(finish, 1200);
-    });
   }
 
   function formatBlendName(blendRows) {
@@ -381,8 +337,8 @@
       }).catch(err => console.error('notify-ready failed:', err));
     }
     if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
-    const resolvedBeanName = (opts.updateBeanName && blendRows && blendRows.length) ? formatBlendName(blendRows) : (order.bean_name || null);
-    showFeedbackPrompt(cardEl, order, resolvedBeanName);
+    cardEl.style.opacity = '0';
+    setTimeout(() => loadToday(), 200);
     return true;
   }
 
@@ -1535,12 +1491,16 @@
           <span>${l.label} — ${l.price}฿</span>
           <button class="btn-item-delete" data-ids="${l.ids.join(',')}" title="ลบรายการนี้">✕</button>
         </div>
-        <div class="fb-check-row" style="display:flex;flex-wrap:wrap;gap:10px;padding:2px 4px 8px;">
+        <div class="fb-check-row" style="display:flex;flex-direction:column;gap:6px;padding:2px 4px 8px;">
           ${l.cups.map(c => `
-            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#A8876F;">
-              <input type="checkbox" class="fb-check" data-preorder-id="${c.id}" data-menu="${c.name}" data-bean="${c.bean_name || ''}" data-sweet="${c.sweetness || ''}">
-              🐱 อยากรู้ผล: ${c.name}
-            </label>
+            <div class="fb-cup-row" data-cup-id="${c.id}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#A8876F;">
+                <input type="checkbox" class="fb-check" data-preorder-id="${c.id}" data-menu="${c.name}" data-bean="${c.bean_name || ''}" data-sweet="${c.sweetness || ''}">
+                🐱 อยากรู้ผล: ${c.name}
+              </label>
+              <button type="button" class="fb-send-now" data-preorder-id="${c.id}" data-menu="${c.name}" data-bean="${c.bean_name || ''}" data-sweet="${c.sweetness || ''}"
+                style="font-size:10.5px;padding:4px 9px;border-radius:999px;border:1px solid rgba(232,98,26,0.4);background:rgba(232,98,26,0.1);color:#E8621A;font-family:'Mitr',sans-serif;white-space:nowrap;">ส่งเลย</button>
+            </div>
           `).join('')}
         </div>
       `).join('');
@@ -1585,6 +1545,38 @@
       if (slipThumb) {
         slipThumb.addEventListener('click', () => window.open(slipThumb.dataset.full, '_blank'));
       }
+
+      div.querySelectorAll('.fb-send-now').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!groupLineId) { alert('ลูกค้าคนนี้ยังไม่ผูก LINE — ส่งฟีดแบคอัตโนมัติไม่ได้'); return; }
+          btn.disabled = true;
+          btn.textContent = 'กำลังส่ง...';
+          try {
+            const { data: inserted, error: fbErr } = await sb.from('feedback_requests').insert([{
+              preorder_id: btn.dataset.preorderId,
+              line_user_id: groupLineId,
+              menu_item_name: btn.dataset.menu,
+              bean_name: btn.dataset.bean || null,
+              sweetness: btn.dataset.sweet || null,
+            }]).select('id');
+            if (fbErr) throw fbErr;
+            const row = inserted && inserted[0];
+            if (row) {
+              fetch(REQUEST_FEEDBACK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ line_user_id: groupLineId, feedback_request_id: row.id }),
+              }).catch(err => console.error('request-feedback push failed:', err));
+            }
+            const row_ = btn.closest('.fb-cup-row');
+            row_.innerHTML = `<span style="font-size:11px;color:#3A6B4A;">✓ ส่งฟีดแบคแล้ว: ${btn.dataset.menu}</span>`;
+          } catch (err) {
+            alert('ส่งไม่สำเร็จ: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = 'ส่งเลย';
+          }
+        });
+      });
       const slipInput = div.querySelector('.slip-input');
       if (slipInput) {
         slipInput.addEventListener('change', async (e) => {
