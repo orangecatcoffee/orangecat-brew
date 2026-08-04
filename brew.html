@@ -279,9 +279,53 @@
       }).catch(err => console.error('notify-ready failed:', err));
     }
     if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
-    cardEl.style.opacity = '0';
-    setTimeout(() => loadToday(), 200);
+    showFeedbackPrompt(cardEl, order, beanIngredient ? beanIngredient.name : (order.bean_name || null));
     return true;
+  }
+
+  function showFeedbackPrompt(cardEl, order, resolvedBeanName) {
+    if (!order.line_user_id) {
+      cardEl.style.opacity = '0';
+      setTimeout(() => loadToday(), 200);
+      return;
+    }
+    cardEl.innerHTML = `
+      <div style="font-size:13px;color:#4A3428;margin-bottom:10px;">☕ ${order.customer_name} — ${order.menu_item_name} ชงเสร็จแล้ว!</div>
+      <div style="font-size:12px;color:#6B5445;margin-bottom:8px;">🐱 อยากขอฟีดแบคแก้วนี้เลยไหม? (ไม่ต้องรอเก็บเงิน ส่งได้เลยตอนนี้)</div>
+      <div style="display:flex;gap:8px;">
+        <button class="fb-skip" style="flex:1;padding:9px;border-radius:8px;border:2px solid #F0E4D8;background:#fff;color:#4A3428;font-size:12px;font-family:'Mitr',sans-serif;">ไม่ส่ง</button>
+        <button class="fb-send" style="flex:1;padding:9px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:12px;font-weight:700;font-family:'Mitr',sans-serif;">🐱 ส่งขอฟีดแบค</button>
+      </div>
+    `;
+    const finish = () => { cardEl.style.opacity = '0'; setTimeout(() => loadToday(), 200); };
+    cardEl.querySelector('.fb-skip').addEventListener('click', finish);
+    cardEl.querySelector('.fb-send').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = 'กำลังส่ง...';
+      try {
+        const { data: inserted, error: fbErr } = await sb.from('feedback_requests').insert([{
+          preorder_id: order.id,
+          line_user_id: order.line_user_id,
+          menu_item_name: order.menu_item_name,
+          bean_name: resolvedBeanName || null,
+          sweetness: order.sweetness || null,
+        }]).select('id');
+        if (fbErr) throw fbErr;
+        const row = inserted && inserted[0];
+        if (row) {
+          fetch(REQUEST_FEEDBACK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ line_user_id: order.line_user_id, feedback_request_id: row.id }),
+          }).catch(err => console.error('request-feedback push failed:', err));
+        }
+        cardEl.innerHTML = '<div style="font-size:13px;color:#3A6B4A;text-align:center;padding:10px 0;">ส่งขอฟีดแบคแล้ว ✓</div>';
+      } catch (err) {
+        alert('ส่งไม่สำเร็จ: ' + err.message);
+      }
+      setTimeout(finish, 1200);
+    });
   }
 
   function formatBlendName(blendRows) {
@@ -337,8 +381,8 @@
       }).catch(err => console.error('notify-ready failed:', err));
     }
     if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
-    cardEl.style.opacity = '0';
-    setTimeout(() => loadToday(), 200);
+    const resolvedBeanName = (opts.updateBeanName && blendRows && blendRows.length) ? formatBlendName(blendRows) : (order.bean_name || null);
+    showFeedbackPrompt(cardEl, order, resolvedBeanName);
     return true;
   }
 
