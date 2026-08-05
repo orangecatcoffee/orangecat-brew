@@ -307,6 +307,8 @@
     if (opts.updateBeanName && blendRows && blendRows.length) {
       updates.bean_name = formatBlendName(blendRows);
     }
+    if (opts.mixerName !== undefined && opts.mixerName !== null) updates.mixer_name = opts.mixerName || null;
+    if (opts.miscCost !== undefined && opts.miscCost !== null) updates.misc_cost_estimate = opts.miscCost;
 
     if (blendRows && blendRows.length) {
       await deductBlendStock(blendRows);
@@ -345,8 +347,9 @@
     return true;
   }
 
-  function renderBlendEditor(wrap, cardEl, order, beans, prefill) {
+  function renderBlendEditor(wrap, cardEl, order, beans, prefill, mixerHelpers) {
     const state = { ids: prefill.map(b => b.id), grams: Object.fromEntries(prefill.map(b => [b.id, b.grams])) };
+    const mh = mixerHelpers || {};
 
     function updateConfirmState() {
       const btn = wrap.querySelector('.btn-bean-confirm');
@@ -373,16 +376,18 @@
       }).join('');
 
       wrap.innerHTML = `
-        <div style="font-size:11px;color:#A8876F;margin-bottom:6px;">เลือกเมล็ด (เลือกได้สูงสุด ${MAX_BLEND_BEANS} ตัวสำหรับเฮาส์เบลนด์)</div>
+        <div style="font-size:11px;color:#A8876F;margin-bottom:6px;">เลือกเมล็ด/เบส (เลือกได้สูงสุด ${MAX_BLEND_BEANS} ตัวสำหรับเฮาส์เบลนด์)</div>
         <div class="chip-row" style="margin-bottom:8px;">${chipsHtml}</div>
         <div>${gramsHtml}</div>
+        ${mh.mixerChipsHtml ? mh.mixerChipsHtml() : ''}
         <div class="bean-picker-row">
           <button class="btn-bean-cancel">ยกเลิก</button>
           <button class="btn-bean-confirm" disabled>ยืนยันชง</button>
         </div>
       `;
+      if (mh.wireMixerChips) mh.wireMixerChips(wrap);
 
-      wrap.querySelectorAll('.chip').forEach(chip => {
+      wrap.querySelectorAll('.chip:not(.mixer-chip)').forEach(chip => {
         chip.addEventListener('click', () => {
           const id = chip.dataset.beanId;
           const idx = state.ids.indexOf(id);
@@ -414,7 +419,9 @@
         }));
         const btn = wrap.querySelector('.btn-bean-confirm');
         btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-        await markBrewedWithBlend(order, cardEl, chosen, { updateBeanName: true, replaceBlendRows: true });
+        const mixerName = mh.getSelectedMixer ? mh.getSelectedMixer(wrap) : null;
+        const miscCost = mh.getMiscCost ? mh.getMiscCost(wrap) : null;
+        await markBrewedWithBlend(order, cardEl, chosen, { updateBeanName: true, replaceBlendRows: true, mixerName, miscCost });
       });
       updateConfirmState();
     }
@@ -438,6 +445,48 @@
       doneBtn.disabled = false;
       doneBtn.textContent = 'ชงแล้ว';
       return;
+    }
+
+    // เช็คว่าเมนูนี้เป็นแก้วลับ (secret) ไหม — ถ้าใช่ เปิดให้เลือกมิกเซอร์ประมาณการได้ด้วย (ไม่มีสูตรตั้งไว้ล่วงหน้าเพราะเปลี่ยนทุกอาทิตย์)
+    let isSecretMenu = false;
+    let mixerOptions = [];
+    try {
+      const { data: menuRow } = await sb.from('menu_items').select('category').eq('name', order.menu_item_name).maybeSingle();
+      isSecretMenu = !!(menuRow && menuRow.category === 'secret');
+      if (isSecretMenu) {
+        const { data: mixers } = await sb.from('ingredients').select('id, name').eq('category', 'milk').eq('active', true).order('name');
+        mixerOptions = mixers || [];
+      }
+    } catch (e) { /* เงียบไว้ ไม่ critical */ }
+
+    function mixerChipsHtml() {
+      if (!isSecretMenu) return '';
+      const chips = mixerOptions.map(m => `<button type="button" class="chip mixer-chip" data-mixer-name="${m.name}">${m.name}</button>`).join('');
+      return `
+        <div style="font-size:11px;color:#A8876F;margin:10px 0 6px;">🥛 มิกเซอร์ที่ใช้ (ไม่บังคับ — ประมาณการต้นทุน 150g)</div>
+        <div class="chip-row">${chips}<button type="button" class="chip mixer-chip" data-mixer-name="">ไม่ใส่</button></div>
+        <div style="font-size:11px;color:#A8876F;margin:12px 0 6px;">🧂 ต้นทุนอื่นๆ โดยประมาณ (บาท) — ของนอกสต็อก ไม่บังคับ</div>
+        <input type="number" inputmode="decimal" step="0.01" min="0" class="misc-cost-input" placeholder="เช่น 5" style="width:100%;padding:9px 12px;border-radius:8px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;">
+      `;
+    }
+    function wireMixerChips(container) {
+      if (!isSecretMenu) return;
+      container.querySelectorAll('.mixer-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          container.querySelectorAll('.mixer-chip').forEach(c => c.classList.remove('selected'));
+          chip.classList.add('selected');
+        });
+      });
+    }
+    function getSelectedMixer(container) {
+      const el = container.querySelector('.mixer-chip.selected');
+      return el ? (el.dataset.mixerName || null) : null;
+    }
+    function getMiscCost(container) {
+      const el = container.querySelector('.misc-cost-input');
+      if (!el || !el.value) return null;
+      const val = Number(el.value);
+      return isNaN(val) ? null : val;
     }
 
     const wrap = document.createElement('div');
@@ -484,23 +533,25 @@
         : currentBeans.map(b => `${b.name} ${b.grams}g`).join(' + ');
       wrap.innerHTML = `
         <div style="font-size:12.5px;color:#6B5445;background:#FFF3E8;border:2px solid #F0E4D8;border-radius:10px;padding:8px 10px;margin-bottom:8px;">🌱 สูตรที่ใช้: <b>${summary}</b></div>
+        ${mixerChipsHtml()}
         <div class="bean-picker-row">
           <button class="btn-bean-cancel">ยกเลิก</button>
           <button class="btn-bean-change" style="flex:1;padding:9px;border-radius:8px;border:2px solid #F0E4D8;background:#fff;color:#4A3428;font-size:12px;font-weight:700;">เปลี่ยนเมล็ด</button>
           <button class="btn-bean-confirm">ยืนยันชง</button>
         </div>
       `;
+      wireMixerChips(wrap);
       wrap.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
       wrap.querySelector('.btn-bean-confirm').addEventListener('click', async () => {
         const btn = wrap.querySelector('.btn-bean-confirm');
         btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-        await markBrewedWithBlend(order, cardEl, currentBeans, { updateBeanName: false, replaceBlendRows: false });
+        await markBrewedWithBlend(order, cardEl, currentBeans, { updateBeanName: false, replaceBlendRows: false, mixerName: getSelectedMixer(wrap), miscCost: getMiscCost(wrap) });
       });
       wrap.querySelector('.btn-bean-change').addEventListener('click', () => {
-        renderBlendEditor(wrap, cardEl, order, beans, currentBeans);
+        renderBlendEditor(wrap, cardEl, order, beans, currentBeans, { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost });
       });
     } else {
-      renderBlendEditor(wrap, cardEl, order, beans, []);
+      renderBlendEditor(wrap, cardEl, order, beans, [], { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost });
     }
   }
 
