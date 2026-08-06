@@ -93,9 +93,9 @@
 
   <div class="field-label">ความหวาน</div>
   <div class="sweetness-row" id="sweetnessRow">
-    <button type="button" class="sweetness-btn" data-sweet="ไม่หวาน">ไม่หวาน</button>
+    <button type="button" class="sweetness-btn selected" data-sweet="ไม่หวาน">ไม่หวาน</button>
     <button type="button" class="sweetness-btn" data-sweet="หวานน้อย">หวานน้อย</button>
-    <button type="button" class="sweetness-btn selected" data-sweet="หวานปกติ">หวานปกติ</button>
+    <button type="button" class="sweetness-btn" data-sweet="หวานปกติ">หวานปกติ</button>
   </div>
 
   <div class="field-label">วันที่ต้องการ</div>
@@ -165,7 +165,7 @@
   let customerName = '';
   let customerType = 'member';
   let orderType = 'customer';
-  let selectedSweetness = 'หวานปกติ';
+  let selectedSweetness = 'ไม่หวาน';
   let membersCache = [];
   let beanOptionsCache = [];
   let selectedBeanIds = [];
@@ -1451,11 +1451,11 @@
     document.getElementById('blendGramsBlock').innerHTML = '';
     document.querySelectorAll('.menu-card, .date-btn, #memberChips .chip, #recentBeans .chip').forEach(b => b.classList.remove('selected'));
     document.querySelectorAll('#orderTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.orderType === 'customer'));
-    document.querySelectorAll('#sweetnessRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.sweet === 'หวานปกติ'));
+    document.querySelectorAll('#sweetnessRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.sweet === 'ไม่หวาน'));
     document.getElementById('orderTypeHint').style.display = 'none';
     document.getElementById('staffChips').style.display = 'none';
     orderType = 'customer';
-    selectedSweetness = 'หวานปกติ';
+    selectedSweetness = 'ไม่หวาน';
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
     orderMode = 'normal';
     omakaseSlots = [null, null, null];
