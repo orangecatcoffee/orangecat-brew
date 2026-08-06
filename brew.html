@@ -471,7 +471,7 @@
       const { data: menuRow } = await sb.from('menu_items').select('category').eq('name', order.menu_item_name).maybeSingle();
       isSecretMenu = !!(menuRow && menuRow.category === 'secret');
       if (isSecretMenu) {
-        const { data: mixers } = await sb.from('ingredients').select('id, name').eq('category', 'milk').eq('active', true).order('name');
+        const { data: mixers } = await sb.from('ingredients').select('id, name').or('category.eq.milk,name.eq.น้ำเปล่า').eq('active', true).order('name');
         mixerOptions = mixers || [];
       }
     } catch (e) { /* เงียบไว้ ไม่ critical */ }
