@@ -64,6 +64,7 @@
   <div id="omakaseSlotBlock" style="display:none;">
     <div class="field-hint">แตะเลือกแก้วที่ 1/2/3 แล้วเลือกเมนูจากช่องด้านล่าง — เมนูทดลองรายสัปดาห์ (omakase_only) จะโผล่ในนี้ด้วย</div>
     <div class="chip-row" id="omakaseSlotChips"></div>
+    <div id="omakaseSecretHint" style="display:none;margin-top:6px;padding:8px 12px;border-radius:10px;background:rgba(232,98,26,0.12);border:1px solid rgba(232,98,26,0.3);color:#8A4A1A;font-size:12.5px;font-weight:600;">🔮 แก้วที่ 3 คือแก้ว Secret ของชุดนี้เสมอ — เลือกเมนูลับที่มีอยู่แล้ว หรือกด "สร้างเมนูลับใหม่" ด้านล่าง</div>
     <div class="field-hint" style="margin-top:8px;">วันที่ชงของแก้วที่กำลังเลือกอยู่ (แต่ละแก้วเลือกวันต่างกันได้)</div>
     <div class="date-row" id="omakaseCupDateRow"></div>
 
@@ -764,7 +765,7 @@
   function renderOmakaseSlotChips() {
     const row = document.getElementById('omakaseSlotChips');
     row.innerHTML = '';
-    ['แก้วที่ 1', 'แก้วที่ 2', 'แก้วที่ 3'].forEach((label, i) => {
+    ['แก้วที่ 1', 'แก้วที่ 2', 'แก้วที่ 3 🔮'].forEach((label, i) => {
       const chip = document.createElement('div');
       chip.className = 'chip' + (i === omakaseActiveSlot ? ' selected' : '');
       const name = omakaseSlots[i] ? omakaseSlots[i].name : '(ยังไม่เลือก)';
@@ -773,6 +774,8 @@
       chip.addEventListener('click', () => { omakaseActiveSlot = i; renderOmakaseSlotChips(); renderOmakaseCupDateRow(); renderOmakaseBeanPicker(); });
       row.appendChild(chip);
     });
+    const secretHint = document.getElementById('omakaseSecretHint');
+    if (secretHint) secretHint.style.display = (omakaseActiveSlot === 2) ? 'block' : 'none';
   }
 
   function renderOmakaseCupDateRow() {
