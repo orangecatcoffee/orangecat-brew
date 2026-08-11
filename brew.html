@@ -136,11 +136,11 @@
 
   let MENU = [];
   const CATEGORY_ICON = {
-    espresso: "☕", dirty: "🤤", matcha: "🍵", cocoa: "🍫", thai_tea: "🧋", signature: "🍊", yogurt: "🥤", special_of_month: "🌟"
+    espresso: "☕", dirty: "🤤", matcha: "🍵", cocoa: "🍫", thai_tea: "🧋", signature: "🍊", yogurt: "🥤", special_of_month: "🌟", surprise: "🐱"
   };
 
-  // ลำดับที่ต้องการ: กาแฟ (เรียงตามชื่อที่กำหนด) -> ชาเขียว -> อื่นๆ
-  const MENU_GROUP_ORDER = { espresso: 1, dirty: 1, signature: 1, matcha: 2 };
+  // ลำดับที่ต้องการ: แมวส้มเลือกหน่อย -> กาแฟ (เรียงตามชื่อที่กำหนด) -> ชาเขียว -> อื่นๆ
+  const MENU_GROUP_ORDER = { surprise: 0, espresso: 1, dirty: 1, signature: 1, matcha: 2 };
   const MENU_NAME_PRIORITY = {
     'Iced Americano': 1, 'Iced Latte': 2, 'Coconut Latte': 3, 'Oat Latte': 4,
     'Americano Coconut': 5, 'Dirty': 6, 'Orange Americano': 7,
@@ -448,6 +448,72 @@
     render();
   }
 
+  const COMFORT_REAL_CATS = ['espresso', 'dirty', 'signature', 'matcha', 'cocoa', 'thai_tea', 'yogurt'];
+
+  // 🐱 แมวส้มเลือกหน่อย: บาริสต้าเลือกเมนูคอมฟอร์ตจริงให้ลูกค้า แล้ว "แปลง" ออเดอร์นี้ให้เป็นเมนูจริงนั้นทันที
+  // (menu_item_name/price เปลี่ยนเป็นของจริง, surprise_actual_item_id เก็บไว้เป็น audit trail)
+  // จากนั้น flow ที่เหลือ (bean picker/markBrewed/collection card/รายงานยอดขาย) ทำงานเหมือนออเดอร์ปกติทุกอย่าง ไม่ต้องมี logic แยก
+  async function startSurprisePick(cardEl, order) {
+    cardEl.innerHTML = '<div class="loading">กำลังโหลดเมนู...</div>';
+    const { data: items, error } = await sb
+      .from('menu_items')
+      .select('id, name, price, category, needs_bean')
+      .in('category', COMFORT_REAL_CATS)
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error || !items || items.length === 0) {
+      cardEl.innerHTML = `<div class="empty-state">โหลดเมนูไม่สำเร็จ: ${error ? error.message : 'ไม่พบเมนู'}</div>`;
+      return;
+    }
+
+    const chips = items.map(m =>
+      `<button type="button" class="chip surprise-pick-chip" data-id="${m.id}" data-name="${m.name}" data-price="${m.price}">${m.name} · ${m.price}฿</button>`
+    ).join('');
+
+    cardEl.innerHTML = `
+      <div class="card-top">
+        <span class="card-name">${order.customer_name} — 🐱 เลือกเมนูให้ลูกค้า</span>
+      </div>
+      <div class="field-hint">แตะเลือกเมนูที่จะชงให้ลูกค้าคนนี้ (ราคาจะอัปเดตอัตโนมัติตามเมนูที่เลือก)</div>
+      <div class="chip-row" style="margin-top:8px;">${chips}</div>
+      <button class="btn-bean-cancel" style="margin-top:10px;">ยกเลิก</button>
+    `;
+    cardEl.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
+    cardEl.querySelectorAll('.surprise-pick-chip').forEach(chip => {
+      chip.addEventListener('click', async () => {
+        cardEl.querySelectorAll('.surprise-pick-chip').forEach(c => c.disabled = true);
+        chip.textContent = 'กำลังบันทึก...';
+
+        // Insert ใหม่ (ไม่ใช่ update) เพราะ trg_copy_to_order_log ทำงานตอน INSERT เท่านั้น —
+        // ต้องการให้ order_log (ประวัติลูกค้าถาวร + เหรียญสะสม) เก็บชื่อ/ราคาเมนูจริงที่ชง ไม่ใช่ placeholder
+        const { error: insErr } = await sb.from('preorders').insert([{
+          customer_name: order.customer_name,
+          menu_item_name: chip.dataset.name,
+          price: Number(chip.dataset.price),
+          wanted_date: order.wanted_date,
+          bean_name: null,
+          notes: order.notes ? `${order.notes} (เดิม: แมวส้มเลือกหน่อย)` : '(เดิม: แมวส้มเลือกหน่อย)',
+          sweetness: order.sweetness,
+          line_user_id: order.line_user_id,
+          order_type: order.order_type || 'customer',
+          channel: order.channel,
+          surprise_actual_item_id: chip.dataset.id,
+        }]);
+        if (insErr) {
+          alert('บันทึกไม่สำเร็จ: ' + insErr.message);
+          cardEl.querySelectorAll('.surprise-pick-chip').forEach(c => c.disabled = false);
+          return;
+        }
+        const { error: delErr } = await sb.from('preorders').delete().eq('id', order.id);
+        if (delErr) {
+          alert('เลือกเมนูสำเร็จ แต่ลบออเดอร์เดิมไม่สำเร็จ (มีแถวซ้ำ แจ้ง Claude ให้เช็คด้วย): ' + delErr.message);
+        }
+        loadToday();
+      });
+    });
+  }
+
   async function showBeanPicker(cardEl, order, doneBtn) {
     doneBtn.disabled = true;
     doneBtn.textContent = 'กำลังโหลดเมล็ด...';
@@ -630,6 +696,33 @@
     listEl.innerHTML = '';
     data.forEach(order => {
       const isToday = order.wanted_date === todayISO;
+
+      if (order.menu_item_name === '🐱 แมวส้มเลือกหน่อย' && !order.surprise_actual_item_id) {
+        const div = document.createElement('div');
+        div.className = 'card' + (isToday ? ' today' : '');
+        div.style.borderLeftColor = '#E8863A';
+        div.innerHTML = `
+          <div class="card-top">
+            <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#E8863A;">🐱 แมวส้มเลือกหน่อย — รอเลือกเมนู</span></span>
+            <div class="card-top-right">
+              <span class="card-date">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
+              <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
+            </div>
+          </div>
+          <div class="card-menu">ลูกค้าให้แมวส้มเลือกให้ (65-75฿) — เลือกเมนูจริงที่จะชง</div>
+          <button class="btn-done" style="background:#E8863A;color:#fff;">🐱 เลือกเมนูให้ลูกค้า →</button>
+        `;
+        div.querySelector('.btn-delete').addEventListener('click', async () => {
+          if (!confirm(`ลบออเดอร์ "${order.customer_name} - แมวส้มเลือกหน่อย" ใช่ไหม?`)) return;
+          const { error } = await sb.from('preorders').delete().eq('id', order.id);
+          if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+          div.style.opacity = '0';
+          setTimeout(() => loadToday(), 200);
+        });
+        div.querySelector('.btn-done').addEventListener('click', () => startSurprisePick(div, order));
+        listEl.appendChild(div);
+        return;
+      }
 
       if (order.omakase_pending) {
         const div = document.createElement('div');
