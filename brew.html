@@ -194,7 +194,7 @@
   let omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }]; // เมล็ด/เฮ้าส์เบลนด์แยกต่อแก้ว
   let omakaseActiveSlot = 0;
   let pendingReplaceOrderId = null; // preorders.id ของแถว omakase_pending ที่กำลังจะถูกแทนที่ด้วย 3 แก้วจริง
-  const OMAKASE_SECRET_IMAGE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/674F30B8-8598-4DF6-B827-09D5B538E3F5.png";
+  const OMAKASE_SECRET_IMAGE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/C439EF5E-50CE-4F95-B042-7F418A898C17.png";
   const SECRET_PLACEHOLDER_NAME = "🔮 แก้วลับ (รอออกแบบ)"; // ต้องตรงกับชื่อใน menu_items เป๊ะ
   const OMAKASE_WEEKLY_PRICE = 230; // ราคาแพ็กเกจ Omakase ที่เรียกเก็บลูกค้าจริง (ไม่ใช่ผลรวมราคาเมนูแต่ละแก้ว)
   let allIngredientsCache = [];
@@ -602,6 +602,16 @@
 
       const needsBean = sels.some(s => s.ingredient.category === 'coffee_bean');
 
+      // กันชื่อซ้ำ — ถ้าซ้ำ query หา category ตอนชง (.eq(name).limit(1)) จะมึนเพราะเจอหลายแถว แล้วช่องมิกเซอร์/ต้นทุนจะหายไปเงียบๆ
+      const { data: dupCheck } = await sb.from('menu_items').select('id').eq('name', name).eq('category', 'secret').limit(1);
+      if (dupCheck && dupCheck.length > 0) {
+        statusEl.textContent = `ชื่อ "${name}" มีเมนูลับนี้อยู่แล้วในระบบ — ตั้งชื่ออื่นที่ไม่ซ้ำ`;
+        statusEl.className = 'status-msg error';
+        btn.disabled = false;
+        btn.textContent = 'บันทึกเมนูลับ + ใช้แก้วนี้';
+        return;
+      }
+
       const { data: newItem, error: menuErr } = await sb.from('menu_items').insert([{
         name,
         price: 0,
@@ -633,27 +643,45 @@
         return;
       }
 
+      // ส่งเมล็ดที่เลือกตอนออกแบบเข้า order นี้เลย (bean_name เดี่ยว หรือ preorder_bean_blend ถ้าเบลนด์ 2+ ตัว)
+      // เพื่อให้ตอนกด "ชงแล้ว" ระบบเจอสูตรที่ตั้งไว้แล้ว โชว์เป็น "ยืนยันชง" แทนที่จะให้เลือกใหม่ทั้งหมด
+      const beanSels = sels.filter(s => s.ingredient.category === 'coffee_bean');
+      let beanNameForOrder = null;
+      if (beanSels.length === 1) {
+        beanNameForOrder = beanSels[0].ingredient.name;
+      } else if (beanSels.length >= 2) {
+        beanNameForOrder = 'เบลนด์: ' + beanSels.map(s => `${s.ingredient.name} ${s.grams}g`).join(' + ');
+      }
+
       // Insert ใหม่ (ไม่ใช่ update) เพราะ trg_copy_to_order_log / trg_unlock_menu_card_v2 ทำงานตอน INSERT —
       // ต้องการให้ order_log/เหรียญสะสม เก็บชื่อเมนูลับจริงที่เพิ่งออกแบบ ไม่ใช่ placeholder (และยัง brewed=false เหมือนเดิม เดี๋ยว trigger ที่แก้ไว้จะรอ brewed=true เอง)
-      const { error: insErr } = await sb.from('preorders').insert([{
+      const { data: newOrder, error: insErr } = await sb.from('preorders').insert([{
         customer_name: order.customer_name,
         menu_item_name: newItem.name,
         price: 0,
         wanted_date: order.wanted_date,
-        bean_name: order.bean_name,
+        bean_name: beanNameForOrder,
         notes: order.notes ? `${order.notes} (เดิม: แก้วลับรอออกแบบ)` : '(เดิม: แก้วลับรอออกแบบ)',
         sweetness: order.sweetness,
         line_user_id: order.line_user_id,
         order_type: order.order_type || 'customer',
         channel: order.channel,
         omakase_set_id: order.omakase_set_id,
-      }]);
-      if (insErr) {
-        statusEl.textContent = `สร้างเมนูสำเร็จ แต่บันทึกออเดอร์ใหม่ไม่สำเร็จ: ${insErr.message}`;
+      }]).select('id').maybeSingle();
+      if (insErr || !newOrder) {
+        statusEl.textContent = `สร้างเมนูสำเร็จ แต่บันทึกออเดอร์ใหม่ไม่สำเร็จ: ${insErr ? insErr.message : 'unknown error'}`;
         statusEl.className = 'status-msg error';
         btn.disabled = false;
         btn.textContent = 'บันทึกเมนูลับ + ใช้แก้วนี้';
         return;
+      }
+
+      if (beanSels.length >= 2) {
+        const blendRows = beanSels.map(s => ({ preorder_id: newOrder.id, ingredient_id: s.ingredient.id, grams: s.grams }));
+        const { error: blendErr } = await sb.from('preorder_bean_blend').insert(blendRows);
+        if (blendErr) {
+          alert('บันทึกออเดอร์สำเร็จ แต่บันทึกสูตรเบลนด์ไม่สำเร็จ (ตอนชงจะต้องเลือกเมล็ดใหม่เอง): ' + blendErr.message);
+        }
       }
 
       const { error: delErr } = await sb.from('preorders').delete().eq('id', order.id);
@@ -692,7 +720,8 @@
     let isSecretMenu = false;
     let mixerOptions = [];
     try {
-      const { data: menuRow } = await sb.from('menu_items').select('category').eq('name', order.menu_item_name).maybeSingle();
+      const { data: menuRows } = await sb.from('menu_items').select('category').eq('name', order.menu_item_name).limit(1);
+      const menuRow = menuRows && menuRows[0];
       isSecretMenu = !!(menuRow && menuRow.category === 'secret');
       if (isSecretMenu) {
         const { data: mixers } = await sb.from('ingredients').select('id, name').or('category.eq.milk,name.eq.น้ำเปล่า').eq('active', true).order('name');
@@ -1637,11 +1666,37 @@
     STAFF_NAMES.forEach(staffName => {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'chip' + (customerName === staffName ? ' selected' : '');
+      chip.className = 'chip' + (customerName === staffName || (customerName || '').startsWith(staffName) ? ' selected' : '');
       chip.textContent = staffName;
       chip.addEventListener('click', () => {
-        customerName = staffName;
-        document.getElementById('customerName').value = staffName;
+        // หาสมาชิกจริงที่ตรงกับชื่อพนักงาน (ชื่อในระบบสมาชิกอาจไม่ตรงเป๊ะ เช่น "Fah" vs "Fah.H")
+        const matchedMember = membersCache.find(m => m.display_name === staffName || m.display_name.startsWith(staffName));
+
+        if (matchedMember) {
+          // ตั้งเป็นสมาชิกที่ผูก LINE แล้วทันที ไม่ต้องกดเลือกซ้ำในลิสต์สมาชิกด้านล่างอีกที
+          customerType = 'member';
+          document.querySelectorAll('#customerTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.type === 'member'));
+          document.getElementById('memberPickerBlock').style.display = 'block';
+          document.getElementById('guestNameBlock').style.display = 'none';
+          customerName = matchedMember.display_name;
+          selectedMemberLineId = matchedMember.line_user_id;
+          renderMemberChips();
+          document.querySelectorAll('#memberChips .chip').forEach(c => {
+            if (c.textContent === matchedMember.display_name) c.classList.add('selected');
+          });
+          updateLinkHint();
+        } else {
+          // ไม่เจอในระบบสมาชิก — fallback ไปโหมดลูกค้าทั่วไปแบบเดิม
+          customerType = 'guest';
+          document.querySelectorAll('#customerTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.type === 'guest'));
+          document.getElementById('memberPickerBlock').style.display = 'none';
+          document.getElementById('guestNameBlock').style.display = 'block';
+          customerName = staffName;
+          selectedMemberLineId = null;
+          document.getElementById('customerName').value = staffName;
+          updateLinkHint();
+        }
+
         renderStaffChips();
         selectMenuByName('Iced Latte'); // default เมนู เพื่อลดเวลากรอก — ยังเปลี่ยนเป็นเมนูอื่นได้ตามปกติ
         setSweetnessValue(STAFF_SWEETNESS_DEFAULT[staffName] || 'ไม่หวาน');
