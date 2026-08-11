@@ -174,6 +174,7 @@
       icon: CATEGORY_ICON[m.category] || '☕',
       image_url: m.image_url,
       bean: m.needs_bean,
+      category: m.category,
     }));
   }
 
@@ -228,6 +229,11 @@
   function needsBean(menuName) {
     const m = MENU.find(x => x.name === menuName);
     return !!(m && m.bean);
+  }
+
+  function isSecretMenuName(menuName) {
+    const m = MENU.find(x => x.name === menuName);
+    return !!(m && m.category === 'secret');
   }
 
   const SWEETNESS_RULES = {
@@ -374,7 +380,7 @@
     function updateConfirmState() {
       const btn = wrap.querySelector('.btn-bean-confirm');
       if (!btn) return;
-      let ok = state.ids.length > 0;
+      let ok = state.ids.length > 0 || !!mh.allowZeroBeans;
       if (state.ids.length >= 2) {
         ok = state.ids.every(id => state.grams[id] && state.grams[id] > 0);
       }
@@ -396,7 +402,7 @@
       }).join('');
 
       wrap.innerHTML = `
-        <div style="font-size:11px;color:#A8876F;margin-bottom:6px;">เลือกเมล็ด/เบส (เลือกได้สูงสุด ${MAX_BLEND_BEANS} ตัวสำหรับเฮาส์เบลนด์)</div>
+        <div style="font-size:11px;color:#A8876F;margin-bottom:6px;">เลือกเมล็ด/เบส (เลือกได้สูงสุด ${MAX_BLEND_BEANS} ตัวสำหรับเฮาส์เบลนด์)${mh.allowZeroBeans ? ' — แก้วนี้ไม่มีกาแฟก็ข้ามได้ กดยืนยันชงได้เลย' : ''}</div>
         <div class="chip-row" style="margin-bottom:8px;">${chipsHtml}</div>
         <div>${gramsHtml}</div>
         ${mh.mixerChipsHtml ? mh.mixerChipsHtml() : ''}
@@ -691,7 +697,7 @@
 
       // เติมเมนูใหม่เข้า MENU cache ของหน้า "เพิ่ม" ทันที (ไม่งั้นบาริสต้าต้องรีโหลดหน้าก่อนถึงจะเลือกเมนูนี้ให้ลูกค้าคนอื่นได้)
       const iconFallback = CATEGORY_ICON[newItem.category] || '✨';
-      MENU.push({ name: newItem.name, price: Number(newItem.price), icon: iconFallback, image_url: newItem.image_url, bean: newItem.needs_bean });
+      MENU.push({ name: newItem.name, price: Number(newItem.price), icon: iconFallback, image_url: newItem.image_url, bean: newItem.needs_bean, category: newItem.category });
       renderMenuGrid();
 
       switchScreen('add');
@@ -717,6 +723,8 @@
     }
 
     // เช็คว่าเมนูนี้เป็นแก้วลับ (secret) ไหม — ถ้าใช่ เปิดให้เลือกมิกเซอร์ประมาณการได้ด้วย (ไม่มีสูตรตั้งไว้ล่วงหน้าเพราะเปลี่ยนทุกอาทิตย์)
+    // แก้วลับบางแก้วไม่มีกาแฟเลย (เช่น ฐานผลไม้/ชา) — allowZeroBeans ให้ยืนยันชงได้โดยไม่ต้องเลือกเมล็ดเลย
+    const allowZeroBeans = isSecretMenuName(order.menu_item_name) && !needsBean(order.menu_item_name);
     let isSecretMenu = false;
     let mixerOptions = [];
     try {
@@ -818,10 +826,10 @@
         await markBrewedWithBlend(order, cardEl, currentBeans, { updateBeanName: false, replaceBlendRows: false, mixerName: getSelectedMixer(wrap), miscCost: getMiscCost(wrap) });
       });
       wrap.querySelector('.btn-bean-change').addEventListener('click', () => {
-        renderBlendEditor(wrap, cardEl, order, beans, currentBeans, { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost });
+        renderBlendEditor(wrap, cardEl, order, beans, currentBeans, { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost, allowZeroBeans });
       });
     } else {
-      renderBlendEditor(wrap, cardEl, order, beans, [], { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost });
+      renderBlendEditor(wrap, cardEl, order, beans, [], { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost, allowZeroBeans });
     }
   }
 
@@ -992,7 +1000,7 @@
       });
       const doneBtn = div.querySelector('.btn-done');
       doneBtn.addEventListener('click', async () => {
-        if (needsBean(order.menu_item_name)) {
+        if (needsBean(order.menu_item_name) || isSecretMenuName(order.menu_item_name)) {
           await showBeanPicker(div, order, doneBtn);
         } else {
           doneBtn.textContent = 'กำลังบันทึก...';
@@ -1369,7 +1377,7 @@
 
     // เติม MENU cache ทันทีโดยไม่ต้อง reload ทั้งหมด แล้วเลือกเป็นแก้วที่กำลังแอคทีฟ
     const iconFallback = CATEGORY_ICON[newItem.category] || '✨';
-    const menuItem = { name: newItem.name, price: Number(newItem.price), icon: iconFallback, image_url: newItem.image_url, bean: newItem.needs_bean };
+    const menuItem = { name: newItem.name, price: Number(newItem.price), icon: iconFallback, image_url: newItem.image_url, bean: newItem.needs_bean, category: newItem.category };
     MENU.push(menuItem);
     renderMenuGrid();
 
