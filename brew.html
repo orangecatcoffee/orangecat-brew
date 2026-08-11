@@ -195,6 +195,7 @@
   let omakaseActiveSlot = 0;
   let pendingReplaceOrderId = null; // preorders.id ของแถว omakase_pending ที่กำลังจะถูกแทนที่ด้วย 3 แก้วจริง
   const OMAKASE_SECRET_IMAGE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/674F30B8-8598-4DF6-B827-09D5B538E3F5.png";
+  const SECRET_PLACEHOLDER_NAME = "🔮 แก้วลับ (รอออกแบบ)"; // ต้องตรงกับชื่อใน menu_items เป๊ะ
   const OMAKASE_WEEKLY_PRICE = 230; // ราคาแพ็กเกจ Omakase ที่เรียกเก็บลูกค้าจริง (ไม่ใช่ผลรวมราคาเมนูแต่ละแก้ว)
   let allIngredientsCache = [];
   let secretRecipeSelections = {}; // { ingredient_id: { ingredient, grams } }
@@ -514,6 +515,155 @@
     });
   }
 
+  async function startSecretDesign(cardEl, order) {
+    cardEl.innerHTML = '<div class="loading">กำลังโหลดวัตถุดิบ...</div>';
+    await loadAllIngredients();
+
+    const localSelections = {}; // { ingredient_id: { ingredient, grams } } — แยกจาก secretRecipeSelections ของหน้าเพิ่ม กันชนกัน
+
+    cardEl.innerHTML = `
+      <div class="card-top">
+        <span class="card-name">${order.customer_name} — 🔮 ออกแบบแก้วลับ</span>
+      </div>
+      <div class="field-label">ชื่อเมนูลับ</div>
+      <input type="text" id="td-secretName" placeholder="เช่น ลาเต้เผือกมะพร้าวคั่ว">
+      <div class="field-label" style="margin-top:10px;">ส่วนผสม (แตะเลือกจากวัตถุดิบที่มี แล้วใส่ปริมาณ)</div>
+      <div class="chip-row" id="td-secretChips"></div>
+      <div id="td-secretQtyBlock"></div>
+      <button class="submit-btn" id="td-saveSecretBtn" style="margin-top:10px;background:#5A361B;" disabled>บันทึกเมนูลับ + ใช้แก้วนี้</button>
+      <button class="btn-bean-cancel" style="margin-top:10px;">ยกเลิก</button>
+      <div class="status-msg" id="td-secretStatus"></div>
+    `;
+
+    cardEl.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
+
+    function renderChips() {
+      const row = cardEl.querySelector('#td-secretChips');
+      row.innerHTML = '';
+      allIngredientsCache.forEach(ing => {
+        const chip = document.createElement('div');
+        const isSel = !!localSelections[ing.id];
+        chip.className = 'chip' + (isSel ? ' selected' : '');
+        chip.textContent = ing.name;
+        chip.addEventListener('click', () => {
+          if (localSelections[ing.id]) {
+            delete localSelections[ing.id];
+          } else {
+            localSelections[ing.id] = { ingredient: ing, grams: null };
+          }
+          renderChips();
+          renderQtyBlock();
+          updateSaveState();
+        });
+        row.appendChild(chip);
+      });
+    }
+
+    function renderQtyBlock() {
+      const block = cardEl.querySelector('#td-secretQtyBlock');
+      block.innerHTML = '';
+      Object.values(localSelections).forEach(sel => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;';
+        wrap.innerHTML = `
+          <span style="flex:1;font-size:13px;">${sel.ingredient.name}</span>
+          <input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">
+        `;
+        const input = wrap.querySelector('input');
+        if (sel.grams !== null) input.value = sel.grams;
+        input.addEventListener('input', () => {
+          sel.grams = input.value ? Number(input.value) : null;
+          updateSaveState();
+        });
+        block.appendChild(wrap);
+      });
+    }
+
+    function updateSaveState() {
+      const btn = cardEl.querySelector('#td-saveSecretBtn');
+      const name = cardEl.querySelector('#td-secretName').value.trim();
+      const sels = Object.values(localSelections);
+      const allQtyFilled = sels.length > 0 && sels.every(s => s.grams && s.grams > 0);
+      btn.disabled = !(name && allQtyFilled);
+    }
+
+    cardEl.querySelector('#td-secretName').addEventListener('input', updateSaveState);
+    renderChips();
+    renderQtyBlock();
+    updateSaveState();
+
+    cardEl.querySelector('#td-saveSecretBtn').addEventListener('click', async () => {
+      const btn = cardEl.querySelector('#td-saveSecretBtn');
+      const statusEl = cardEl.querySelector('#td-secretStatus');
+      const name = cardEl.querySelector('#td-secretName').value.trim();
+      const sels = Object.values(localSelections);
+      btn.disabled = true;
+      btn.textContent = 'กำลังบันทึก...';
+
+      const needsBean = sels.some(s => s.ingredient.category === 'coffee_bean');
+
+      const { data: newItem, error: menuErr } = await sb.from('menu_items').insert([{
+        name,
+        price: 0,
+        category: 'secret',
+        needs_bean: needsBean,
+        image_url: OMAKASE_SECRET_IMAGE_URL,
+        omakase_only: true,
+      }]).select('id, name, price, category, needs_bean, image_url').maybeSingle();
+
+      if (menuErr || !newItem) {
+        statusEl.textContent = `บันทึกไม่สำเร็จ: ${menuErr ? menuErr.message : 'unknown error'}`;
+        statusEl.className = 'status-msg error';
+        btn.disabled = false;
+        btn.textContent = 'บันทึกเมนูลับ + ใช้แก้วนี้';
+        return;
+      }
+
+      const recipeRows = sels.map(s => ({
+        menu_item_id: newItem.id,
+        ingredient_id: s.ingredient.id,
+        quantity: s.grams,
+      }));
+      const { error: recipeErr } = await sb.from('menu_recipes').insert(recipeRows);
+      if (recipeErr) {
+        statusEl.textContent = `บันทึกเมนูแล้ว แต่บันทึกสูตรไม่สำเร็จ: ${recipeErr.message}`;
+        statusEl.className = 'status-msg error';
+        btn.disabled = false;
+        btn.textContent = 'บันทึกเมนูลับ + ใช้แก้วนี้';
+        return;
+      }
+
+      // Insert ใหม่ (ไม่ใช่ update) เพราะ trg_copy_to_order_log / trg_unlock_menu_card_v2 ทำงานตอน INSERT —
+      // ต้องการให้ order_log/เหรียญสะสม เก็บชื่อเมนูลับจริงที่เพิ่งออกแบบ ไม่ใช่ placeholder (และยัง brewed=false เหมือนเดิม เดี๋ยว trigger ที่แก้ไว้จะรอ brewed=true เอง)
+      const { error: insErr } = await sb.from('preorders').insert([{
+        customer_name: order.customer_name,
+        menu_item_name: newItem.name,
+        price: 0,
+        wanted_date: order.wanted_date,
+        bean_name: order.bean_name,
+        notes: order.notes ? `${order.notes} (เดิม: แก้วลับรอออกแบบ)` : '(เดิม: แก้วลับรอออกแบบ)',
+        sweetness: order.sweetness,
+        line_user_id: order.line_user_id,
+        order_type: order.order_type || 'customer',
+        channel: order.channel,
+        omakase_set_id: order.omakase_set_id,
+      }]);
+      if (insErr) {
+        statusEl.textContent = `สร้างเมนูสำเร็จ แต่บันทึกออเดอร์ใหม่ไม่สำเร็จ: ${insErr.message}`;
+        statusEl.className = 'status-msg error';
+        btn.disabled = false;
+        btn.textContent = 'บันทึกเมนูลับ + ใช้แก้วนี้';
+        return;
+      }
+
+      const { error: delErr } = await sb.from('preorders').delete().eq('id', order.id);
+      if (delErr) {
+        alert('ออกแบบแก้วลับสำเร็จ แต่ลบออเดอร์ placeholder เดิมไม่สำเร็จ (มีแถวซ้ำ แจ้ง Claude ให้เช็คด้วย): ' + delErr.message);
+      }
+      loadToday();
+    });
+  }
+
   async function showBeanPicker(cardEl, order, doneBtn) {
     doneBtn.disabled = true;
     doneBtn.textContent = 'กำลังโหลดเมล็ด...';
@@ -696,6 +846,33 @@
     listEl.innerHTML = '';
     data.forEach(order => {
       const isToday = order.wanted_date === todayISO;
+
+      if (order.menu_item_name === SECRET_PLACEHOLDER_NAME) {
+        const div = document.createElement('div');
+        div.className = 'card' + (isToday ? ' today' : '');
+        div.style.borderLeftColor = '#5A361B';
+        div.innerHTML = `
+          <div class="card-top">
+            <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#5A361B;">🔮 แก้วลับ — รอออกแบบ</span></span>
+            <div class="card-top-right">
+              <span class="card-date">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
+              <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
+            </div>
+          </div>
+          <div class="card-menu">แก้ว Secret ของชุด Omakase นี้ — ยังไม่ได้ออกแบบ</div>
+          <button class="btn-done" style="background:#5A361B;color:#fff;">🔮 ออกแบบแก้วลับ →</button>
+        `;
+        div.querySelector('.btn-delete').addEventListener('click', async () => {
+          if (!confirm(`ลบออเดอร์ "${order.customer_name} - แก้วลับ" ใช่ไหม?`)) return;
+          const { error } = await sb.from('preorders').delete().eq('id', order.id);
+          if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+          div.style.opacity = '0';
+          setTimeout(() => loadToday(), 200);
+        });
+        div.querySelector('.btn-done').addEventListener('click', () => startSecretDesign(div, order));
+        listEl.appendChild(div);
+        return;
+      }
 
       if (order.menu_item_name === '🐱 แมวส้มเลือกหน่อย' && !order.surprise_actual_item_id) {
         const div = document.createElement('div');
