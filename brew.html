@@ -660,7 +660,13 @@
       if (delErr) {
         alert('ออกแบบแก้วลับสำเร็จ แต่ลบออเดอร์ placeholder เดิมไม่สำเร็จ (มีแถวซ้ำ แจ้ง Claude ให้เช็คด้วย): ' + delErr.message);
       }
-      loadToday();
+
+      // เติมเมนูใหม่เข้า MENU cache ของหน้า "เพิ่ม" ทันที (ไม่งั้นบาริสต้าต้องรีโหลดหน้าก่อนถึงจะเลือกเมนูนี้ให้ลูกค้าคนอื่นได้)
+      const iconFallback = CATEGORY_ICON[newItem.category] || '✨';
+      MENU.push({ name: newItem.name, price: Number(newItem.price), icon: iconFallback, image_url: newItem.image_url, bean: newItem.needs_bean });
+      renderMenuGrid();
+
+      switchScreen('add');
     });
   }
 
