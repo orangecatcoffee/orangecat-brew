@@ -53,6 +53,11 @@
     <div class="chip-row" id="memberChips"></div>
   </div>
 
+  <div id="omakaseSubToggleBlock" style="display:none;margin-top:10px;background:#fff;border-radius:12px;padding:12px 14px;align-items:center;justify-content:space-between;gap:10px;">
+    <span style="font-size:13px;font-weight:700;color:#4A3428;">🎴 Omakase Subscription</span>
+    <button type="button" id="omakaseSubToggleBtn" style="padding:8px 16px;border-radius:999px;border:none;font-size:12.5px;font-weight:700;font-family:inherit;"></button>
+  </div>
+
   <div id="guestNameBlock" style="display:none;">
     <div class="field-label">ชื่อลูกค้า</div>
     <input type="text" id="customerName" placeholder="พิมพ์ชื่อ...">
@@ -1624,7 +1629,7 @@
   async function loadMembers() {
     const { data, error } = await sb
       .from('members')
-      .select('line_user_id, display_name')
+      .select('line_user_id, display_name, omakase_sub_active')
       .order('display_name', { ascending: true });
     membersCache = (!error && data) ? data : [];
     renderMemberChips();
@@ -1648,9 +1653,34 @@
         selectedMemberLineId = m.line_user_id;
         updateLinkHint();
         updateSubmitState();
+        renderOmakaseSubToggle(m);
       });
       el.appendChild(chip);
     });
+  }
+
+  function renderOmakaseSubToggle(member) {
+    const block = document.getElementById('omakaseSubToggleBlock');
+    const btn = document.getElementById('omakaseSubToggleBtn');
+    block.style.display = 'flex';
+    const isOn = !!member.omakase_sub_active;
+    btn.textContent = isOn ? 'ON — แตะเพื่อปิด' : 'OFF — แตะเพื่อเปิด';
+    btn.style.background = isOn ? '#4A9B5C' : '#F0E4D8';
+    btn.style.color = isOn ? '#fff' : '#4A3428';
+    btn.onclick = async () => {
+      btn.disabled = true;
+      const newVal = !isOn;
+      const { error } = await sb
+        .from('members')
+        .update({ omakase_sub_active: newVal })
+        .eq('line_user_id', member.line_user_id);
+      btn.disabled = false;
+      if (error) { alert('อัปเดตไม่สำเร็จ: ' + error.message); return; }
+      member.omakase_sub_active = newVal;
+      const cached = membersCache.find(m => m.line_user_id === member.line_user_id);
+      if (cached) cached.omakase_sub_active = newVal;
+      renderOmakaseSubToggle(member);
+    };
   }
 
   function updateLinkHint() {
@@ -1772,6 +1802,7 @@
     selectedMemberLineId = null;
     document.getElementById('customerName').value = '';
     document.querySelectorAll('#memberChips .chip').forEach(c => c.classList.remove('selected'));
+    document.getElementById('omakaseSubToggleBlock').style.display = 'none';
     updateLinkHint();
     updateSubmitState();
   });
