@@ -110,6 +110,10 @@
   <div class="field-label">วันที่ต้องการ</div>
   <div class="date-row" id="dateRow"></div>
 
+  <div class="field-label">ส่วนลด (ไม่บังคับ)</div>
+  <div class="field-hint" id="discountHint">ใส่จำนวนบาทที่ลด — ราคาสุทธิจะหักให้อัตโนมัติตอนบันทึก</div>
+  <input type="number" id="discountAmount" placeholder="เช่น 20" min="0" step="1" style="margin-bottom:8px;">
+
   <button class="submit-btn" id="submitBtn" disabled>บันทึกออเดอร์</button>
   <div class="status-msg" id="addStatus"></div>
 </div>
@@ -1050,7 +1054,7 @@
             <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
           </div>
         </div>
-        <div class="card-menu">${order.menu_item_name} <span class="price">${order.price}฿</span>${order.bean_name ? ` · ${order.bean_name}` : ''}</div>
+        <div class="card-menu">${order.menu_item_name} <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.bean_name ? ` · ${order.bean_name}` : ''}</div>
         <button class="btn-done" data-id="${order.id}">ชงแล้ว</button>
       `;
       div.querySelector('.btn-delete').addEventListener('click', async () => {
@@ -2031,6 +2035,7 @@
     const beanName = document.getElementById('beanName').value.trim() || null;
     const blendPayload = selectedBeanIds.length >= 2 ? getBlendGramsPayload() : null;
     const isFree = orderType !== 'customer';
+    const discountInput = Number(document.getElementById('discountAmount').value) || 0;
 
     let insertRows;
     if (orderMode === 'omakase') {
@@ -2049,10 +2054,12 @@
         omakase_set_id: omakaseSetId,
       }));
     } else {
+      const discount = isFree ? 0 : Math.min(discountInput, selectedMenu.price);
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
-        price: isFree ? 0 : selectedMenu.price,
+        price: isFree ? 0 : (selectedMenu.price - discount),
+        discount_amount: discount,
         wanted_date: selectedDate,
         bean_name: beanName,
         line_user_id: selectedMemberLineId,
@@ -2105,6 +2112,7 @@
     statusEl.className = 'status-msg success';
     document.getElementById('customerName').value = '';
     document.getElementById('beanName').value = '';
+    document.getElementById('discountAmount').value = '';
     selectedBeanIds = [];
     document.getElementById('blendGramsBlock').innerHTML = '';
     document.querySelectorAll('.menu-card, .date-btn, #memberChips .chip, #recentBeans .chip').forEach(b => b.classList.remove('selected'));
