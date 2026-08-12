@@ -38,6 +38,7 @@
     <button type="button" class="sweetness-btn selected" data-order-type="customer">ลูกค้า</button>
     <button type="button" class="sweetness-btn" data-order-type="staff">Staff กินเอง</button>
     <button type="button" class="sweetness-btn" data-order-type="reward">แลกแต้ม (ฟรี)</button>
+    <button type="button" class="sweetness-btn" data-order-type="our_treat">Our Treat (ฟรี)</button>
   </div>
   <div class="field-hint" id="orderTypeHint" style="display:none;"></div>
   <div class="chip-row" id="staffChips" style="display:none;margin-top:6px;"></div>
@@ -331,6 +332,7 @@
           line_user_id: order.line_user_id,
           customer_name: order.customer_name,
           menu_item_name: order.menu_item_name,
+          order_type: order.order_type,
         }),
       }).catch(err => console.error('notify-ready failed:', err));
     }
@@ -391,6 +393,7 @@
           line_user_id: order.line_user_id,
           customer_name: order.customer_name,
           menu_item_name: order.menu_item_name,
+          order_type: order.order_type,
         }),
       }).catch(err => console.error('notify-ready failed:', err));
     }
@@ -922,8 +925,9 @@
     const todayOrders = data.filter(o => o.wanted_date === todayISO);
     const staffCount = todayOrders.filter(o => o.order_type === 'staff').length;
     const rewardCount = todayOrders.filter(o => o.order_type === 'reward').length;
-    const extraNote = (staffCount || rewardCount)
-      ? ` (staff ${staffCount} · reward ${rewardCount})`
+    const treatCount = todayOrders.filter(o => o.order_type === 'our_treat').length;
+    const extraNote = (staffCount || rewardCount || treatCount)
+      ? ` (staff ${staffCount} · reward ${rewardCount} · Our Treat ${treatCount})`
       : '';
     summaryEl.textContent = `วันนี้ ${todayOrders.length} แก้ว${extraNote} · ทั้งหมดค้างชง ${data.length} แก้ว`;
 
@@ -1033,6 +1037,7 @@
 
       const typeBadge = order.order_type === 'staff' ? ' <span style="color:#A8876F;">☕ staff</span>'
         : order.order_type === 'reward' ? ' <span style="color:#E8863A;">🎁 reward</span>'
+        : order.order_type === 'our_treat' ? ' <span style="color:#4A9B5C;">🎁 Our Treat</span>'
         : '';
       const omakaseBadge = order.omakase_set_id ? ' <span style="color:#E8621A;">🎴 Omakase</span>' : '';
       const div = document.createElement('div');
@@ -1893,6 +1898,8 @@
       hintEl.style.display = 'block';
       hintEl.textContent = orderType === 'staff'
         ? '☕ ของกินเอง/ให้พนักงาน — ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ)'
+        : orderType === 'our_treat'
+        ? '🎁 Our Treat — ร้านเลี้ยงเอง (ต้อนรับลูกค้าใหม่/สมนาคุณ) ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ) แจ้งลูกค้าว่า "Enjoy Our Treat!"'
         : '🎁 แลกฟรีจากแต้มสะสม — ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ)';
       if (orderType === 'staff') {
         renderStaffChips();
