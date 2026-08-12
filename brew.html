@@ -53,11 +53,6 @@
     <div class="chip-row" id="memberChips"></div>
   </div>
 
-  <div id="omakaseSubToggleBlock" style="display:none;margin-top:10px;background:#fff;border-radius:12px;padding:12px 14px;align-items:center;justify-content:space-between;gap:10px;">
-    <span style="font-size:13px;font-weight:700;color:#4A3428;">🎴 Omakase Subscription</span>
-    <button type="button" id="omakaseSubToggleBtn" style="padding:8px 16px;border-radius:999px;border:none;font-size:12.5px;font-weight:700;font-family:inherit;"></button>
-  </div>
-
   <div id="guestNameBlock" style="display:none;">
     <div class="field-label">ชื่อลูกค้า</div>
     <input type="text" id="customerName" placeholder="พิมพ์ชื่อ...">
@@ -122,6 +117,28 @@
   <div id="billList"></div>
 </div>
 
+<div class="screen" id="screen-members">
+  <div class="field-label">โปรแกรม Subscription</div>
+  <div class="chip-row" id="programChips"></div>
+
+  <div id="programManageBlock" style="display:none;margin-top:18px;">
+    <div class="field-label" id="programManageTitle"></div>
+    <div class="field-hint">แตะชื่อลูกค้าเพื่อเปิด/ปิดสิทธิ์ — สีเขียว = เปิดอยู่</div>
+    <div class="chip-row" id="programMemberChips"></div>
+  </div>
+
+  <div class="field-label" style="margin-top:28px;">+ เพิ่มโปรแกรมใหม่</div>
+  <input type="text" id="newProgramName" placeholder="ชื่อโปรแกรม เช่น Omakase" style="margin-bottom:8px;">
+  <input type="text" id="newProgramImageUrl" placeholder="วาง URL รูป badge (จาก Supabase Storage)" style="margin-bottom:8px;">
+  <input type="text" id="newProgramLabel" placeholder="ข้อความข้าง badge เช่น Omakase Subscription: ON" style="margin-bottom:8px;">
+  <div class="field-hint">ข้อความด้านหลัง badge (ตอนลูกค้าปัดหมุนดู) — 3 บรรทัด</div>
+  <input type="text" id="newProgramLine1" placeholder="บรรทัด 1" style="margin-bottom:8px;">
+  <input type="text" id="newProgramLine2" placeholder="บรรทัด 2" style="margin-bottom:8px;">
+  <input type="text" id="newProgramLine3" placeholder="บรรทัด 3 (เช่น อิโมจิ)" style="margin-bottom:8px;">
+  <button type="button" class="submit-btn" id="addProgramBtn" style="margin-top:8px;">เพิ่มโปรแกรม</button>
+  <div class="status-msg" id="programStatusMsg"></div>
+</div>
+
 <div class="nav">
   <button class="nav-btn active" data-screen="today" onclick="switchScreen('today')">
     <span class="nav-icon">☕</span>วันนี้
@@ -131,6 +148,9 @@
   </button>
   <button class="nav-btn" data-screen="bill" onclick="switchScreen('bill')">
     <span class="nav-icon">💰</span>บิล
+  </button>
+  <button class="nav-btn" data-screen="members" onclick="switchScreen('members')">
+    <span class="nav-icon">🎫</span>สมาชิก
   </button>
 </div>
 
@@ -189,7 +209,7 @@
     }));
   }
 
-  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย" };
+  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย", members: "จัดการสมาชิก" };
   let selectedMenu = null;
   let selectedDate = null;
   let selectedMemberLineId = null;
@@ -221,6 +241,7 @@
     if (name === 'today') loadToday();
     if (name === 'bill') loadBills();
     if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); }
+    if (name === 'members') { loadMembers(); loadPrograms(); }
   }
 
   function fmtDate(d) {
@@ -1629,7 +1650,7 @@
   async function loadMembers() {
     const { data, error } = await sb
       .from('members')
-      .select('line_user_id, display_name, omakase_sub_active')
+      .select('line_user_id, display_name')
       .order('display_name', { ascending: true });
     membersCache = (!error && data) ? data : [];
     renderMemberChips();
@@ -1653,35 +1674,140 @@
         selectedMemberLineId = m.line_user_id;
         updateLinkHint();
         updateSubmitState();
-        renderOmakaseSubToggle(m);
       });
       el.appendChild(chip);
     });
   }
 
-  function renderOmakaseSubToggle(member) {
-    const block = document.getElementById('omakaseSubToggleBlock');
-    const btn = document.getElementById('omakaseSubToggleBtn');
-    block.style.display = 'flex';
-    const isOn = !!member.omakase_sub_active;
-    btn.textContent = isOn ? 'ON — แตะเพื่อปิด' : 'OFF — แตะเพื่อเปิด';
-    btn.style.background = isOn ? '#4A9B5C' : '#F0E4D8';
-    btn.style.color = isOn ? '#fff' : '#4A3428';
-    btn.onclick = async () => {
-      btn.disabled = true;
-      const newVal = !isOn;
-      const { error } = await sb
-        .from('members')
-        .update({ omakase_sub_active: newVal })
-        .eq('line_user_id', member.line_user_id);
-      btn.disabled = false;
-      if (error) { alert('อัปเดตไม่สำเร็จ: ' + error.message); return; }
-      member.omakase_sub_active = newVal;
-      const cached = membersCache.find(m => m.line_user_id === member.line_user_id);
-      if (cached) cached.omakase_sub_active = newVal;
-      renderOmakaseSubToggle(member);
-    };
+  // ===== Subscription Programs (จัดการสมาชิก tab) =====
+  let programsCache = [];
+
+  async function loadPrograms() {
+    const { data, error } = await sb
+      .from('subscription_programs')
+      .select('*')
+      .order('created_at', { ascending: true });
+    programsCache = (!error && data) ? data : [];
+    renderProgramChips();
+    document.getElementById('programManageBlock').style.display = 'none';
   }
+
+  function renderProgramChips() {
+    const el = document.getElementById('programChips');
+    el.innerHTML = '';
+    if (programsCache.length === 0) {
+      el.innerHTML = '<span style="font-size:11px;color:#A8876F;">ยังไม่มีโปรแกรม — เพิ่มด้านล่างได้เลย</span>';
+      return;
+    }
+    programsCache.forEach(p => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = p.name;
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#programChips .chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        openProgramManage(p);
+      });
+      el.appendChild(chip);
+    });
+  }
+
+  async function openProgramManage(program) {
+    const block = document.getElementById('programManageBlock');
+    const title = document.getElementById('programManageTitle');
+    const el = document.getElementById('programMemberChips');
+    block.style.display = 'block';
+    title.textContent = 'จัดการ: ' + program.name;
+    el.innerHTML = '<span style="font-size:11px;color:#A8876F;">กำลังโหลด...</span>';
+
+    if (membersCache.length === 0) await loadMembers();
+
+    const { data } = await sb
+      .from('member_program_status')
+      .select('line_user_id')
+      .eq('program_id', program.id)
+      .eq('active', true);
+    const activeSet = new Set((data || []).map(r => r.line_user_id));
+
+    el.innerHTML = '';
+    if (membersCache.length === 0) {
+      el.innerHTML = '<span style="font-size:11px;color:#A8876F;">ยังไม่มีสมาชิกลงทะเบียนในระบบ</span>';
+      return;
+    }
+    membersCache.forEach(m => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = m.display_name;
+      const isActive = activeSet.has(m.line_user_id);
+      chip.dataset.active = String(isActive);
+      styleProgramChip(chip, isActive);
+      chip.addEventListener('click', async () => {
+        const next = chip.dataset.active !== 'true';
+        chip.disabled = true;
+        const { error } = await sb
+          .from('member_program_status')
+          .upsert(
+            { line_user_id: m.line_user_id, program_id: program.id, active: next, updated_at: new Date().toISOString() },
+            { onConflict: 'line_user_id,program_id' }
+          );
+        chip.disabled = false;
+        if (error) { alert('อัปเดตไม่สำเร็จ: ' + error.message); return; }
+        chip.dataset.active = String(next);
+        styleProgramChip(chip, next);
+      });
+      el.appendChild(chip);
+    });
+  }
+
+  function styleProgramChip(chip, isActive) {
+    chip.style.background = isActive ? '#4A9B5C' : '#fff';
+    chip.style.color = isActive ? '#fff' : '#4A3428';
+    chip.style.borderColor = isActive ? '#4A9B5C' : '#F0E4D8';
+    chip.style.fontWeight = isActive ? '700' : '400';
+  }
+
+  document.getElementById('addProgramBtn').addEventListener('click', async () => {
+    const name = document.getElementById('newProgramName').value.trim();
+    const imageUrl = document.getElementById('newProgramImageUrl').value.trim();
+    const label = document.getElementById('newProgramLabel').value.trim();
+    const line1 = document.getElementById('newProgramLine1').value.trim();
+    const line2 = document.getElementById('newProgramLine2').value.trim();
+    const line3 = document.getElementById('newProgramLine3').value.trim();
+    const statusEl = document.getElementById('programStatusMsg');
+    statusEl.className = 'status-msg';
+
+    if (!name || !imageUrl) {
+      statusEl.className = 'status-msg error';
+      statusEl.textContent = 'กรอกอย่างน้อยชื่อโปรแกรมกับ URL รูป badge นะครับ';
+      return;
+    }
+
+    const btn = document.getElementById('addProgramBtn');
+    btn.disabled = true;
+    const { error } = await sb.from('subscription_programs').insert([{
+      name,
+      badge_image_url: imageUrl,
+      badge_label: label || (name + ' Subscription: ON'),
+      back_line1: line1,
+      back_line2: line2,
+      back_line3: line3,
+    }]);
+    btn.disabled = false;
+
+    if (error) {
+      statusEl.className = 'status-msg error';
+      statusEl.textContent = 'เพิ่มไม่สำเร็จ: ' + error.message;
+      return;
+    }
+
+    statusEl.className = 'status-msg success';
+    statusEl.textContent = '✅ เพิ่มโปรแกรมแล้ว';
+    ['newProgramName', 'newProgramImageUrl', 'newProgramLabel', 'newProgramLine1', 'newProgramLine2', 'newProgramLine3']
+      .forEach(id => document.getElementById(id).value = '');
+    loadPrograms();
+  });
 
   function updateLinkHint() {
     const hintEl = document.getElementById('linkHint');
@@ -1802,7 +1928,6 @@
     selectedMemberLineId = null;
     document.getElementById('customerName').value = '';
     document.querySelectorAll('#memberChips .chip').forEach(c => c.classList.remove('selected'));
-    document.getElementById('omakaseSubToggleBlock').style.display = 'none';
     updateLinkHint();
     updateSubmitState();
   });
