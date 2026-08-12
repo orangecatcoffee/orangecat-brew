@@ -119,13 +119,8 @@
 
 <div class="screen" id="screen-members">
   <div class="field-label">โปรแกรม Subscription</div>
-  <div class="chip-row" id="programChips"></div>
-
-  <div id="programManageBlock" style="display:none;margin-top:18px;">
-    <div class="field-label" id="programManageTitle"></div>
-    <div class="field-hint">แตะชื่อลูกค้าเพื่อเปิด/ปิดสิทธิ์ — สีเขียว = เปิดอยู่</div>
-    <div class="chip-row" id="programMemberChips"></div>
-  </div>
+  <div class="field-hint">แตะการ์ดเพื่อแก้ไขข้อมูล badge หรือจัดการว่าใคร ON อยู่</div>
+  <div id="programList"></div>
 
   <div class="field-label" style="margin-top:28px;">+ เพิ่มโปรแกรมใหม่</div>
   <input type="text" id="newProgramName" placeholder="ชื่อโปรแกรม เช่น Omakase" style="margin-bottom:8px;">
@@ -1688,39 +1683,100 @@
       .select('*')
       .order('created_at', { ascending: true });
     programsCache = (!error && data) ? data : [];
-    renderProgramChips();
-    document.getElementById('programManageBlock').style.display = 'none';
+    renderProgramList();
   }
 
-  function renderProgramChips() {
-    const el = document.getElementById('programChips');
+  function escapeAttr(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  function renderProgramList() {
+    const el = document.getElementById('programList');
     el.innerHTML = '';
     if (programsCache.length === 0) {
-      el.innerHTML = '<span style="font-size:11px;color:#A8876F;">ยังไม่มีโปรแกรม — เพิ่มด้านล่างได้เลย</span>';
+      el.innerHTML = '<div class="empty-state">ยังไม่มีโปรแกรม — เพิ่มด้านล่างได้เลย</div>';
       return;
     }
     programsCache.forEach(p => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'chip';
-      chip.textContent = p.name;
-      chip.addEventListener('click', () => {
-        document.querySelectorAll('#programChips .chip').forEach(c => c.classList.remove('selected'));
-        chip.classList.add('selected');
-        openProgramManage(p);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="card-top" data-role="header" style="cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <img src="${escapeAttr(p.badge_image_url)}" style="height:28px;width:28px;object-fit:contain;" alt="">
+            <span class="card-name" data-role="name">${p.name}</span>
+          </div>
+          <span style="font-size:11px;color:#A8876F;" data-role="arrow">▼ จัดการ</span>
+        </div>
+        <div class="program-body" style="display:none;margin-top:12px;">
+          <div class="field-label" style="margin-top:0;">แก้ไข badge</div>
+          <input type="text" class="p-name" value="${escapeAttr(p.name)}" placeholder="ชื่อโปรแกรม" style="margin-bottom:8px;">
+          <input type="text" class="p-image" value="${escapeAttr(p.badge_image_url)}" placeholder="URL รูป badge" style="margin-bottom:8px;">
+          <input type="text" class="p-label" value="${escapeAttr(p.badge_label)}" placeholder="ข้อความข้าง badge" style="margin-bottom:8px;">
+          <div class="field-hint">ข้อความด้านหลัง badge (3 บรรทัด)</div>
+          <input type="text" class="p-line1" value="${escapeAttr(p.back_line1)}" placeholder="บรรทัด 1" style="margin-bottom:8px;">
+          <input type="text" class="p-line2" value="${escapeAttr(p.back_line2)}" placeholder="บรรทัด 2" style="margin-bottom:8px;">
+          <input type="text" class="p-line3" value="${escapeAttr(p.back_line3)}" placeholder="บรรทัด 3" style="margin-bottom:8px;">
+          <button type="button" class="btn-bean-confirm p-save" style="width:100%;">บันทึกการแก้ไข</button>
+          <div class="status-msg p-status"></div>
+
+          <div class="field-label">จัดการลูกค้า</div>
+          <div class="field-hint">แตะชื่อลูกค้าเพื่อเปิด/ปิดสิทธิ์ — สีเขียว = เปิดอยู่</div>
+          <div class="chip-row p-member-chips"></div>
+        </div>
+      `;
+      el.appendChild(card);
+
+      const header = card.querySelector('[data-role="header"]');
+      const body = card.querySelector('.program-body');
+      const arrow = card.querySelector('[data-role="arrow"]');
+      let membersLoaded = false;
+      header.addEventListener('click', async () => {
+        const opening = body.style.display === 'none';
+        body.style.display = opening ? 'block' : 'none';
+        arrow.textContent = opening ? '▲ ปิด' : '▼ จัดการ';
+        if (opening && !membersLoaded) {
+          membersLoaded = true;
+          await renderProgramMemberChips(p, card.querySelector('.p-member-chips'));
+        }
       });
-      el.appendChild(chip);
+
+      card.querySelector('.p-save').addEventListener('click', async () => {
+        const btn = card.querySelector('.p-save');
+        const statusEl = card.querySelector('.p-status');
+        const updated = {
+          name: card.querySelector('.p-name').value.trim(),
+          badge_image_url: card.querySelector('.p-image').value.trim(),
+          badge_label: card.querySelector('.p-label').value.trim(),
+          back_line1: card.querySelector('.p-line1').value.trim(),
+          back_line2: card.querySelector('.p-line2').value.trim(),
+          back_line3: card.querySelector('.p-line3').value.trim(),
+        };
+        statusEl.className = 'status-msg';
+        if (!updated.name || !updated.badge_image_url) {
+          statusEl.className = 'status-msg error';
+          statusEl.textContent = 'ชื่อกับ URL รูปห้ามว่างนะครับ';
+          return;
+        }
+        btn.disabled = true;
+        const { error } = await sb.from('subscription_programs').update(updated).eq('id', p.id);
+        btn.disabled = false;
+        if (error) {
+          statusEl.className = 'status-msg error';
+          statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + error.message;
+          return;
+        }
+        statusEl.className = 'status-msg success';
+        statusEl.textContent = '✅ บันทึกแล้ว';
+        Object.assign(p, updated);
+        card.querySelector('[data-role="name"]').textContent = updated.name;
+        card.querySelector('.card-top img').src = updated.badge_image_url;
+      });
     });
   }
 
-  async function openProgramManage(program) {
-    const block = document.getElementById('programManageBlock');
-    const title = document.getElementById('programManageTitle');
-    const el = document.getElementById('programMemberChips');
-    block.style.display = 'block';
-    title.textContent = 'จัดการ: ' + program.name;
-    el.innerHTML = '<span style="font-size:11px;color:#A8876F;">กำลังโหลด...</span>';
-
+  async function renderProgramMemberChips(program, container) {
+    container.innerHTML = '<span style="font-size:11px;color:#A8876F;">กำลังโหลด...</span>';
     if (membersCache.length === 0) await loadMembers();
 
     const { data } = await sb
@@ -1730,9 +1786,9 @@
       .eq('active', true);
     const activeSet = new Set((data || []).map(r => r.line_user_id));
 
-    el.innerHTML = '';
+    container.innerHTML = '';
     if (membersCache.length === 0) {
-      el.innerHTML = '<span style="font-size:11px;color:#A8876F;">ยังไม่มีสมาชิกลงทะเบียนในระบบ</span>';
+      container.innerHTML = '<span style="font-size:11px;color:#A8876F;">ยังไม่มีสมาชิกลงทะเบียนในระบบ</span>';
       return;
     }
     membersCache.forEach(m => {
@@ -1757,7 +1813,7 @@
         chip.dataset.active = String(next);
         styleProgramChip(chip, next);
       });
-      el.appendChild(chip);
+      container.appendChild(chip);
     });
   }
 
