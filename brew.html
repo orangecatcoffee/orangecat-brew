@@ -23,6 +23,11 @@
 <div class="screen active" id="screen-today">
   <div id="staffReminderBanner"></div>
   <div class="summary-bar" id="todaySummary">กำลังโหลด...</div>
+  <div class="chip-row" id="dateFilterRow" style="margin-bottom:12px;">
+    <button type="button" class="chip selected" data-filter="all">ทั้งหมด</button>
+    <button type="button" class="chip" data-filter="today">วันนี้</button>
+    <button type="button" class="chip" data-filter="week">สัปดาห์นี้</button>
+  </div>
   <div id="todayList"></div>
 </div>
 
@@ -855,6 +860,20 @@
     } catch (e) { /* เงียบไว้ ไม่ critical */ }
   }
 
+  let todayFilter = 'all'; // 'all' | 'today' | 'week' — ฟิลเตอร์แสดงคิวชง ไม่กระทบ query จาก DB แค่กรองฝั่ง client
+
+  function currentWeekRangeISO() {
+    // สัปดาห์นี้ = จันทร์-อาทิตย์ของสัปดาห์ปัจจุบัน
+    const now = new Date();
+    const day = now.getDay(); // 0=อาทิตย์
+    const diffToMonday = (day === 0 ? -6 : 1 - day);
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { start: toISODate(monday), end: toISODate(sunday) };
+  }
+
   async function loadToday() {
     checkStaffReminder();
     const listEl = document.getElementById('todayList');
@@ -886,8 +905,22 @@
       : '';
     summaryEl.textContent = `วันนี้ ${todayOrders.length} แก้ว${extraNote} · ทั้งหมดค้างชง ${data.length} แก้ว`;
 
+    let visibleOrders = data;
+    if (todayFilter === 'today') {
+      visibleOrders = todayOrders;
+    } else if (todayFilter === 'week') {
+      const { start, end } = currentWeekRangeISO();
+      visibleOrders = data.filter(o => o.wanted_date >= start && o.wanted_date <= end);
+    }
+
+    if (visibleOrders.length === 0) {
+      const label = todayFilter === 'today' ? 'วันนี้' : todayFilter === 'week' ? 'สัปดาห์นี้' : '';
+      listEl.innerHTML = `<div class="empty-state">ไม่มีออเดอร์ค้างชง${label ? 'ของ' + label : ''} 🎉</div>`;
+      return;
+    }
+
     listEl.innerHTML = '';
-    data.forEach(order => {
+    visibleOrders.forEach(order => {
       const isToday = order.wanted_date === todayISO;
 
       if (order.menu_item_name === SECRET_PLACEHOLDER_NAME) {
@@ -2194,6 +2227,15 @@
     banner.textContent = '🎮 Theme ตอนนี้: ' + active.map(t => t.title).join(' · ');
     banner.style.display = 'block';
   }
+
+  // ฟิลเตอร์คิวชง: ทั้งหมด / วันนี้ / สัปดาห์นี้ — ผูกครั้งเดียว เพราะแถบชิปคงที่ ไม่ถูก re-render
+  document.getElementById('dateFilterRow').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    todayFilter = chip.dataset.filter;
+    document.querySelectorAll('#dateFilterRow .chip').forEach(c => c.classList.toggle('selected', c === chip));
+    loadToday();
+  });
 
   // แตะที่ป้ายวันที่ (card-date) เพื่อแก้วันที่ต้องการรับของออเดอร์นั้นได้เลย —
   // ผูก listener ครั้งเดียวแบบ delegated เพราะ #todayList ถูก re-render (innerHTML ใหม่) ทุกครั้งที่ loadToday()
