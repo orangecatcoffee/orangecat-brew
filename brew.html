@@ -26,6 +26,7 @@
   <div class="chip-row" id="dateFilterRow" style="margin-bottom:12px;">
     <button type="button" class="chip selected" data-filter="all">ทั้งหมด</button>
     <button type="button" class="chip" data-filter="today">วันนี้</button>
+    <button type="button" class="chip" data-filter="tomorrow">พรุ่งนี้</button>
     <button type="button" class="chip" data-filter="week">สัปดาห์นี้</button>
   </div>
   <div id="todayList"></div>
@@ -908,13 +909,18 @@
     let visibleOrders = data;
     if (todayFilter === 'today') {
       visibleOrders = todayOrders;
+    } else if (todayFilter === 'tomorrow') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowISO = toISODate(tomorrow);
+      visibleOrders = data.filter(o => o.wanted_date === tomorrowISO);
     } else if (todayFilter === 'week') {
       const { start, end } = currentWeekRangeISO();
       visibleOrders = data.filter(o => o.wanted_date >= start && o.wanted_date <= end);
     }
 
     if (visibleOrders.length === 0) {
-      const label = todayFilter === 'today' ? 'วันนี้' : todayFilter === 'week' ? 'สัปดาห์นี้' : '';
+      const label = todayFilter === 'today' ? 'วันนี้' : todayFilter === 'tomorrow' ? 'พรุ่งนี้' : todayFilter === 'week' ? 'สัปดาห์นี้' : '';
       listEl.innerHTML = `<div class="empty-state">ไม่มีออเดอร์ค้างชง${label ? 'ของ' + label : ''} 🎉</div>`;
       return;
     }
