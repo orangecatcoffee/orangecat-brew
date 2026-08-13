@@ -186,7 +186,7 @@
   async function loadMenuItems() {
     const { data, error } = await sb
       .from('menu_items')
-      .select('id, name, price, category, needs_bean, image_url')
+      .select('id, name, price, category, needs_bean, image_url, uses_misc_cost_estimate')
       .eq('is_omakase_placeholder', false);
     if (error || !data) {
       alert('โหลดเมนูไม่สำเร็จ: ' + (error ? error.message : 'unknown error'));
@@ -206,6 +206,7 @@
       image_url: m.image_url,
       bean: m.needs_bean,
       category: m.category,
+      usesMiscCost: !!m.uses_misc_cost_estimate,
     }));
   }
 
@@ -265,7 +266,7 @@
 
   function isSecretMenuName(menuName) {
     const m = MENU.find(x => x.name === menuName);
-    return !!(m && m.category === 'secret');
+    return !!(m && (m.category === 'secret' || m.usesMiscCost));
   }
 
   const SWEETNESS_RULES = {
@@ -762,9 +763,9 @@
     let isSecretMenu = false;
     let mixerOptions = [];
     try {
-      const { data: menuRows } = await sb.from('menu_items').select('category').eq('name', order.menu_item_name).limit(1);
+      const { data: menuRows } = await sb.from('menu_items').select('category, uses_misc_cost_estimate').eq('name', order.menu_item_name).limit(1);
       const menuRow = menuRows && menuRows[0];
-      isSecretMenu = !!(menuRow && menuRow.category === 'secret');
+      isSecretMenu = !!(menuRow && (menuRow.category === 'secret' || menuRow.uses_misc_cost_estimate));
       if (isSecretMenu) {
         const { data: mixers } = await sb.from('ingredients').select('id, name').or('category.eq.milk,name.eq.น้ำเปล่า').eq('active', true).order('name');
         mixerOptions = mixers || [];
