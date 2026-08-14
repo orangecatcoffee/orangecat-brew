@@ -1698,9 +1698,9 @@
       const omkLabel = omakaseAlwaysOnMap[m.line_user_id];
       chip.className = 'chip member';
       if (omkLabel) {
-        // Always On = เติมพื้นหลังทึบส้ม + ไอคอน 🔁 ให้ต่างจาก selected state ชัดเจน ไม่ใช่แค่กรอบ dashed/solid ที่ดูใกล้กันเกินไป
-        chip.style.cssText = 'background:#E8863A;border-color:#E8863A;color:#fff;font-weight:700;border-style:solid;box-shadow:0 2px 6px rgba(232,134,58,0.35);';
-        chip.textContent = `🔁 ${m.display_name} · Always On`;
+        // Always On = พื้นเขียวอ่อนจางๆ (ไม่ชนสีส้มเข้มของ selected state) + ไอคอน 🔁 บอกว่าเป็นออเดอร์ซ้ำทุกสัปดาห์ + ชื่อแพ็คเกจ (Solo/Classic/Max)
+        chip.style.cssText = 'background:#E6F4EA;border-color:#A8D5B5;color:#2E6B3E;font-weight:700;border-style:solid;';
+        chip.textContent = `🔁 ${m.display_name} · ${omkLabel}`;
         chip.title = `Omakase ${omkLabel} — เปิด Always On อยู่ ต้องชงให้ทุกสัปดาห์`;
       } else {
         chip.textContent = m.display_name;
