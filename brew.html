@@ -1652,12 +1652,37 @@
     });
   }
 
+  let omakaseAlwaysOnMap = {}; // line_user_id -> program short label (เฉพาะที่ Always On เปิดอยู่ตอนนี้)
+
   async function loadMembers() {
     const { data, error } = await sb
       .from('members')
       .select('line_user_id, display_name')
       .order('display_name', { ascending: true });
     membersCache = (!error && data) ? data : [];
+
+    // เช็คว่าใครเปิด Always On ของ Omakase (Solo/Classic/Full Week) อยู่บ้าง — เอาไว้เรียงชิปให้ขึ้นบนสุด + ใส่สี/ไอคอนเตือนบาริสต้า
+    omakaseAlwaysOnMap = {};
+    const { data: statusRows } = await sb
+      .from('member_program_status')
+      .select('line_user_id, subscription_programs!inner(name)')
+      .eq('active', true)
+      .in('subscription_programs.name', ['Omakase Solo', 'Omakase Classic', 'Omakase Max']);
+    (statusRows || []).forEach(r => {
+      const programName = r.subscription_programs && r.subscription_programs.name;
+      if (!programName) return; // join ไม่ตรง (ไม่ใช่โปรแกรม Omakase) ข้ามไป
+      const shortLabel = programName.replace('Omakase ', '');
+      omakaseAlwaysOnMap[r.line_user_id] = shortLabel;
+    });
+
+    // เรียงลูกค้า Omakase Always On ขึ้นบนสุดเสมอ ที่เหลือเรียงตามชื่อปกติ
+    membersCache.sort((a, b) => {
+      const aOn = !!omakaseAlwaysOnMap[a.line_user_id];
+      const bOn = !!omakaseAlwaysOnMap[b.line_user_id];
+      if (aOn !== bOn) return aOn ? -1 : 1;
+      return a.display_name.localeCompare(b.display_name, 'th');
+    });
+
     renderMemberChips();
   }
 
@@ -1670,8 +1695,14 @@
     }
     membersCache.forEach(m => {
       const chip = document.createElement('button');
+      const omkLabel = omakaseAlwaysOnMap[m.line_user_id];
       chip.className = 'chip member';
-      chip.textContent = m.display_name;
+      if (omkLabel) {
+        chip.style.cssText = 'border-color:#E8863A;background:#FFF3E8;color:#B85C1A;font-weight:700;';
+        chip.textContent = `🎴 ${m.display_name} · ${omkLabel}`;
+      } else {
+        chip.textContent = m.display_name;
+      }
       chip.addEventListener('click', () => {
         document.querySelectorAll('#memberChips .chip').forEach(c => c.classList.remove('selected'));
         chip.classList.add('selected');
