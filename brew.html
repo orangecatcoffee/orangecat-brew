@@ -116,9 +116,6 @@
 
   <button class="submit-btn" id="submitBtn" disabled>บันทึกออเดอร์</button>
   <div class="status-msg" id="addStatus"></div>
-
-  <div class="field-label" style="margin-top:24px;">สรุปวันนี้</div>
-  <div id="addSummaryBox" style="background:#fff;border-radius:12px;padding:12px 14px;font-size:12.5px;color:#4A3428;line-height:1.9;">กำลังโหลด...</div>
 </div>
 
 <div class="screen" id="screen-bill">
@@ -244,7 +241,7 @@
     document.getElementById('screenTitle').textContent = TITLES[name];
     if (name === 'today') loadToday();
     if (name === 'bill') loadBills();
-    if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); loadAddSummary(); }
+    if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); }
     if (name === 'members') { loadMembers(); loadPrograms(); }
   }
 
@@ -258,31 +255,6 @@
     const d = new Date(iso);
     return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ' +
            d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-  }
-
-  // สรุปจำนวนแก้ววันนี้ แยกตามประเภท — โชว์ท้ายหน้าเพิ่มออเดอร์ เพื่อให้ Fah ไล่นับแก้วฟรีที่แจกไปเองได้
-  async function loadAddSummary() {
-    const box = document.getElementById('addSummaryBox');
-    box.textContent = 'กำลังโหลด...';
-    const todayISO = toISODate(new Date());
-    const { data, error } = await sb
-      .from('preorders')
-      .select('order_type')
-      .eq('wanted_date', todayISO);
-    if (error || !data) {
-      box.textContent = 'โหลดสรุปไม่สำเร็จ';
-      return;
-    }
-    const counts = { customer: 0, staff: 0, reward: 0, our_treat: 0 };
-    data.forEach(o => { if (counts[o.order_type] !== undefined) counts[o.order_type]++; });
-    const total = data.length;
-    box.innerHTML = `
-      ☕ ขายจริง: <b>${counts.customer}</b> แก้ว<br>
-      👥 Staff กินเอง: <b>${counts.staff}</b> แก้ว<br>
-      🎁 แลกแต้ม (ฟรีสมาชิก): <b>${counts.reward}</b> แก้ว<br>
-      🧡 Our Treat: <b>${counts.our_treat}</b> แก้ว<br>
-      <span style="color:#A8876F;">รวมทั้งหมด ${total} แก้ว</span>
-    `;
   }
 
   document.getElementById('todayDate').textContent = fmtDate(new Date());
