@@ -234,7 +234,7 @@
   let pendingReplaceOrderId = null; // preorders.id ของแถว omakase_pending ที่กำลังจะถูกแทนที่ด้วย 3 แก้วจริง
   const OMAKASE_SECRET_IMAGE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/storage/v1/object/public/menu-images/C439EF5E-50CE-4F95-B042-7F418A898C17.png";
   const SECRET_PLACEHOLDER_NAME = "🔮 แก้วลับ (รอออกแบบ)"; // ต้องตรงกับชื่อใน menu_items เป๊ะ
-  const OMAKASE_WEEKLY_PRICE = 230; // ราคาแพ็กเกจ Omakase ที่เรียกเก็บลูกค้าจริง (ไม่ใช่ผลรวมราคาเมนูแต่ละแก้ว)
+  const OMAKASE_WEEKLY_PRICE = 270; // ราคาแพ็กเกจ Omakase Classic ที่เรียกเก็บลูกค้าจริง (ไม่ใช่ผลรวมราคาเมนูแต่ละแก้ว)
   let allIngredientsCache = [];
   let secretRecipeSelections = {}; // { ingredient_id: { ingredient, grams } }
 
@@ -1030,7 +1030,7 @@
               <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
             </div>
           </div>
-          <div class="card-menu">ลูกค้าสั่ง Omakase ไว้แล้ว (230฿) — รอ Fah เลือก 3 เมนู</div>
+          <div class="card-menu">ลูกค้าสั่ง Omakase ไว้แล้ว (${order.price}฿) — รอ Fah เลือก 3 เมนู</div>
           <button class="btn-done" style="background:#E8621A;color:#fff;">🎴 เลือก 3 เมนู →</button>
         `;
         div.querySelector('.btn-delete').addEventListener('click', async () => {
@@ -2302,7 +2302,7 @@
       grouped[o.customer_name].push(o);
     });
 
-    // แปลงรายการดิบของลูกค้าคนหนึ่ง ให้ Omakase set (omakase_set_id เดียวกัน) รวมเป็น 1 บรรทัดราคา 230฿
+    // แปลงรายการดิบของลูกค้าคนหนึ่ง ให้ Omakase set (omakase_set_id เดียวกัน) รวมเป็น 1 บรรทัดราคา OMAKASE_WEEKLY_PRICE
     // แทนการรวมราคาจริงของแต่ละแก้ว — ลูกค้าเห็น/ถูกเรียกเก็บเป็นแพ็กเกจเดียว ไม่เห็นราคาต่อแก้ว
     function buildBillingLines(orders) {
       const lines = [];
