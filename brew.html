@@ -114,6 +114,11 @@
   <div class="field-hint" id="discountHint">ใส่จำนวนบาทที่ลด — ราคาสุทธิจะหักให้อัตโนมัติตอนบันทึก</div>
   <input type="number" id="discountAmount" placeholder="เช่น 20" min="0" step="1" style="margin-bottom:8px;">
 
+  <div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+    <input type="checkbox" id="isMaxCup" style="width:20px;height:20px;flex-shrink:0;">
+    <label for="isMaxCup" style="font-size:12.5px;color:#4A3428;font-weight:600;">🎴 นับเป็นแก้ว Omakase Max สัปดาห์นี้ (ไม่คิดเงินตอนนี้ ไปรวมเก็บทีหลัง)</label>
+  </div>
+
   <button class="submit-btn" id="submitBtn" disabled>บันทึกออเดอร์</button>
   <div class="status-msg" id="addStatus"></div>
 </div>
@@ -1050,11 +1055,12 @@
         : order.order_type === 'our_treat' ? ' <span style="color:#4A9B5C;">🎁 Our Treat</span>'
         : '';
       const omakaseBadge = order.omakase_set_id ? ' <span style="color:#E8621A;">🎴 Omakase</span>' : '';
+      const maxBadge = order.channel === 'liff-omakase-fullweek' ? ' <span style="color:#4A9B5C;">🎴 Max (รวมเก็บทีหลัง)</span>' : '';
       const div = document.createElement('div');
       div.className = 'card' + (isToday ? ' today' : '');
       div.innerHTML = `
         <div class="card-top">
-          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${typeBadge}${omakaseBadge}</span>
+          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${typeBadge}${omakaseBadge}${maxBadge}</span>
           <div class="card-top-right">
             <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
             <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
@@ -2097,19 +2103,20 @@
         omakase_set_id: omakaseSetId,
       }));
     } else {
+      const isMaxCup = document.getElementById('isMaxCup').checked;
       const discount = isFree ? 0 : Math.min(discountInput, selectedMenu.price);
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
-        price: isFree ? 0 : (selectedMenu.price - discount),
-        discount_amount: discount,
+        price: isMaxCup ? 0 : (isFree ? 0 : (selectedMenu.price - discount)),
+        discount_amount: isMaxCup ? 0 : discount,
         wanted_date: selectedDate,
         bean_name: beanName,
         line_user_id: selectedMemberLineId,
         order_type: orderType,
-        paid: isFree,
+        paid: isMaxCup ? false : isFree,
         sweetness: selectedSweetness,
-        channel: 'walk-in',
+        channel: isMaxCup ? 'liff-omakase-fullweek' : 'walk-in',
       }];
     }
 
@@ -2183,70 +2190,68 @@
   async function loadOmakaseMaxBills() {
     const block = document.getElementById('omakaseMaxBillBlock');
     const listEl = document.getElementById('omakaseMaxBillList');
-    const { data, error } = await sb
-      .from('transactions')
-      .select('*, members(line_user_id)')
-      .eq('channel', 'liff-omakase-fullweek')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true });
 
-    if (error || !data || data.length === 0) {
+    // ดึงแก้วจริงที่บาริสต้าแท็กไว้ว่า "นับเป็น Omakase Max" (ยังไม่จ่ายเงิน) — จัดกลุ่มตามลูกค้า
+    const { data: cups, error } = await sb
+      .from('preorders')
+      .select('*')
+      .eq('channel', 'liff-omakase-fullweek')
+      .eq('paid', false)
+      .order('wanted_date', { ascending: true });
+
+    if (error || !cups || cups.length === 0) {
       block.style.display = 'none';
       return;
     }
     block.style.display = 'block';
     listEl.innerHTML = '';
 
-    data.forEach(tx => {
-      const lineUserId = tx.members ? tx.members.line_user_id : null;
+    const grouped = {};
+    cups.forEach(c => {
+      const key = c.line_user_id || c.customer_name;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(c);
+    });
+
+    Object.values(grouped).forEach(groupCups => {
+      const first = groupCups[0];
+      const lineUserId = first.line_user_id || null;
+      const customerName = first.customer_name || 'ไม่ระบุชื่อ';
+      const defaultTotal = groupCups.length * 84; // ประมาณ 420/5 แก้ว ปรับได้จริงตอนบันทึก
+
+      const cupsHtml = groupCups.map(c => `
+        <div class="bill-item fb-cup-row">
+          <span>${c.menu_item_name}${c.bean_name ? ` · ${c.bean_name}` : ''} <span style="color:#A8876F;">(${fmtDate(new Date(c.wanted_date))})</span></span>
+          ${lineUserId ? `<button type="button" class="fb-send-now" data-preorder-id="${c.id}" data-menu="${c.menu_item_name.replace(/"/g,'&quot;')}" data-bean="${c.bean_name || ''}" data-sweet="${c.sweetness || ''}" style="background:none;border:1px solid #E8863A;color:#E8863A;border-radius:999px;padding:4px 10px;font-size:11px;font-family:inherit;">ส่งเลย</button>` : ''}
+        </div>
+      `).join('');
+
       const card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = `
         <div class="card-top">
-          <span class="card-name">${tx.customer_name || 'ไม่ระบุชื่อ'}${lineUserId ? ' 🔗' : ''}</span>
+          <span class="card-name">${customerName}${lineUserId ? ' 🔗' : ''}</span>
+          <span style="font-size:12px;color:#A8876F;">${groupCups.length} แก้ว</span>
         </div>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <div style="flex:1;">
-            <div class="field-hint" style="margin:0 0 4px;">จำนวนแก้ว</div>
-            <input type="number" class="max-qty-input" value="${tx.quantity}" min="0" step="1">
-          </div>
-          <div style="flex:1;">
-            <div class="field-hint" style="margin:0 0 4px;">ยอดรวม (บาท)</div>
-            <input type="number" class="max-price-input" value="${tx.total_price}" min="0" step="1">
-          </div>
-        </div>
-        <button type="button" class="btn-bean-confirm max-save-btn" style="width:100%;margin-top:8px;">บันทึกการแก้ไข</button>
-        ${lineUserId
-          ? `<button type="button" class="btn-request max-feedback-btn" style="margin-top:8px;">📋 ขอฟีดแบค Omakase Max</button>`
-          : `<div class="request-note" style="margin-top:8px;">ยังไม่ผูก LINE ของลูกค้าคนนี้ — ขอฟีดแบคอัตโนมัติไม่ได้</div>`
-        }
+        <div class="bill-items">${cupsHtml}</div>
+        <div class="field-hint" style="margin:10px 0 4px;">ยอดรวมปิดบิล (บาท) — แก้ได้ถ้าสัปดาห์นี้ไม่ครบ 5 แก้ว</div>
+        <input type="number" class="max-price-input" value="${defaultTotal}" min="0" step="1">
         <button type="button" class="btn-paid max-paid-btn" style="margin-top:8px;">เก็บเงินแล้ว</button>
         <div class="status-msg max-status"></div>
       `;
       listEl.appendChild(card);
 
-      card.querySelector('.max-save-btn').addEventListener('click', async () => {
-        const qtyInput = card.querySelector('.max-qty-input');
-        const priceInput = card.querySelector('.max-price-input');
-        const statusEl = card.querySelector('.max-status');
-        const { error: updErr } = await sb
-          .from('transactions')
-          .update({ quantity: Number(qtyInput.value), total_price: Number(priceInput.value) })
-          .eq('id', tx.id);
-        statusEl.className = 'status-msg max-status ' + (updErr ? 'error' : 'success');
-        statusEl.textContent = updErr ? `บันทึกไม่สำเร็จ: ${updErr.message}` : '✅ บันทึกแล้ว';
-      });
-
-      const feedbackBtn = card.querySelector('.max-feedback-btn');
-      if (feedbackBtn) {
-        feedbackBtn.addEventListener('click', async () => {
-          feedbackBtn.disabled = true;
-          feedbackBtn.textContent = 'กำลังส่ง...';
-          const statusEl = card.querySelector('.max-status');
+      card.querySelectorAll('.fb-send-now').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          btn.textContent = 'กำลังส่ง...';
           try {
             const { data: inserted, error: fbErr } = await sb.from('feedback_requests').insert([{
+              preorder_id: btn.dataset.preorderId,
               line_user_id: lineUserId,
-              menu_item_name: 'Omakase Max',
+              menu_item_name: btn.dataset.menu,
+              bean_name: btn.dataset.bean || null,
+              sweetness: btn.dataset.sweet || null,
             }]).select('id');
             if (fbErr) throw fbErr;
             const row = inserted && inserted[0];
@@ -2257,19 +2262,38 @@
                 body: JSON.stringify({ line_user_id: lineUserId, feedback_request_id: row.id }),
               }).catch(err => console.error('request-feedback push failed:', err));
             }
-            feedbackBtn.textContent = '✓ ส่งฟีดแบคแล้ว';
+            const row_ = btn.closest('.fb-cup-row');
+            row_.innerHTML = `<span style="font-size:11px;color:#3A6B4A;">✓ ส่งฟีดแบคแล้ว: ${btn.dataset.menu}</span>`;
           } catch (err) {
-            statusEl.className = 'status-msg max-status error';
-            statusEl.textContent = 'ส่งฟีดแบคไม่สำเร็จ: ' + err.message;
-            feedbackBtn.disabled = false;
-            feedbackBtn.textContent = '📋 ขอฟีดแบค Omakase Max';
+            alert('ส่งไม่สำเร็จ: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = 'ส่งเลย';
           }
         });
-      }
+      });
 
       card.querySelector('.max-paid-btn').addEventListener('click', async () => {
-        const { error: payErr } = await sb.from('transactions').update({ status: 'paid' }).eq('id', tx.id);
-        if (payErr) { alert('เก็บเงินไม่สำเร็จ: ' + payErr.message); return; }
+        const priceInput = card.querySelector('.max-price-input');
+        const statusEl = card.querySelector('.max-status');
+        const finalTotal = Number(priceInput.value);
+        const perCup = groupCups.length ? finalTotal / groupCups.length : 0;
+        const { error: payErr } = await sb
+          .from('preorders')
+          .update({ paid: true, price: perCup })
+          .in('id', groupCups.map(c => c.id));
+        if (payErr) {
+          statusEl.className = 'status-msg max-status error';
+          statusEl.textContent = 'เก็บเงินไม่สำเร็จ: ' + payErr.message;
+          return;
+        }
+        // ปิด transaction (สถานะสมัคร Always-On/สั่ง Full Week) ที่ค้างของลูกค้าคนนี้ไปด้วย ถ้ามี
+        if (lineUserId) {
+          const { data: memberRow } = await sb.from('members').select('id').eq('line_user_id', lineUserId).maybeSingle();
+          if (memberRow) {
+            await sb.from('transactions').update({ status: 'paid' })
+              .eq('member_id', memberRow.id).eq('channel', 'liff-omakase-fullweek').eq('status', 'pending');
+          }
+        }
         loadOmakaseMaxBills();
       });
     });
