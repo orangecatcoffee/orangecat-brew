@@ -149,6 +149,15 @@
   <div class="status-msg" id="programStatusMsg"></div>
 </div>
 
+<div class="screen" id="screen-secret">
+  <div class="field-label">🔮 จัดการเมนูลับ / Draft</div>
+  <div class="field-hint">เมนูลับที่ยังไม่ตั้งราคา/ยังไม่พร้อมขาย — แก้ไขสูตร ต้นทุน รูป ราคา ได้ที่นี่ที่เดียว ไม่ปนกับเมนูขายจริงในหน้า "เพิ่ม"</div>
+  <div id="secretMenuList"></div>
+
+  <div class="field-label" style="margin-top:28px;">+ สร้างเมนูลับใหม่</div>
+  <div id="secretCreateBlock"></div>
+</div>
+
 <div class="nav">
   <button class="nav-btn active" data-screen="today" onclick="switchScreen('today')">
     <span class="nav-icon">☕</span>วันนี้
@@ -161,6 +170,9 @@
   </button>
   <button class="nav-btn" data-screen="members" onclick="switchScreen('members')">
     <span class="nav-icon">🎫</span>สมาชิก
+  </button>
+  <button class="nav-btn" data-screen="secret" onclick="switchScreen('secret')">
+    <span class="nav-icon">🔮</span>ลับ
   </button>
 </div>
 
@@ -220,7 +232,7 @@
     }));
   }
 
-  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย", members: "จัดการสมาชิก" };
+  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย", members: "จัดการสมาชิก", secret: "เมนูลับ / Draft" };
   let selectedMenu = null;
   let selectedDate = null;
   let selectedMemberLineId = null;
@@ -253,6 +265,7 @@
     if (name === 'bill') { loadBills(); loadOmakaseMaxBills(); }
     if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); }
     if (name === 'members') { loadMembers(); loadPrograms(); }
+    if (name === 'secret') loadSecretMenuTab();
   }
 
   function fmtDate(d) {
@@ -1138,7 +1151,11 @@
   function renderMenuGrid() {
     const grid = document.getElementById('menuGrid');
     grid.innerHTML = '';
-    MENU.forEach(item => {
+    // โหมดสั่งปกติ: ซ่อนเมนูลับ/draft ที่ยังไม่พร้อมขายจริง (ราคา 0, จัดการแยกในแท็บ "ลับ") — โหมด Omakase ยังเห็นครบเพราะต้องใช้เลือก 3 แก้ว
+    const visibleMenu = orderMode === 'omakase'
+      ? MENU
+      : MENU.filter(item => item.category !== 'secret' && item.category !== 'signature_draft');
+    visibleMenu.forEach(item => {
       const div = document.createElement('div');
       div.className = 'menu-card';
       const iconHtml = item.image_url
@@ -1745,6 +1762,279 @@
 
   // ===== Subscription Programs (จัดการสมาชิก tab) =====
   let programsCache = [];
+
+  // ===================== แท็บ "ลับ" — จัดการเมนู secret/draft แยกออกมาต่างหาก ไม่ปนกับเมนูขายจริง =====================
+  async function loadSecretMenuTab() {
+    const listEl = document.getElementById('secretMenuList');
+    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+    await loadAllIngredients();
+
+    const { data, error } = await sb
+      .from('menu_items')
+      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only')
+      .in('category', ['secret', 'signature_draft'])
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error || !data) {
+      listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + (error ? error.message : 'unknown') + '</div>';
+    } else if (data.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนูลับ/draft ในระบบ</div>';
+    } else {
+      listEl.innerHTML = '';
+      for (const item of data) {
+        listEl.appendChild(await renderSecretMenuCard(item));
+      }
+    }
+
+    renderSecretCreateBlock();
+  }
+
+  async function renderSecretMenuCard(item) {
+    const { data: recipeRows } = await sb
+      .from('menu_recipes')
+      .select('id, quantity, ingredients(id, name, base_unit)')
+      .eq('menu_item_id', item.id);
+    const recipe = recipeRows || [];
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    const catLabel = item.category === 'secret' ? '🔮 Secret' : '📝 Signature Draft';
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="card-name">${catLabel}</span>
+        <button type="button" class="btn-delete" data-del-menu="${item.id}">✕</button>
+      </div>
+
+      ${item.image_url ? `<img src="${item.image_url}" class="slip-thumb" style="margin-bottom:8px;">` : ''}
+      <input type="text" class="sm-image" placeholder="วาง URL รูป (Supabase Storage)" value="${item.image_url || ''}" style="margin-bottom:8px;">
+
+      <div class="field-label" style="margin-top:0;">ชื่อเมนู</div>
+      <input type="text" class="sm-name" value="${item.name.replace(/"/g,'&quot;')}" style="margin-bottom:8px;">
+
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <div style="flex:1;">
+          <div class="field-label" style="margin-top:0;">ราคา (บาท)</div>
+          <input type="number" class="sm-price" value="${item.price}">
+        </div>
+        <div style="flex:1;">
+          <div class="field-label" style="margin-top:0;">ต้นทุนอื่นๆ (บาท)</div>
+          <input type="number" class="sm-misc" value="${item.default_misc_cost !== null ? item.default_misc_cost : ''}" placeholder="เช่น 10">
+        </div>
+      </div>
+
+      <div class="field-label" style="margin-top:0;">สูตร / ส่วนผสม</div>
+      <div class="sm-recipe-list">
+        ${recipe.length ? recipe.map(r => `
+          <div class="bill-item" data-recipe-row="${r.id}">
+            <span>${r.ingredients.name} — ${r.quantity}${r.ingredients.base_unit}</span>
+            <button type="button" class="btn-item-delete" data-del-recipe="${r.id}">ลบ</button>
+          </div>
+        `).join('') : '<div class="field-hint" style="margin:0 0 8px;">ยังไม่มีสูตร</div>'}
+      </div>
+      <div class="chip-row sm-add-chips" style="margin-top:8px;"></div>
+      <div class="sm-add-qty-block"></div>
+
+      <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;margin-top:12px;">บันทึกการแก้ไข</button>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <select class="sm-category-select" style="flex:1;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;">
+          <option value="secret" ${item.category === 'secret' ? 'selected' : ''}>Secret (ยังไม่ขายทั่วไป)</option>
+          <option value="signature_draft" ${item.category === 'signature_draft' ? 'selected' : ''}>Signature Draft</option>
+          <option value="signature_item">→ Signature (ขายจริง)</option>
+          <option value="espresso">→ กลุ่มกาแฟ (ขายจริง)</option>
+          <option value="matcha">→ กลุ่มชาเขียว (ขายจริง)</option>
+        </select>
+        <button type="button" class="btn-request sm-promote-btn" style="flex:1;margin-bottom:0;">ย้ายหมวดหมู่</button>
+      </div>
+      <div class="status-msg sm-status"></div>
+    `;
+
+    // --- เพิ่มวัตถุดิบ ---
+    const localAdd = {};
+    function renderAddChips() {
+      const row = card.querySelector('.sm-add-chips');
+      row.innerHTML = '';
+      allIngredientsCache
+        .filter(ing => !recipe.some(r => r.ingredients.id === ing.id))
+        .forEach(ing => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'chip' + (localAdd[ing.id] ? ' selected' : '');
+          chip.textContent = ing.name;
+          chip.addEventListener('click', () => {
+            if (localAdd[ing.id]) delete localAdd[ing.id];
+            else localAdd[ing.id] = { ingredient: ing, qty: null };
+            renderAddChips();
+            renderAddQtyBlock();
+          });
+          row.appendChild(chip);
+        });
+    }
+    function renderAddQtyBlock() {
+      const block = card.querySelector('.sm-add-qty-block');
+      block.innerHTML = '';
+      Object.values(localAdd).forEach(sel => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;';
+        wrap.innerHTML = `<span style="flex:1;font-size:12.5px;">${sel.ingredient.name}</span><input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">`;
+        const input = wrap.querySelector('input');
+        input.addEventListener('input', () => { sel.qty = input.value ? Number(input.value) : null; });
+        block.appendChild(wrap);
+      });
+    }
+    renderAddChips();
+
+    card.querySelectorAll('[data-del-recipe]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('ลบวัตถุดิบนี้ออกจากสูตรไหม?')) return;
+        await sb.from('menu_recipes').delete().eq('id', btn.dataset.delRecipe);
+        loadSecretMenuTab();
+      });
+    });
+
+    card.querySelector('.sm-save-btn').addEventListener('click', async () => {
+      const statusEl = card.querySelector('.sm-status');
+      const name = card.querySelector('.sm-name').value.trim();
+      const price = Number(card.querySelector('.sm-price').value) || 0;
+      const miscVal = card.querySelector('.sm-misc').value;
+      const imageUrl = card.querySelector('.sm-image').value.trim() || null;
+
+      const { error: updErr } = await sb.from('menu_items').update({
+        name, price, image_url: imageUrl,
+        default_misc_cost: miscVal ? Number(miscVal) : null,
+      }).eq('id', item.id);
+
+      const newRecipeRows = Object.values(localAdd)
+        .filter(s => s.qty && s.qty > 0)
+        .map(s => ({ menu_item_id: item.id, ingredient_id: s.ingredient.id, quantity: s.qty }));
+      let recipeErr = null;
+      if (newRecipeRows.length) {
+        const res = await sb.from('menu_recipes').insert(newRecipeRows);
+        recipeErr = res.error;
+      }
+
+      if (updErr || recipeErr) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + ((updErr || recipeErr).message);
+      } else {
+        statusEl.className = 'status-msg success';
+        statusEl.textContent = '✅ บันทึกแล้ว';
+        loadSecretMenuTab();
+      }
+    });
+
+    card.querySelector('.sm-promote-btn').addEventListener('click', async () => {
+      const newCat = card.querySelector('.sm-category-select').value;
+      if (!confirm(`ย้าย "${item.name}" ไปหมวด "${newCat}" ใช่ไหม? ถ้าย้ายไปหมวดขายจริง เมนูนี้จะโผล่ในหน้าลูกค้า/บาริสต้าทันที`)) return;
+      const { error: catErr } = await sb.from('menu_items').update({
+        category: newCat,
+        omakase_only: (newCat === 'secret' || newCat === 'signature_draft'),
+      }).eq('id', item.id);
+      if (catErr) { alert('ย้ายไม่สำเร็จ: ' + catErr.message); return; }
+      loadSecretMenuTab();
+    });
+
+    card.querySelector('[data-del-menu]').addEventListener('click', async () => {
+      if (!confirm(`ลบเมนู "${item.name}" ทิ้งเลยไหม? (ลบสูตรที่ผูกไว้ด้วย ย้อนกลับไม่ได้)`)) return;
+      await sb.from('menu_recipes').delete().eq('menu_item_id', item.id);
+      const { error: delErr } = await sb.from('menu_items').delete().eq('id', item.id);
+      if (delErr) { alert('ลบไม่สำเร็จ: ' + delErr.message); return; }
+      loadSecretMenuTab();
+    });
+
+    return card;
+  }
+
+  function renderSecretCreateBlock() {
+    const block = document.getElementById('secretCreateBlock');
+    block.innerHTML = `
+      <input type="text" id="newSecretName" placeholder="ชื่อเมนูลับใหม่" style="margin-bottom:8px;">
+      <div class="field-label" style="margin-top:0;">ส่วนผสม</div>
+      <div class="chip-row" id="newSecretChips"></div>
+      <div id="newSecretQtyBlock"></div>
+      <div class="field-label">ต้นทุนอื่นๆ (บาท ไม่บังคับ)</div>
+      <input type="number" id="newSecretMisc" placeholder="เช่น 10" style="margin-bottom:8px;">
+      <button type="button" class="submit-btn" id="newSecretSaveBtn" style="margin-top:0;" disabled>สร้างเมนูลับ</button>
+      <div class="status-msg" id="newSecretStatus"></div>
+    `;
+
+    const sels = {};
+    function renderChips() {
+      const row = document.getElementById('newSecretChips');
+      row.innerHTML = '';
+      allIngredientsCache.forEach(ing => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip' + (sels[ing.id] ? ' selected' : '');
+        chip.textContent = ing.name;
+        chip.addEventListener('click', () => {
+          if (sels[ing.id]) delete sels[ing.id];
+          else sels[ing.id] = { ingredient: ing, qty: null };
+          renderChips();
+          renderQtyBlock();
+          updateState();
+        });
+        row.appendChild(chip);
+      });
+    }
+    function renderQtyBlock() {
+      const qtyBlock = document.getElementById('newSecretQtyBlock');
+      qtyBlock.innerHTML = '';
+      Object.values(sels).forEach(sel => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;';
+        wrap.innerHTML = `<span style="flex:1;font-size:13px;">${sel.ingredient.name}</span><input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">`;
+        const input = wrap.querySelector('input');
+        input.addEventListener('input', () => { sel.qty = input.value ? Number(input.value) : null; updateState(); });
+        qtyBlock.appendChild(wrap);
+      });
+    }
+    function updateState() {
+      const btn = document.getElementById('newSecretSaveBtn');
+      const name = document.getElementById('newSecretName').value.trim();
+      const list = Object.values(sels);
+      btn.disabled = !(name && list.length > 0 && list.every(s => s.qty && s.qty > 0));
+    }
+    document.getElementById('newSecretName').addEventListener('input', updateState);
+    renderChips();
+
+    document.getElementById('newSecretSaveBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('newSecretSaveBtn');
+      const statusEl = document.getElementById('newSecretStatus');
+      const name = document.getElementById('newSecretName').value.trim();
+      const list = Object.values(sels);
+      const miscVal = document.getElementById('newSecretMisc').value;
+      btn.disabled = true;
+      btn.textContent = 'กำลังบันทึก...';
+
+      const { data: dup } = await sb.from('menu_items').select('id').eq('name', name).limit(1);
+      if (dup && dup.length) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = `ชื่อ "${name}" มีอยู่แล้วในระบบ`;
+        btn.disabled = false; btn.textContent = 'สร้างเมนูลับ';
+        return;
+      }
+
+      const needsBean = list.some(s => s.ingredient.category === 'coffee_bean');
+      const { data: newItem, error: insErr } = await sb.from('menu_items').insert([{
+        name, price: 0, category: 'secret', needs_bean: needsBean,
+        image_url: OMAKASE_SECRET_IMAGE_URL, omakase_only: true,
+        default_misc_cost: miscVal ? Number(miscVal) : null,
+      }]).select('id').maybeSingle();
+
+      if (insErr || !newItem) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + (insErr ? insErr.message : 'unknown');
+        btn.disabled = false; btn.textContent = 'สร้างเมนูลับ';
+        return;
+      }
+
+      const recipeRows = list.map(s => ({ menu_item_id: newItem.id, ingredient_id: s.ingredient.id, quantity: s.qty }));
+      await sb.from('menu_recipes').insert(recipeRows);
+
+      loadSecretMenuTab();
+    });
+  }
 
   async function loadPrograms() {
     const { data, error } = await sb
