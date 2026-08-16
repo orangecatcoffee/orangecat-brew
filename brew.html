@@ -208,7 +208,7 @@
   async function loadMenuItems() {
     const { data, error } = await sb
       .from('menu_items')
-      .select('id, name, price, category, needs_bean, image_url, uses_misc_cost_estimate')
+      .select('id, name, price, category, needs_bean, image_url, uses_misc_cost_estimate, show_in_add_order')
       .eq('is_omakase_placeholder', false);
     if (error || !data) {
       alert('โหลดเมนูไม่สำเร็จ: ' + (error ? error.message : 'unknown error'));
@@ -229,6 +229,7 @@
       bean: m.needs_bean,
       category: m.category,
       usesMiscCost: !!m.uses_misc_cost_estimate,
+      showInAddOrder: !!m.show_in_add_order,
     }));
   }
 
@@ -1151,10 +1152,11 @@
   function renderMenuGrid() {
     const grid = document.getElementById('menuGrid');
     grid.innerHTML = '';
-    // โหมดสั่งปกติ: ซ่อนเมนูลับ/draft ที่ยังไม่พร้อมขายจริง (ราคา 0, จัดการแยกในแท็บ "ลับ") — โหมด Omakase ยังเห็นครบเพราะต้องใช้เลือก 3 แก้ว
+    // โหมดสั่งปกติ: ซ่อนเฉพาะเมนูลับ/draft ที่ยังไม่เปิดให้บาริสต้าเลือก (show_in_add_order=false ในแท็บ "ลับ")
+    // ส่วนเมนูลับที่ตั้งชื่อจริงแล้วและเปิดใช้ ยังเลือกได้ตามปกติ — โหมด Omakase เห็นครบเสมอเพราะต้องใช้เลือก 3 แก้ว
     const visibleMenu = orderMode === 'omakase'
       ? MENU
-      : MENU.filter(item => item.category !== 'secret' && item.category !== 'signature_draft');
+      : MENU.filter(item => (item.category !== 'secret' && item.category !== 'signature_draft') || item.showInAddOrder);
     visibleMenu.forEach(item => {
       const div = document.createElement('div');
       div.className = 'menu-card';
@@ -1771,7 +1773,7 @@
 
     const { data, error } = await sb
       .from('menu_items')
-      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only')
+      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order')
       .in('category', ['secret', 'signature_draft'])
       .order('category', { ascending: true })
       .order('name', { ascending: true });
@@ -1808,6 +1810,11 @@
 
       ${item.image_url ? `<img src="${item.image_url}" class="slip-thumb" style="margin-bottom:8px;">` : ''}
       <input type="text" class="sm-image" placeholder="วาง URL รูป (Supabase Storage)" value="${item.image_url || ''}" style="margin-bottom:8px;">
+
+      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+        <input type="checkbox" class="sm-show-add" ${item.show_in_add_order ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
+        <label style="font-size:12px;color:#4A3428;font-weight:600;">แสดงในหน้า "เพิ่มออเดอร์" ให้บาริสต้าเลือกได้ (แยกจากการย้ายไปขึ้นเมนูจริง)</label>
+      </div>
 
       <div class="field-label" style="margin-top:0;">ชื่อเมนู</div>
       <input type="text" class="sm-name" value="${item.name.replace(/"/g,'&quot;')}" style="margin-bottom:8px;">
@@ -1898,10 +1905,12 @@
       const price = Number(card.querySelector('.sm-price').value) || 0;
       const miscVal = card.querySelector('.sm-misc').value;
       const imageUrl = card.querySelector('.sm-image').value.trim() || null;
+      const showInAddOrder = card.querySelector('.sm-show-add').checked;
 
       const { error: updErr } = await sb.from('menu_items').update({
         name, price, image_url: imageUrl,
         default_misc_cost: miscVal ? Number(miscVal) : null,
+        show_in_add_order: showInAddOrder,
       }).eq('id', item.id);
 
       const newRecipeRows = Object.values(localAdd)
@@ -1925,10 +1934,12 @@
 
     card.querySelector('.sm-promote-btn').addEventListener('click', async () => {
       const newCat = card.querySelector('.sm-category-select').value;
+      const isRealCat = newCat !== 'secret' && newCat !== 'signature_draft';
       if (!confirm(`ย้าย "${item.name}" ไปหมวด "${newCat}" ใช่ไหม? ถ้าย้ายไปหมวดขายจริง เมนูนี้จะโผล่ในหน้าลูกค้า/บาริสต้าทันที`)) return;
       const { error: catErr } = await sb.from('menu_items').update({
         category: newCat,
-        omakase_only: (newCat === 'secret' || newCat === 'signature_draft'),
+        omakase_only: !isRealCat,
+        show_in_add_order: isRealCat ? true : card.querySelector('.sm-show-add').checked,
       }).eq('id', item.id);
       if (catErr) { alert('ย้ายไม่สำเร็จ: ' + catErr.message); return; }
       loadSecretMenuTab();
