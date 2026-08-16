@@ -581,6 +581,9 @@
       <div class="field-label" style="margin-top:10px;">ส่วนผสม (แตะเลือกจากวัตถุดิบที่มี แล้วใส่ปริมาณ)</div>
       <div class="chip-row" id="td-secretChips"></div>
       <div id="td-secretQtyBlock"></div>
+      <div class="field-label" style="margin-top:10px;">ต้นทุนอื่นๆ โดยประมาณ (บาท) — ของนอกสต็อก เช่น เต้าหู้/ดอกไม้ (ไม่บังคับ)</div>
+      <div class="field-hint">ตั้งครั้งเดียวตรงนี้ ครั้งต่อไปที่ชงเมนูนี้จะขึ้นค่านี้ให้อัตโนมัติ (แก้ไขได้ทุกครั้ง)</div>
+      <input type="number" id="td-secretMiscCost" inputmode="decimal" step="0.01" min="0" placeholder="เช่น 10">
       <button class="submit-btn" id="td-saveSecretBtn" style="margin-top:10px;" disabled>บันทึกเมนูลับ + ใช้แก้วนี้</button>
       <button class="btn-bean-cancel" style="margin-top:10px;">ยกเลิก</button>
       <div class="status-msg" id="td-secretStatus"></div>
@@ -670,6 +673,10 @@
         needs_bean: needsBean,
         image_url: OMAKASE_SECRET_IMAGE_URL,
         omakase_only: true,
+        default_misc_cost: (() => {
+          const v = cardEl.querySelector('#td-secretMiscCost').value;
+          return v ? Number(v) : null;
+        })(),
       }]).select('id, name, price, category, needs_bean, image_url').maybeSingle();
 
       if (menuErr || !newItem) {
@@ -772,10 +779,14 @@
     const allowZeroBeans = isSecretMenuName(order.menu_item_name) && !needsBean(order.menu_item_name);
     let isSecretMenu = false;
     let mixerOptions = [];
+    let defaultMiscCost = null;
     try {
-      const { data: menuRows } = await sb.from('menu_items').select('category, uses_misc_cost_estimate').eq('name', order.menu_item_name).limit(1);
+      const { data: menuRows } = await sb.from('menu_items').select('category, uses_misc_cost_estimate, default_misc_cost').eq('name', order.menu_item_name).limit(1);
       const menuRow = menuRows && menuRows[0];
       isSecretMenu = !!(menuRow && (menuRow.category === 'secret' || menuRow.uses_misc_cost_estimate));
+      if (menuRow && menuRow.default_misc_cost !== null && menuRow.default_misc_cost !== undefined) {
+        defaultMiscCost = menuRow.default_misc_cost;
+      }
       if (isSecretMenu) {
         const { data: mixers } = await sb.from('ingredients').select('id, name').or('category.eq.milk,name.eq.น้ำเปล่า').eq('active', true).order('name');
         mixerOptions = mixers || [];
@@ -788,8 +799,8 @@
       return `
         <div style="font-size:11px;color:#A8876F;margin:10px 0 6px;">🥛 มิกเซอร์ที่ใช้ (ไม่บังคับ — ประมาณการต้นทุน 150g)</div>
         <div class="chip-row">${chips}<button type="button" class="chip mixer-chip" data-mixer-name="">ไม่ใส่</button></div>
-        <div style="font-size:11px;color:#A8876F;margin:12px 0 6px;">🧂 ต้นทุนอื่นๆ โดยประมาณ (บาท) — ของนอกสต็อก ไม่บังคับ</div>
-        <input type="number" inputmode="decimal" step="0.01" min="0" class="misc-cost-input" placeholder="เช่น 5" style="width:100%;padding:9px 12px;border-radius:8px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;">
+        <div style="font-size:11px;color:#A8876F;margin:12px 0 6px;">🧂 ต้นทุนอื่นๆ โดยประมาณ (บาท) — ของนอกสต็อก ${defaultMiscCost !== null ? `(ค่าเริ่มต้นของเมนูนี้ — แก้ไขได้)` : '(ไม่บังคับ)'}</div>
+        <input type="number" inputmode="decimal" step="0.01" min="0" class="misc-cost-input" placeholder="เช่น 5" ${defaultMiscCost !== null ? `value="${defaultMiscCost}"` : ''} style="width:100%;padding:9px 12px;border-radius:8px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;">
       `;
     }
     function wireMixerChips(container) {
