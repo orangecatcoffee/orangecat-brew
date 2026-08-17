@@ -156,6 +156,10 @@
 
   <div class="field-label" style="margin-top:28px;">+ สร้างเมนูลับใหม่</div>
   <div id="secretCreateBlock"></div>
+
+  <div class="field-label" style="margin-top:28px;">🟢 Signature ที่ขึ้นขายจริงแล้ว</div>
+  <div class="field-hint">กดที่ชื่อเพื่อกางออกมาแก้ไข Story/ราคา/สูตรได้เหมือนเดิม</div>
+  <div id="liveSignatureList"></div>
 </div>
 
 <div class="nav">
@@ -1806,6 +1810,40 @@
     }
 
     renderSecretCreateBlock();
+    loadLiveSignatureList();
+  }
+
+  async function loadLiveSignatureList() {
+    const listEl = document.getElementById('liveSignatureList');
+    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+    const { data, error } = await sb
+      .from('menu_items')
+      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body')
+      .eq('category', 'signature_item')
+      .order('name', { ascending: true });
+
+    if (error || !data) {
+      listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + (error ? error.message : 'unknown') + '</div>';
+      return;
+    }
+    if (data.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนู Signature ที่ขายจริงตอนนี้</div>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    data.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'card';
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;';
+      row.innerHTML = `<span class="card-name">${item.name}</span><span style="color:#E8863A;font-weight:700;">${item.price}฿ ▾</span>`;
+      row.addEventListener('click', async () => {
+        const fullCard = await renderSecretMenuCard(item);
+        row.replaceWith(fullCard);
+      }, { once: true });
+      listEl.appendChild(row);
+    });
   }
 
   async function renderSecretMenuCard(item) {
@@ -1817,7 +1855,14 @@
 
     const card = document.createElement('div');
     card.className = 'card';
-    const catLabel = item.category === 'secret' ? '🔮 Secret' : '📝 Signature Draft';
+    const CAT_LABELS = {
+      secret: '🔮 Secret',
+      signature_draft: '📝 Signature Draft',
+      signature_item: '🟢 Signature (ขายจริง)',
+      espresso: '🟢 กลุ่มกาแฟ (ขายจริง)',
+      matcha: '🟢 กลุ่มชาเขียว (ขายจริง)',
+    };
+    const catLabel = CAT_LABELS[item.category] || `🟢 ${item.category}`;
     card.innerHTML = `
       <div class="card-top">
         <span class="card-name">${catLabel}</span>
