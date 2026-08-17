@@ -1788,7 +1788,7 @@
 
     const { data, error } = await sb
       .from('menu_items')
-      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order')
+      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body')
       .in('category', ['secret', 'signature_draft'])
       .order('category', { ascending: true })
       .order('name', { ascending: true });
@@ -1845,6 +1845,12 @@
         </div>
       </div>
 
+      <div class="field-label" style="margin-top:0;">🧡 Story — บรรทัดส่วนผสม (เช่น "Earl Grey · Marmalade · Citrus · Coffee")</div>
+      <input type="text" class="sm-story-ing" value="${(item.story_ingredients || '').replace(/"/g,'&quot;')}" placeholder="ส่วนผสมหลัก คั่นด้วย ·" style="margin-bottom:8px;">
+
+      <div class="field-label" style="margin-top:0;">🧡 Story — เนื้อหาเต็ม (โชว์ในหน้า Signature ให้ลูกค้าเห็นตอน push ขึ้น)</div>
+      <textarea class="sm-story-body" rows="8" placeholder="วางข้อความสไตล์เดียวกับ Kek-Huay Latte ที่นี่ — เกริ่นนำ / tasting journey / flavor tags / poetic line / tagline ปิดร้าน" style="margin-bottom:8px;width:100%;padding:10px 12px;border-radius:10px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;">${item.story_body || ''}</textarea>
+
       <div class="field-label" style="margin-top:0;">สูตร / ส่วนผสม</div>
       <div class="sm-recipe-list">
         ${recipe.length ? recipe.map(r => `
@@ -1858,6 +1864,7 @@
       <div class="sm-add-qty-block"></div>
 
       <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;margin-top:12px;">บันทึกการแก้ไข</button>
+      <div class="field-hint" style="margin-top:10px;">👇 พร้อมขึ้นจริงเมื่อไหร่ เลือก "→ Signature" แล้วกด "Push ขึ้นเมนูจริง" — Story ที่บันทึกไว้ด้านบนจะโชว์ในหน้าลูกค้าทันที</div>
       <div style="display:flex;gap:8px;margin-top:8px;">
         <select class="sm-category-select" style="flex:1;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;">
           <option value="secret" ${item.category === 'secret' ? 'selected' : ''}>Secret (ยังไม่ขายทั่วไป)</option>
@@ -1866,7 +1873,7 @@
           <option value="espresso">→ กลุ่มกาแฟ (ขายจริง)</option>
           <option value="matcha">→ กลุ่มชาเขียว (ขายจริง)</option>
         </select>
-        <button type="button" class="btn-request sm-promote-btn" style="flex:1;margin-bottom:0;">ย้ายหมวดหมู่</button>
+        <button type="button" class="btn-request sm-promote-btn" style="flex:1;margin-bottom:0;">🚀 Push ขึ้นเมนูจริง</button>
       </div>
       <div class="status-msg sm-status"></div>
     `;
@@ -1921,11 +1928,15 @@
       const miscVal = card.querySelector('.sm-misc').value;
       const imageUrl = card.querySelector('.sm-image').value.trim() || null;
       const showInAddOrder = card.querySelector('.sm-show-add').checked;
+      const storyIng = card.querySelector('.sm-story-ing').value.trim() || null;
+      const storyBody = card.querySelector('.sm-story-body').value.trim() || null;
 
       const { error: updErr } = await sb.from('menu_items').update({
         name, price, image_url: imageUrl,
         default_misc_cost: miscVal ? Number(miscVal) : null,
         show_in_add_order: showInAddOrder,
+        story_ingredients: storyIng,
+        story_body: storyBody,
       }).eq('id', item.id);
 
       const newRecipeRows = Object.values(localAdd)
