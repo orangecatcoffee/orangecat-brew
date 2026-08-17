@@ -359,18 +359,8 @@
       return false;
     }
 
-    if (order.line_user_id) {
-      fetch(NOTIFY_READY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          line_user_id: order.line_user_id,
-          customer_name: order.customer_name,
-          menu_item_name: order.menu_item_name,
-          order_type: order.order_type,
-        }),
-      }).catch(err => console.error('notify-ready failed:', err));
-    }
+    // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
+    // ไม่จำเป็นสำหรับร้านที่ลูกค้ามารับหน้าร้าน/รอสดอยู่แล้ว ถ้าจะเปิดใช้อีกครั้งค่อย uncomment กลับ
     if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
     cardEl.style.opacity = '0';
     setTimeout(() => loadToday(), 200);
@@ -420,18 +410,7 @@
       }
     }
 
-    if (order.line_user_id) {
-      fetch(NOTIFY_READY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          line_user_id: order.line_user_id,
-          customer_name: order.customer_name,
-          menu_item_name: order.menu_item_name,
-          order_type: order.order_type,
-        }),
-      }).catch(err => console.error('notify-ready failed:', err));
-    }
+    // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
     if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
     cardEl.style.opacity = '0';
     setTimeout(() => loadToday(), 200);
