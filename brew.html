@@ -278,7 +278,12 @@
     return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
   }
   function toISODate(d) {
-    return d.toISOString().split('T')[0];
+    // ใช้เวลาไทย (UTC+7) เสมอ ห้ามใช้ toISOString() ตรงๆ เพราะมันแปลงเป็น UTC
+    // ทำให้ช่วงเที่ยงคืน-ตี 7 เวลาไทยทุกวัน คำนวณ "วันนี้" ผิดเป็นเมื่อวาน
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
   function fmtDateTime(iso) {
     const d = new Date(iso);
