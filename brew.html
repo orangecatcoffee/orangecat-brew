@@ -182,6 +182,7 @@
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const REQUEST_PAYMENT_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/request-payment";
   const REQUEST_FEEDBACK_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/request-feedback";
+  const PUSH_MENU_ANNOUNCEMENT_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/push-menu-announcement";
   const NOTIFY_READY_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/notify-ready";
 
   const BEAN_DOSE_G = 20;
@@ -1875,6 +1876,14 @@
         </select>
         <button type="button" class="btn-request sm-promote-btn" style="flex:1;margin-bottom:0;">🚀 Push ขึ้นเมนูจริง</button>
       </div>
+
+      <button type="button" class="btn-request sm-line-btn" style="width:100%;margin-top:8px;">📣 Push to LINE</button>
+      <div class="sm-line-picker" style="display:none;margin-top:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;">
+        <textarea class="sm-line-msg" rows="4" style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;margin-bottom:8px;"></textarea>
+        <div class="field-label" style="margin-top:0;">ส่งหาใคร</div>
+        <div class="chip-row sm-line-chips" style="margin-bottom:8px;"></div>
+        <button type="button" class="btn-bean-confirm sm-line-send-btn" style="width:100%;">ส่งเลย</button>
+      </div>
       <div class="status-msg sm-status"></div>
     `;
 
@@ -1977,6 +1986,104 @@
       const { error: delErr } = await sb.from('menu_items').delete().eq('id', item.id);
       if (delErr) { alert('ลบไม่สำเร็จ: ' + delErr.message); return; }
       loadSecretMenuTab();
+    });
+
+    // --- Push to LINE — เลือกส่งหาคนเดียว/หลายคน หรือ ALL (broadcast) ---
+    const lineBtn = card.querySelector('.sm-line-btn');
+    const linePicker = card.querySelector('.sm-line-picker');
+    const lineMsgEl = card.querySelector('.sm-line-msg');
+    const lineChipsEl = card.querySelector('.sm-line-chips');
+    let linePickerLoaded = false;
+    let lineSelectedIds = new Set(); // 'ALL' หรือ line_user_id ต่างๆ
+
+    lineBtn.addEventListener('click', async () => {
+      const showing = linePicker.style.display !== 'none';
+      linePicker.style.display = showing ? 'none' : 'block';
+      if (showing) return;
+
+      if (!lineMsgEl.value) {
+        const priceLine = item.price > 0 ? ` ${item.price} บาท` : '';
+        lineMsgEl.value = `🧡 เมนูใหม่มาแล้ว!\n${item.name}${priceLine}\n${item.story_ingredients || ''}\n\nสั่งได้เลยที่แอปกาแฟแมวส้ม 🐱☕`;
+      }
+
+      if (!linePickerLoaded) {
+        linePickerLoaded = true;
+        const { data: memberRows } = await sb.from('members').select('line_user_id, display_name').order('display_name');
+        lineChipsEl.innerHTML = '';
+        const allChip = document.createElement('button');
+        allChip.type = 'button';
+        allChip.className = 'chip';
+        allChip.textContent = '📢 ทุกคน (ALL)';
+        allChip.addEventListener('click', () => {
+          if (lineSelectedIds.has('ALL')) {
+            lineSelectedIds.clear();
+          } else {
+            lineSelectedIds.clear();
+            lineSelectedIds.add('ALL');
+          }
+          renderLineChips();
+        });
+        lineChipsEl.appendChild(allChip);
+
+        (memberRows || []).filter(m => m.line_user_id).forEach(m => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'chip';
+          chip.textContent = m.display_name;
+          chip.addEventListener('click', () => {
+            if (lineSelectedIds.has('ALL')) lineSelectedIds.clear();
+            if (lineSelectedIds.has(m.line_user_id)) lineSelectedIds.delete(m.line_user_id);
+            else lineSelectedIds.add(m.line_user_id);
+            renderLineChips();
+          });
+          chip.dataset.lineUserId = m.line_user_id;
+          lineChipsEl.appendChild(chip);
+        });
+      }
+      renderLineChips();
+    });
+
+    function renderLineChips() {
+      lineChipsEl.querySelectorAll('.chip').forEach(chip => {
+        const isAll = chip.textContent.includes('ALL');
+        const selected = isAll ? lineSelectedIds.has('ALL') : lineSelectedIds.has(chip.dataset.lineUserId);
+        chip.classList.toggle('selected', selected);
+      });
+    }
+
+    card.querySelector('.sm-line-send-btn').addEventListener('click', async () => {
+      const btn = card.querySelector('.sm-line-send-btn');
+      const statusEl = card.querySelector('.sm-status');
+      const text = lineMsgEl.value.trim();
+      if (!text) { statusEl.className = 'status-msg error'; statusEl.textContent = 'พิมพ์ข้อความก่อนนะครับ'; return; }
+      if (lineSelectedIds.size === 0) { statusEl.className = 'status-msg error'; statusEl.textContent = 'เลือกผู้รับก่อนนะครับ (คนใดคนหนึ่ง หรือ ALL)'; return; }
+
+      const mode = lineSelectedIds.has('ALL') ? 'broadcast' : 'targeted';
+      if (!confirm(mode === 'broadcast' ? 'ส่งหาลูกค้าทุกคนที่แอด LINE เลยใช่ไหม?' : `ส่งหา ${lineSelectedIds.size} คนที่เลือกไว้ ใช่ไหม?`)) return;
+
+      btn.disabled = true;
+      btn.textContent = 'กำลังส่ง...';
+      try {
+        const res = await fetch(PUSH_MENU_ANNOUNCEMENT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode,
+            line_user_ids: mode === 'targeted' ? [...lineSelectedIds] : undefined,
+            text,
+          }),
+        });
+        const result = await res.json();
+        if (!result.ok) throw new Error(result.detail || 'ส่งไม่สำเร็จ');
+        statusEl.className = 'status-msg success';
+        statusEl.textContent = '✅ ส่งแล้ว';
+        linePicker.style.display = 'none';
+      } catch (err) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'ส่งไม่สำเร็จ: ' + err.message;
+      }
+      btn.disabled = false;
+      btn.textContent = 'ส่งเลย';
     });
 
     return card;
