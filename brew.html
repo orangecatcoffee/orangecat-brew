@@ -2184,7 +2184,7 @@
   async function renderMenuItemCard(item) {
     const { data: recipeRows } = await sb
       .from('menu_recipes')
-      .select('id, quantity, ingredients(id, name, base_unit, category, cost_per_base_unit)')
+      .select('id, quantity, notes, ingredients(id, name, base_unit, category, cost_per_base_unit)')
       .eq('menu_item_id', item.id);
     const recipe = recipeRows || [];
 
@@ -2250,6 +2250,7 @@
               <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">${r.ingredients.base_unit} · ฿${Number(r.ingredients.cost_per_base_unit || 0).toFixed(3)}/${r.ingredients.base_unit}</span>
               <span class="sm-recipe-line-cost" style="margin-left:auto;font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿${(r.quantity * (r.ingredients.cost_per_base_unit || 0)).toFixed(2)}</span>
             </div>
+            <input type="text" class="sm-recipe-notes" data-recipe-id="${r.id}" value="${(r.notes || '').replace(/"/g, '&quot;')}" placeholder="📝 หมายเหตุ (ไม่บังคับ) เช่น เทคนิคการชง" style="font-size:11.5px;padding:6px 8px;border-radius:8px;border:1.5px dashed #F0E4D8;background:transparent;">
           </div>
         `).join('') : '<div class="field-hint" style="margin:0 0 8px;">ยังไม่มีสูตร</div>'}
       </div>
@@ -2429,19 +2430,23 @@
         recipeErr = res.error;
       }
 
-      // บันทึกปริมาณที่แก้ในสูตรเดิม (ถ้ามีการเปลี่ยน)
+      // บันทึกปริมาณ/หมายเหตุที่แก้ในสูตรเดิม (ถ้ามีการเปลี่ยน)
       const qtyUpdates = [];
       card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
         const recipeId = inp.dataset.recipeId;
         const newQty = Number(inp.value) || 0;
         const original = recipe.find(r => r.id === recipeId);
-        if (original && newQty > 0 && Number(original.quantity) !== newQty) {
-          qtyUpdates.push({ id: recipeId, quantity: newQty });
+        const notesInput = card.querySelector(`.sm-recipe-notes[data-recipe-id="${recipeId}"]`);
+        const newNotes = notesInput ? (notesInput.value.trim() || null) : (original ? original.notes : null);
+        const qtyChanged = original && newQty > 0 && Number(original.quantity) !== newQty;
+        const notesChanged = original && (original.notes || null) !== newNotes;
+        if (qtyChanged || notesChanged) {
+          qtyUpdates.push({ id: recipeId, quantity: qtyChanged ? newQty : Number(original.quantity), notes: newNotes });
         }
       });
       let qtyUpdateErr = null;
       for (const upd of qtyUpdates) {
-        const res = await sb.from('menu_recipes').update({ quantity: upd.quantity }).eq('id', upd.id);
+        const res = await sb.from('menu_recipes').update({ quantity: upd.quantity, notes: upd.notes }).eq('id', upd.id);
         if (res.error) qtyUpdateErr = res.error;
       }
 
