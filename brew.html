@@ -1983,6 +1983,7 @@
       </div>
       <div class="chip-row" id="genRecipeChips"></div>
       <div id="genRecipeQtyBlock"></div>
+      <div id="genCostSummary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;"></div>
       <button type="button" class="submit-btn" id="genCreateBtn" style="margin-top:12px;" disabled>เพิ่มเมนูใหม่</button>
       <div class="status-msg" id="genCreateStatus"></div>
     `;
@@ -2015,13 +2016,55 @@
       qtyBlock.innerHTML = '';
       if (document.getElementById('genNoRecipe').checked) return;
       Object.values(sels).forEach(sel => {
+        const costPerUnit = sel.ingredient.cost_per_base_unit || 0;
         const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;';
-        wrap.innerHTML = `<span style="flex:1;font-size:13px;">${sel.ingredient.name}</span><input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">`;
+        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;';
+        wrap.innerHTML = `
+          <span style="flex:1;min-width:80px;font-size:13px;">${sel.ingredient.name}</span>
+          <input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">
+          <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">฿${costPerUnit.toFixed(3)}/${sel.ingredient.base_unit}</span>
+          <span class="gen-line-cost" style="font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿0.00</span>
+        `;
         const input = wrap.querySelector('input');
-        input.addEventListener('input', () => { sel.qty = input.value ? Number(input.value) : null; updateState(); });
+        const lineCostEl = wrap.querySelector('.gen-line-cost');
+        input.addEventListener('input', () => {
+          sel.qty = input.value ? Number(input.value) : null;
+          lineCostEl.textContent = `= ฿${((sel.qty || 0) * costPerUnit).toFixed(2)}`;
+          updateState();
+        });
         qtyBlock.appendChild(wrap);
       });
+      updateCostPreview();
+    }
+    function updateCostPreview() {
+      const summaryEl = document.getElementById('genCostSummary');
+      const noRecipe = document.getElementById('genNoRecipe').checked;
+      const list = Object.values(sels).filter(s => s.qty && s.qty > 0);
+      if (noRecipe || list.length === 0) {
+        summaryEl.innerHTML = '';
+        return;
+      }
+      const ingredientCost = list.reduce((sum, s) => sum + (s.qty * (s.ingredient.cost_per_base_unit || 0)), 0);
+      const needsBean = needsBeanChoice === 'yes';
+      const totalCost = ingredientCost + (needsBean ? FLAT_COFFEE_COST : 0);
+      const price = Number(document.getElementById('genPrice').value) || 0;
+      const profit = price - totalCost;
+      const gp = price ? (profit / price * 100) : 0;
+      const profitColor = profit >= 0 ? '#4A9B5C' : '#D64545';
+      summaryEl.innerHTML = `
+        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">ต้นทุน</div>
+          <div style="font-size:14px;font-weight:700;color:#4A3428;">฿${totalCost.toFixed(2)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">กำไร/แก้ว</div>
+          <div style="font-size:14px;font-weight:700;color:${profitColor};">฿${profit.toFixed(2)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">GP%</div>
+          <div style="font-size:14px;font-weight:700;color:${profitColor};">${gp.toFixed(0)}%</div>
+        </div>
+      `;
     }
     function updateState() {
       const btn = document.getElementById('genCreateBtn');
@@ -2032,6 +2075,7 @@
       const list = Object.values(sels);
       const recipeOk = noRecipe || (list.length > 0 && list.every(s => s.qty && s.qty > 0));
       btn.disabled = !(name && priceStr !== '' && category && needsBeanChoice !== null && recipeOk);
+      updateCostPreview();
     }
 
     document.getElementById('genName').addEventListener('input', updateState);
@@ -2196,9 +2240,16 @@
       <div class="field-label" style="margin-top:0;">สูตร / ส่วนผสม</div>
       <div class="sm-recipe-list">
         ${recipe.length ? recipe.map(r => `
-          <div class="bill-item" data-recipe-row="${r.id}">
-            <span>${r.ingredients.name} — ${r.quantity}${r.ingredients.base_unit}</span>
-            <button type="button" class="btn-item-delete" data-del-recipe="${r.id}">ลบ</button>
+          <div class="bill-item" data-recipe-row="${r.id}" style="flex-direction:column;align-items:stretch;gap:4px;padding:8px 0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="font-size:12.5px;font-weight:600;">${r.ingredients.name}</span>
+              <button type="button" class="btn-item-delete" data-del-recipe="${r.id}">ลบ</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="number" min="0" step="0.1" class="sm-recipe-qty" data-recipe-id="${r.id}" data-cost-per-unit="${r.ingredients.cost_per_base_unit || 0}" value="${r.quantity}" style="width:80px;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;text-align:center;">
+              <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">${r.ingredients.base_unit} · ฿${Number(r.ingredients.cost_per_base_unit || 0).toFixed(3)}/${r.ingredients.base_unit}</span>
+              <span class="sm-recipe-line-cost" style="margin-left:auto;font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿${(r.quantity * (r.ingredients.cost_per_base_unit || 0)).toFixed(2)}</span>
+            </div>
           </div>
         `).join('') : '<div class="field-hint" style="margin:0 0 8px;">ยังไม่มีสูตร</div>'}
       </div>
@@ -2225,7 +2276,12 @@
     `;
 
     function updateCostSummary() {
-      const existingCost = recipe.reduce((sum, r) => sum + (r.quantity * (r.ingredients.cost_per_base_unit || 0)), 0);
+      let existingCost = 0;
+      card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
+        const qty = Number(inp.value) || 0;
+        const costPerUnit = Number(inp.dataset.costPerUnit) || 0;
+        existingCost += qty * costPerUnit;
+      });
       const addedCost = Object.values(localAdd).reduce((sum, s) => sum + ((s.qty || 0) * (s.ingredient.cost_per_base_unit || 0)), 0);
       const needsBean = card.querySelector('.sm-needs-bean').checked;
       const miscVal = Number(card.querySelector('.sm-misc').value) || 0;
@@ -2283,11 +2339,22 @@
       const block = card.querySelector('.sm-add-qty-block');
       block.innerHTML = '';
       Object.values(localAdd).forEach(sel => {
+        const costPerUnit = sel.ingredient.cost_per_base_unit || 0;
         const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;';
-        wrap.innerHTML = `<span style="flex:1;font-size:12.5px;">${sel.ingredient.name}</span><input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">`;
+        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;';
+        wrap.innerHTML = `
+          <span style="flex:1;min-width:80px;font-size:12.5px;">${sel.ingredient.name}</span>
+          <input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">
+          <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">฿${costPerUnit.toFixed(3)}/${sel.ingredient.base_unit}</span>
+          <span class="sm-add-line-cost" style="font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿0.00</span>
+        `;
         const input = wrap.querySelector('input');
-        input.addEventListener('input', () => { sel.qty = input.value ? Number(input.value) : null; updateCostSummary(); });
+        const lineCostEl = wrap.querySelector('.sm-add-line-cost');
+        input.addEventListener('input', () => {
+          sel.qty = input.value ? Number(input.value) : null;
+          lineCostEl.textContent = `= ฿${((sel.qty || 0) * costPerUnit).toFixed(2)}`;
+          updateCostSummary();
+        });
         block.appendChild(wrap);
       });
     }
@@ -2296,6 +2363,15 @@
     card.querySelector('.sm-needs-bean').addEventListener('change', updateCostSummary);
     card.querySelector('.sm-misc').addEventListener('input', updateCostSummary);
     card.querySelector('.sm-price').addEventListener('input', updateCostSummary);
+    card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const qty = Number(inp.value) || 0;
+        const costPerUnit = Number(inp.dataset.costPerUnit) || 0;
+        const lineCostEl = inp.closest('.bill-item').querySelector('.sm-recipe-line-cost');
+        if (lineCostEl) lineCostEl.textContent = `= ฿${(qty * costPerUnit).toFixed(2)}`;
+        updateCostSummary();
+      });
+    });
 
     card.querySelectorAll('[data-del-recipe]').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -2353,9 +2429,25 @@
         recipeErr = res.error;
       }
 
-      if (updErr || recipeErr) {
+      // บันทึกปริมาณที่แก้ในสูตรเดิม (ถ้ามีการเปลี่ยน)
+      const qtyUpdates = [];
+      card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
+        const recipeId = inp.dataset.recipeId;
+        const newQty = Number(inp.value) || 0;
+        const original = recipe.find(r => r.id === recipeId);
+        if (original && newQty > 0 && Number(original.quantity) !== newQty) {
+          qtyUpdates.push({ id: recipeId, quantity: newQty });
+        }
+      });
+      let qtyUpdateErr = null;
+      for (const upd of qtyUpdates) {
+        const res = await sb.from('menu_recipes').update({ quantity: upd.quantity }).eq('id', upd.id);
+        if (res.error) qtyUpdateErr = res.error;
+      }
+
+      if (updErr || recipeErr || qtyUpdateErr) {
         statusEl.className = 'status-msg error';
-        statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + ((updErr || recipeErr).message);
+        statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + ((updErr || recipeErr || qtyUpdateErr).message);
       } else {
         statusEl.className = 'status-msg success';
         statusEl.textContent = '✅ บันทึกแล้ว';
@@ -2521,11 +2613,22 @@
       const qtyBlock = document.getElementById('newSecretQtyBlock');
       qtyBlock.innerHTML = '';
       Object.values(sels).forEach(sel => {
+        const costPerUnit = sel.ingredient.cost_per_base_unit || 0;
         const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;';
-        wrap.innerHTML = `<span style="flex:1;font-size:13px;">${sel.ingredient.name}</span><input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">`;
+        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;';
+        wrap.innerHTML = `
+          <span style="flex:1;min-width:80px;font-size:13px;">${sel.ingredient.name}</span>
+          <input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">
+          <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">฿${costPerUnit.toFixed(3)}/${sel.ingredient.base_unit}</span>
+          <span class="ns-line-cost" style="font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿0.00</span>
+        `;
         const input = wrap.querySelector('input');
-        input.addEventListener('input', () => { sel.qty = input.value ? Number(input.value) : null; updateState(); });
+        const lineCostEl = wrap.querySelector('.ns-line-cost');
+        input.addEventListener('input', () => {
+          sel.qty = input.value ? Number(input.value) : null;
+          lineCostEl.textContent = `= ฿${((sel.qty || 0) * costPerUnit).toFixed(2)}`;
+          updateState();
+        });
         qtyBlock.appendChild(wrap);
       });
     }
