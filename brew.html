@@ -229,6 +229,7 @@
 
   const BEAN_DOSE_G = 20;
   const MAX_BLEND_BEANS = 3;
+  const FLAT_COFFEE_COST = 20; // ต้นทุนกาแฟ flat ต่อแก้ว (บาท) — ใช้ตอนคำนวณต้นทุนเมนูที่ needs_bean=true, ตรงกับที่ orangecat-ops เคยใช้
 
   let MENU = [];
   const CATEGORY_ICON = {
@@ -1441,7 +1442,7 @@
     if (allIngredientsCache.length) return allIngredientsCache;
     const { data, error } = await sb
       .from('ingredients')
-      .select('id, name, category, base_unit, stock_quantity')
+      .select('id, name, category, base_unit, stock_quantity, cost_per_base_unit')
       .eq('active', true)
       .order('category', { ascending: true })
       .order('name', { ascending: true });
@@ -1881,13 +1882,15 @@
     const listEl = document.getElementById('allMenuList');
     listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
-    const { data, error } = await sb
-      .from('menu_items')
-      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
-      .not('category', 'in', '(secret,signature_draft)')
-      .eq('is_omakase_placeholder', false)
-      .order('category', { ascending: true })
-      .order('name', { ascending: true });
+    const [{ data, error }, { data: allRecipeRows }] = await Promise.all([
+      sb.from('menu_items')
+        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
+        .not('category', 'in', '(secret,signature_draft)')
+        .eq('is_omakase_placeholder', false)
+        .order('category', { ascending: true })
+        .order('name', { ascending: true }),
+      sb.from('menu_recipes').select('menu_item_id, quantity, ingredients(cost_per_base_unit)'),
+    ]);
 
     if (error || !data) {
       listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + (error ? error.message : 'unknown') + '</div>';
@@ -1896,6 +1899,27 @@
     if (data.length === 0) {
       listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนูในระบบ</div>';
       return;
+    }
+
+    // รวมต้นทุนวัตถุดิบต่อเมนู (ไม่รวม flat กาแฟ/misc — บวกทีหลังตอนคำนวณต่อรายการ)
+    const ingredientCostByItem = {};
+    const hasRecipeByItem = {};
+    (allRecipeRows || []).forEach(r => {
+      const cost = (r.quantity || 0) * (r.ingredients?.cost_per_base_unit || 0);
+      ingredientCostByItem[r.menu_item_id] = (ingredientCostByItem[r.menu_item_id] || 0) + cost;
+      hasRecipeByItem[r.menu_item_id] = true;
+    });
+
+    function profitBadgeHtml(item) {
+      const hasAnyRecipe = hasRecipeByItem[item.id] || item.needs_bean;
+      if (!hasAnyRecipe) {
+        return `<span style="font-size:10px;color:#A8876F;font-style:italic;">รอสูตร</span>`;
+      }
+      const totalCost = (ingredientCostByItem[item.id] || 0) + (item.needs_bean ? FLAT_COFFEE_COST : 0) + (Number(item.default_misc_cost) || 0);
+      const profit = Number(item.price) - totalCost;
+      const gp = Number(item.price) ? (profit / Number(item.price) * 100) : 0;
+      const color = profit >= 0 ? '#4A9B5C' : '#D64545';
+      return `<span style="font-size:10px;color:${color};font-weight:700;">กำไร ฿${profit.toFixed(0)} · ${gp.toFixed(0)}%</span>`;
     }
 
     listEl.innerHTML = '';
@@ -1922,7 +1946,10 @@
             ${item.image_url ? `<img src="${item.image_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span style="font-size:24px;flex-shrink:0;">${CATEGORY_ICON[item.category] || '☕'}</span>`}
             <span class="card-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
           </div>
-          <span style="color:#E8863A;font-weight:700;flex-shrink:0;">${item.price}฿ ▾</span>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;">
+            <span style="color:#E8863A;font-weight:700;">${item.price}฿ ▾</span>
+            ${profitBadgeHtml(item)}
+          </div>
         `;
         row.addEventListener('click', async () => {
           const fullCard = await renderMenuItemCard(item);
@@ -2113,7 +2140,7 @@
   async function renderMenuItemCard(item) {
     const { data: recipeRows } = await sb
       .from('menu_recipes')
-      .select('id, quantity, ingredients(id, name, base_unit)')
+      .select('id, quantity, ingredients(id, name, base_unit, category, cost_per_base_unit)')
       .eq('menu_item_id', item.id);
     const recipe = recipeRows || [];
 
@@ -2160,6 +2187,8 @@
 
       <div style="font-size:13px;font-weight:800;color:#E8863A;border-bottom:2px solid #FFF3E8;padding-bottom:6px;margin-bottom:12px;">🧾 สูตร / ต้นทุน</div>
 
+      <div class="sm-cost-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"></div>
+
       <div class="field-label" style="margin-top:0;">ต้นทุนอื่นๆ (บาท)</div>
       <div class="field-hint">ของนอกสต็อกที่ไม่ได้อยู่ในสูตรด้านล่าง — ตั้งครั้งเดียว ครั้งต่อไปที่ชงจะขึ้นให้อัตโนมัติ</div>
       <input type="number" class="sm-misc" value="${item.default_misc_cost !== null ? item.default_misc_cost : ''}" placeholder="เช่น 10" style="margin-bottom:8px;">
@@ -2195,6 +2224,39 @@
       <div class="status-msg sm-status"></div>
     `;
 
+    function updateCostSummary() {
+      const existingCost = recipe.reduce((sum, r) => sum + (r.quantity * (r.ingredients.cost_per_base_unit || 0)), 0);
+      const addedCost = Object.values(localAdd).reduce((sum, s) => sum + ((s.qty || 0) * (s.ingredient.cost_per_base_unit || 0)), 0);
+      const needsBean = card.querySelector('.sm-needs-bean').checked;
+      const miscVal = Number(card.querySelector('.sm-misc').value) || 0;
+      const totalCost = existingCost + addedCost + (needsBean ? FLAT_COFFEE_COST : 0) + miscVal;
+      const price = Number(card.querySelector('.sm-price').value) || 0;
+      const profit = price - totalCost;
+      const gp = price ? (profit / price * 100) : 0;
+      const hasAnyRecipe = recipe.length > 0 || Object.keys(localAdd).length > 0 || needsBean;
+
+      const summaryEl = card.querySelector('.sm-cost-summary');
+      if (!hasAnyRecipe) {
+        summaryEl.innerHTML = `<div style="grid-column:1/-1;" class="field-hint">ยังไม่มีสูตร — ใส่ส่วนผสมด้านล่างเพื่อคำนวณต้นทุน/กำไร</div>`;
+        return;
+      }
+      const profitColor = profit >= 0 ? '#4A9B5C' : '#D64545';
+      summaryEl.innerHTML = `
+        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">ต้นทุน</div>
+          <div style="font-size:14px;font-weight:700;color:#4A3428;">฿${totalCost.toFixed(2)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">กำไร/แก้ว</div>
+          <div style="font-size:14px;font-weight:700;color:${profitColor};">฿${profit.toFixed(2)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">GP%</div>
+          <div style="font-size:14px;font-weight:700;color:${profitColor};">${gp.toFixed(0)}%</div>
+        </div>
+      `;
+    }
+
     // --- เพิ่มวัตถุดิบ ---
     const localAdd = {};
     function renderAddChips() {
@@ -2212,6 +2274,7 @@
             else localAdd[ing.id] = { ingredient: ing, qty: null };
             renderAddChips();
             renderAddQtyBlock();
+            updateCostSummary();
           });
           row.appendChild(chip);
         });
@@ -2224,11 +2287,15 @@
         wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;';
         wrap.innerHTML = `<span style="flex:1;font-size:12.5px;">${sel.ingredient.name}</span><input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">`;
         const input = wrap.querySelector('input');
-        input.addEventListener('input', () => { sel.qty = input.value ? Number(input.value) : null; });
+        input.addEventListener('input', () => { sel.qty = input.value ? Number(input.value) : null; updateCostSummary(); });
         block.appendChild(wrap);
       });
     }
     renderAddChips();
+    updateCostSummary();
+    card.querySelector('.sm-needs-bean').addEventListener('change', updateCostSummary);
+    card.querySelector('.sm-misc').addEventListener('input', updateCostSummary);
+    card.querySelector('.sm-price').addEventListener('input', updateCostSummary);
 
     card.querySelectorAll('[data-del-recipe]').forEach(btn => {
       btn.addEventListener('click', async () => {
