@@ -1777,7 +1777,7 @@
 
     const { data, error } = await sb
       .from('menu_items')
-      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body')
+      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
       .in('category', ['secret', 'signature_draft'])
       .order('category', { ascending: true })
       .order('name', { ascending: true });
@@ -1803,7 +1803,7 @@
 
     const { data, error } = await sb
       .from('menu_items')
-      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body')
+      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
       .eq('category', 'signature_item')
       .order('name', { ascending: true });
 
@@ -1888,6 +1888,10 @@
 
       <div class="field-label" style="margin-top:0;">🧡 Story — เนื้อหาเต็ม (โชว์ในหน้า Signature ให้ลูกค้าเห็นตอน push ขึ้น)</div>
       <textarea class="sm-story-body" rows="8" placeholder="วางข้อความสไตล์เดียวกับ Kek-Huay Latte ที่นี่ — เกริ่นนำ / tasting journey / flavor tags / poetic line / tagline ปิดร้าน" style="margin-bottom:8px;width:100%;padding:10px 12px;border-radius:10px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;">${item.story_body || ''}</textarea>
+
+      <div class="field-label" style="margin-top:0;">🧡 Made From Scratch — รูปกระบวนการ (วาง URL ทีละบรรทัด)</div>
+      <div class="field-hint">โชว์เป็น carousel ใต้ story ในหน้าลูกค้า — ไม่ใส่ก็ได้ ถ้ายังไม่มีรูปจะไม่โชว์หมวดนี้เลย</div>
+      <textarea class="sm-mfs-images" rows="3" placeholder="https://...\nhttps://...\nhttps://..." style="margin-bottom:8px;width:100%;padding:10px 12px;border-radius:10px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;">${(item.made_from_scratch_images || []).join('\n')}</textarea>
 
       <div class="field-label" style="margin-top:0;">สูตร / ส่วนผสม</div>
       <div class="sm-recipe-list">
@@ -1976,6 +1980,8 @@
       const showInAddOrder = card.querySelector('.sm-show-add').checked;
       const storyIng = card.querySelector('.sm-story-ing').value.trim() || null;
       const storyBody = card.querySelector('.sm-story-body').value.trim() || null;
+      const mfsImages = card.querySelector('.sm-mfs-images').value
+        .split('\n').map(s => s.trim()).filter(Boolean);
 
       const { error: updErr } = await sb.from('menu_items').update({
         name, price, image_url: imageUrl,
@@ -1983,6 +1989,7 @@
         show_in_add_order: showInAddOrder,
         story_ingredients: storyIng,
         story_body: storyBody,
+        made_from_scratch_images: mfsImages.length ? mfsImages : null,
       }).eq('id', item.id);
 
       const newRecipeRows = Object.values(localAdd)
