@@ -149,17 +149,21 @@
   <div class="status-msg" id="programStatusMsg"></div>
 </div>
 
-<div class="screen" id="screen-secret">
-  <div class="field-label">🔮 จัดการเมนูลับ / Draft</div>
-  <div class="field-hint">เมนูลับที่ยังไม่ตั้งราคา/ยังไม่พร้อมขาย — แก้ไขสูตร ต้นทุน รูป ราคา ได้ที่นี่ที่เดียว ไม่ปนกับเมนูขายจริงในหน้า "เพิ่ม"</div>
+<div class="screen" id="screen-menu">
+  <div class="field-label" style="margin-top:0;">📋 เมนูทั้งหมด</div>
+  <div class="field-hint">เมนูที่ขายจริงตอนนี้ทุกหมวด (Comfort / Signature ฯลฯ) — แตะที่เมนูเพื่อแก้ไขชื่อ ราคา รูป สูตร หมวดหมู่</div>
+  <div id="allMenuList"></div>
+
+  <div class="field-label" style="margin-top:28px;">+ เพิ่มเมนูใหม่</div>
+  <div class="field-hint">ต้องกรอกครบ: ชื่อ, ราคา, หมวดหมู่, ต้องเลือกเมล็ดไหม, และสูตร (หรือติ๊ก "ไม่มีสูตร")</div>
+  <div id="genericCreateBlock"></div>
+
+  <div class="field-label" style="margin-top:28px;">🔮 เมนูลับ / Draft (ยังไม่ขายทั่วไป)</div>
+  <div class="field-hint">เมนูลับที่ยังไม่ตั้งราคา/ยังไม่พร้อมขาย — แก้ไขสูตร ต้นทุน รูป ราคา ได้ที่นี่ที่เดียว ไม่ปนกับเมนูขายจริงด้านบน</div>
   <div id="secretMenuList"></div>
 
-  <div class="field-label" style="margin-top:28px;">+ สร้างเมนูลับใหม่</div>
+  <div class="field-label" style="margin-top:28px;">+ สร้างเมนูลับใหม่ (แบบเร็ว)</div>
   <div id="secretCreateBlock"></div>
-
-  <div class="field-label" style="margin-top:28px;">🟢 Signature ที่ขึ้นขายจริงแล้ว</div>
-  <div class="field-hint">กดที่ชื่อเพื่อกางออกมาแก้ไข Story/ราคา/สูตรได้เหมือนเดิม</div>
-  <div id="liveSignatureList"></div>
 </div>
 
 <div class="nav">
@@ -175,8 +179,8 @@
   <button class="nav-btn" data-screen="members" onclick="switchScreen('members')">
     <span class="nav-icon">🎫</span>สมาชิก
   </button>
-  <button class="nav-btn" data-screen="secret" onclick="switchScreen('secret')">
-    <span class="nav-icon">🔮</span>ลับ
+  <button class="nav-btn" data-screen="menu" onclick="switchScreen('menu')">
+    <span class="nav-icon">📋</span>เมนู
   </button>
 </div>
 
@@ -196,6 +200,31 @@
   const CATEGORY_ICON = {
     espresso: "☕", dirty: "🤤", matcha: "🍵", cocoa: "🍫", thai_tea: "🧋", signature: "🍊", yogurt: "🥤", special_of_month: "🌟", surprise: "🐱"
   };
+  const CATEGORY_LABEL_TH = {
+    surprise: '🐱 แมวส้มเลือกหน่อย', espresso: '☕ กลุ่มกาแฟ', dirty: '🤤 Dirty', matcha: '🍵 มัทฉะ',
+    cocoa: '🍫 โกโก้', thai_tea: '🧋 ชาไทย', yogurt: '🥤 โยเกิร์ต', signature_item: '🍊 Signature (ขายจริง)',
+    special_of_month: '🌟 Special of the Month', secret: '🔮 Secret', signature_draft: '📝 Signature Draft',
+  };
+  const ALL_MENU_CATEGORY_ORDER = ['surprise', 'espresso', 'dirty', 'matcha', 'cocoa', 'thai_tea', 'yogurt', 'signature_item', 'special_of_month'];
+  const CATEGORY_SELECT_OPTIONS = [
+    { value: 'surprise', label: 'แมวส้มเลือกหน่อย' },
+    { value: 'espresso', label: 'กลุ่มกาแฟ' },
+    { value: 'dirty', label: 'Dirty' },
+    { value: 'matcha', label: 'มัทฉะ' },
+    { value: 'cocoa', label: 'โกโก้' },
+    { value: 'thai_tea', label: 'ชาไทย' },
+    { value: 'yogurt', label: 'โยเกิร์ต' },
+    { value: 'signature_item', label: 'Signature (ขายจริง)' },
+    { value: 'special_of_month', label: 'Special of the Month' },
+    { value: 'signature_draft', label: 'Signature Draft (ยังไม่ขาย)' },
+    { value: 'secret', label: 'Secret (ยังไม่ขายทั่วไป)' },
+  ];
+  function categoryOptionsHtml(selectedValue, includeEmpty) {
+    const empty = includeEmpty ? '<option value="">— เลือกหมวดหมู่ —</option>' : '';
+    return empty + CATEGORY_SELECT_OPTIONS.map(c =>
+      `<option value="${c.value}" ${selectedValue === c.value ? 'selected' : ''}>${c.label}</option>`
+    ).join('');
+  }
 
   // ลำดับที่ต้องการ: แมวส้มเลือกหน่อย -> กาแฟ (เรียงตามชื่อที่กำหนด) -> ชาเขียว -> อื่นๆ
   const MENU_GROUP_ORDER = { surprise: 0, espresso: 1, dirty: 1, signature: 1, matcha: 2 };
@@ -238,7 +267,7 @@
     }));
   }
 
-  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย", members: "จัดการสมาชิก", secret: "เมนูลับ / Draft" };
+  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย", members: "จัดการสมาชิก", menu: "จัดการเมนู" };
   let selectedMenu = null;
   let selectedDate = null;
   let selectedMemberLineId = null;
@@ -271,7 +300,7 @@
     if (name === 'bill') { loadBills(); loadOmakaseMaxBills(); }
     if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); }
     if (name === 'members') { loadMembers(); loadPrograms(); }
-    if (name === 'secret') loadSecretMenuTab();
+    if (name === 'menu') loadSecretMenuTab();
   }
 
   function fmtDate(d) {
@@ -1801,7 +1830,7 @@
           <span style="color:#A8876F;font-size:12px;flex-shrink:0;">${item.price > 0 ? item.price + '฿' : 'ยังไม่ตั้งราคา'} ▾</span>
         `;
         row.addEventListener('click', async () => {
-          const fullCard = await renderSecretMenuCard(item);
+          const fullCard = await renderMenuItemCard(item);
           row.replaceWith(fullCard);
         }, { once: true });
         listEl.appendChild(row);
@@ -1809,7 +1838,201 @@
     }
 
     renderSecretCreateBlock();
-    loadLiveSignatureList();
+    loadAllMenuList();
+    renderGenericCreateBlock();
+  }
+
+  // ===================== แท็บ "เมนู" — เมนูทั้งหมดที่ขายจริง (ทุกหมวด) แก้ไขได้จากที่นี่ที่เดียว =====================
+  async function loadAllMenuList() {
+    const listEl = document.getElementById('allMenuList');
+    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+    const { data, error } = await sb
+      .from('menu_items')
+      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
+      .not('category', 'in', '(secret,signature_draft)')
+      .eq('is_omakase_placeholder', false)
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error || !data) {
+      listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + (error ? error.message : 'unknown') + '</div>';
+      return;
+    }
+    if (data.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนูในระบบ</div>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    const grouped = {};
+    data.forEach(item => { (grouped[item.category] = grouped[item.category] || []).push(item); });
+    const orderedCats = [
+      ...ALL_MENU_CATEGORY_ORDER.filter(c => grouped[c]),
+      ...Object.keys(grouped).filter(c => !ALL_MENU_CATEGORY_ORDER.includes(c)),
+    ];
+
+    orderedCats.forEach(cat => {
+      const groupLabel = document.createElement('div');
+      groupLabel.className = 'week-label';
+      groupLabel.style.cssText = 'margin:14px 0 6px;';
+      groupLabel.textContent = CATEGORY_LABEL_TH[cat] || cat;
+      listEl.appendChild(groupLabel);
+
+      grouped[cat].forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'card';
+        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;';
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+            ${item.image_url ? `<img src="${item.image_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span style="font-size:24px;flex-shrink:0;">${CATEGORY_ICON[item.category] || '☕'}</span>`}
+            <span class="card-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
+          </div>
+          <span style="color:#E8863A;font-weight:700;flex-shrink:0;">${item.price}฿ ▾</span>
+        `;
+        row.addEventListener('click', async () => {
+          const fullCard = await renderMenuItemCard(item);
+          row.replaceWith(fullCard);
+        }, { once: true });
+        listEl.appendChild(row);
+      });
+    });
+  }
+
+  function renderGenericCreateBlock() {
+    const block = document.getElementById('genericCreateBlock');
+    block.innerHTML = `
+      <input type="text" id="genName" placeholder="ชื่อเมนูใหม่" style="margin-bottom:8px;">
+      <input type="number" id="genPrice" placeholder="ราคา (บาท)" style="margin-bottom:8px;">
+      <div class="field-label" style="margin-top:0;">หมวดหมู่</div>
+      <select id="genCategory" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;margin-bottom:8px;background:#fff;color:#4A3428;">
+        ${categoryOptionsHtml('', true)}
+      </select>
+      <div class="field-label" style="margin-top:0;">ต้องเลือกเมล็ดกาแฟไหม?</div>
+      <div class="sweetness-row" id="genNeedsBeanRow">
+        <button type="button" class="sweetness-btn" data-needs-bean="yes">ใช่ ต้องเลือกเมล็ด</button>
+        <button type="button" class="sweetness-btn" data-needs-bean="no">ไม่ต้อง</button>
+      </div>
+      <div class="field-label" style="margin-top:12px;">รูปเมนู (ไม่บังคับ ใส่ทีหลังได้)</div>
+      <input type="text" id="genImage" placeholder="วาง URL รูป (Supabase Storage)" style="margin-bottom:8px;">
+      <div class="field-label" style="margin-top:0;">สูตร / ส่วนผสม</div>
+      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+        <input type="checkbox" id="genNoRecipe" style="width:20px;height:20px;flex-shrink:0;">
+        <label style="font-size:12px;color:#4A3428;font-weight:600;">เมนูนี้ไม่มีสูตร (เช่น ของสำเร็จรูป)</label>
+      </div>
+      <div class="chip-row" id="genRecipeChips"></div>
+      <div id="genRecipeQtyBlock"></div>
+      <button type="button" class="submit-btn" id="genCreateBtn" style="margin-top:12px;" disabled>เพิ่มเมนูใหม่</button>
+      <div class="status-msg" id="genCreateStatus"></div>
+    `;
+
+    const sels = {};
+    let needsBeanChoice = null;
+
+    function renderChips() {
+      const row = document.getElementById('genRecipeChips');
+      const noRecipe = document.getElementById('genNoRecipe').checked;
+      row.innerHTML = '';
+      if (noRecipe) return;
+      allIngredientsCache.forEach(ing => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip' + (sels[ing.id] ? ' selected' : '');
+        chip.textContent = ing.name;
+        chip.addEventListener('click', () => {
+          if (sels[ing.id]) delete sels[ing.id];
+          else sels[ing.id] = { ingredient: ing, qty: null };
+          renderChips();
+          renderQtyBlock();
+          updateState();
+        });
+        row.appendChild(chip);
+      });
+    }
+    function renderQtyBlock() {
+      const qtyBlock = document.getElementById('genRecipeQtyBlock');
+      qtyBlock.innerHTML = '';
+      if (document.getElementById('genNoRecipe').checked) return;
+      Object.values(sels).forEach(sel => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;';
+        wrap.innerHTML = `<span style="flex:1;font-size:13px;">${sel.ingredient.name}</span><input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">`;
+        const input = wrap.querySelector('input');
+        input.addEventListener('input', () => { sel.qty = input.value ? Number(input.value) : null; updateState(); });
+        qtyBlock.appendChild(wrap);
+      });
+    }
+    function updateState() {
+      const btn = document.getElementById('genCreateBtn');
+      const name = document.getElementById('genName').value.trim();
+      const priceStr = document.getElementById('genPrice').value;
+      const category = document.getElementById('genCategory').value;
+      const noRecipe = document.getElementById('genNoRecipe').checked;
+      const list = Object.values(sels);
+      const recipeOk = noRecipe || (list.length > 0 && list.every(s => s.qty && s.qty > 0));
+      btn.disabled = !(name && priceStr !== '' && category && needsBeanChoice !== null && recipeOk);
+    }
+
+    document.getElementById('genName').addEventListener('input', updateState);
+    document.getElementById('genPrice').addEventListener('input', updateState);
+    document.getElementById('genCategory').addEventListener('change', updateState);
+    document.getElementById('genNoRecipe').addEventListener('change', () => { renderChips(); renderQtyBlock(); updateState(); });
+    document.querySelectorAll('#genNeedsBeanRow [data-needs-bean]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        needsBeanChoice = btn.dataset.needsBean;
+        document.querySelectorAll('#genNeedsBeanRow [data-needs-bean]').forEach(b => b.classList.toggle('selected', b === btn));
+        updateState();
+      });
+    });
+    renderChips();
+
+    document.getElementById('genCreateBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('genCreateBtn');
+      const statusEl = document.getElementById('genCreateStatus');
+      const name = document.getElementById('genName').value.trim();
+      const price = Number(document.getElementById('genPrice').value) || 0;
+      const category = document.getElementById('genCategory').value;
+      const imageUrl = document.getElementById('genImage').value.trim() || null;
+      const needsBean = needsBeanChoice === 'yes';
+      const list = Object.values(sels);
+      btn.disabled = true;
+      btn.textContent = 'กำลังบันทึก...';
+
+      const { data: dup } = await sb.from('menu_items').select('id').eq('name', name).limit(1);
+      if (dup && dup.length) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = `ชื่อ "${name}" มีอยู่แล้วในระบบ`;
+        btn.disabled = false; btn.textContent = 'เพิ่มเมนูใหม่';
+        return;
+      }
+
+      const { data: newItem, error: insErr } = await sb.from('menu_items').insert([{
+        name, price, category, needs_bean: needsBean, image_url: imageUrl,
+      }]).select('id').maybeSingle();
+
+      if (insErr || !newItem) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + (insErr ? insErr.message : 'unknown');
+        btn.disabled = false; btn.textContent = 'เพิ่มเมนูใหม่';
+        return;
+      }
+
+      if (list.length) {
+        const recipeRows = list.map(s => ({ menu_item_id: newItem.id, ingredient_id: s.ingredient.id, quantity: s.qty }));
+        const { error: recipeErr } = await sb.from('menu_recipes').insert(recipeRows);
+        if (recipeErr) {
+          statusEl.className = 'status-msg error';
+          statusEl.textContent = 'สร้างเมนูสำเร็จ แต่บันทึกสูตรไม่สำเร็จ: ' + recipeErr.message;
+          btn.disabled = false; btn.textContent = 'เพิ่มเมนูใหม่';
+          loadSecretMenuTab();
+          return;
+        }
+      }
+
+      statusEl.className = 'status-msg success';
+      statusEl.textContent = `✅ เพิ่มเมนู "${name}" แล้ว`;
+      loadSecretMenuTab();
+    });
   }
 
   async function loadLiveSignatureList() {
@@ -1846,14 +2069,14 @@
         <a href="${menuUrl}" target="_blank" rel="noopener" style="flex-shrink:0;text-decoration:none;background:#FFF3E8;color:#E8863A;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;" onclick="event.stopPropagation();">🔗 ดูหน้าเมนู</a>
       `;
       row.querySelector('.sm-live-expand').addEventListener('click', async () => {
-        const fullCard = await renderSecretMenuCard(item);
+        const fullCard = await renderMenuItemCard(item);
         row.replaceWith(fullCard);
       }, { once: true });
       listEl.appendChild(row);
     });
   }
 
-  async function renderSecretMenuCard(item) {
+  async function renderMenuItemCard(item) {
     const { data: recipeRows } = await sb
       .from('menu_recipes')
       .select('id, quantity, ingredients(id, name, base_unit)')
@@ -1862,23 +2085,22 @@
 
     const card = document.createElement('div');
     card.className = 'card';
-    const CAT_LABELS = {
-      secret: '🔮 Secret',
-      signature_draft: '📝 Signature Draft',
-      signature_item: '🟢 Signature (ขายจริง)',
-      espresso: '🟢 กลุ่มกาแฟ (ขายจริง)',
-      matcha: '🟢 กลุ่มชาเขียว (ขายจริง)',
-    };
-    const catLabel = CAT_LABELS[item.category] || `🟢 ${item.category}`;
+    const isDraftCat = item.category === 'secret' || item.category === 'signature_draft';
+    const catLabel = CATEGORY_LABEL_TH[item.category] || item.category;
     card.innerHTML = `
       <div class="card-top">
         <span class="card-name">${catLabel}</span>
         <button type="button" class="btn-delete" data-del-menu="${item.id}">✕</button>
       </div>
 
-      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
         <input type="checkbox" class="sm-show-add" ${item.show_in_add_order ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
         <label style="font-size:12px;color:#4A3428;font-weight:600;">แสดงในหน้า "เพิ่มออเดอร์" ให้บาริสต้าเลือกได้ (แยกจากการย้ายไปขึ้นเมนูจริง)</label>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+        <input type="checkbox" class="sm-needs-bean" ${item.needs_bean ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
+        <label style="font-size:12px;color:#4A3428;font-weight:600;">เมนูนี้ต้องเลือกเมล็ดกาแฟ (needs_bean)</label>
       </div>
 
       <div style="font-size:13px;font-weight:800;color:#E8863A;border-bottom:2px solid #FFF3E8;padding-bottom:6px;margin-bottom:12px;">📝 ข้อความที่ลูกค้าเห็น</div>
@@ -1921,16 +2143,12 @@
       <div class="sm-add-qty-block"></div>
 
       <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;margin-top:12px;">บันทึกการแก้ไข</button>
-      <div class="field-hint" style="margin-top:10px;">👇 พร้อมขึ้นจริงเมื่อไหร่ เลือก "→ Signature" แล้วกด "Push ขึ้นเมนูจริง" — Story ที่บันทึกไว้ด้านบนจะโชว์ในหน้าลูกค้าทันที</div>
+      <div class="field-hint" style="margin-top:10px;">${isDraftCat ? '👇 พร้อมขึ้นจริงเมื่อไหร่ เลือกหมวดขายจริงแล้วกด "Push ขึ้นเมนูจริง" — Story ที่บันทึกไว้ด้านบนจะโชว์ในหน้าลูกค้าทันที' : '👇 ย้ายหมวดหมู่เมนูนี้ได้ที่นี่ (เช่น ย้ายจากกาแฟไปมัทฉะ)'}</div>
       <div style="display:flex;gap:8px;margin-top:8px;">
-        <select class="sm-category-select" style="flex:1;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;">
-          <option value="secret" ${item.category === 'secret' ? 'selected' : ''}>Secret (ยังไม่ขายทั่วไป)</option>
-          <option value="signature_draft" ${item.category === 'signature_draft' ? 'selected' : ''}>Signature Draft</option>
-          <option value="signature_item">→ Signature (ขายจริง)</option>
-          <option value="espresso">→ กลุ่มกาแฟ (ขายจริง)</option>
-          <option value="matcha">→ กลุ่มชาเขียว (ขายจริง)</option>
+        <select class="sm-category-select" style="flex:1;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;background:#fff;color:#4A3428;">
+          ${categoryOptionsHtml(item.category, false)}
         </select>
-        <button type="button" class="btn-request sm-promote-btn" style="flex:1;margin-bottom:0;">🚀 Push ขึ้นเมนูจริง</button>
+        <button type="button" class="btn-request sm-promote-btn" style="flex:1;margin-bottom:0;">${isDraftCat ? '🚀 Push ขึ้นเมนูจริง' : '💾 ย้ายหมวดหมู่'}</button>
       </div>
 
       <button type="button" class="btn-request sm-line-btn" style="width:100%;margin-top:8px;">📣 Push to LINE</button>
@@ -1993,6 +2211,7 @@
       const miscVal = card.querySelector('.sm-misc').value;
       const imageUrl = card.querySelector('.sm-image').value.trim() || null;
       const showInAddOrder = card.querySelector('.sm-show-add').checked;
+      const needsBean = card.querySelector('.sm-needs-bean').checked;
       const storyIng = card.querySelector('.sm-story-ing').value.trim() || null;
       const storyBody = card.querySelector('.sm-story-body').value.trim() || null;
       const mfsImages = card.querySelector('.sm-mfs-images').value
@@ -2000,6 +2219,7 @@
 
       const { error: updErr } = await sb.from('menu_items').update({
         name, price, image_url: imageUrl,
+        needs_bean: needsBean,
         default_misc_cost: miscVal ? Number(miscVal) : null,
         show_in_add_order: showInAddOrder,
         story_ingredients: storyIng,
