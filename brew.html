@@ -1788,9 +1788,24 @@
       listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนูลับ/draft ในระบบ</div>';
     } else {
       listEl.innerHTML = '';
-      for (const item of data) {
-        listEl.appendChild(await renderSecretMenuCard(item));
-      }
+      data.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'card';
+        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;';
+        const catBadge = item.category === 'secret' ? '🔮' : '📝';
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+            ${item.image_url ? `<img src="${item.image_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span style="font-size:24px;flex-shrink:0;">${catBadge}</span>`}
+            <span class="card-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
+          </div>
+          <span style="color:#A8876F;font-size:12px;flex-shrink:0;">${item.price > 0 ? item.price + '฿' : 'ยังไม่ตั้งราคา'} ▾</span>
+        `;
+        row.addEventListener('click', async () => {
+          const fullCard = await renderSecretMenuCard(item);
+          row.replaceWith(fullCard);
+        }, { once: true });
+        listEl.appendChild(row);
+      });
     }
 
     renderSecretCreateBlock();
