@@ -1876,27 +1876,21 @@
         <button type="button" class="btn-delete" data-del-menu="${item.id}">✕</button>
       </div>
 
-      ${item.image_url ? `<img src="${item.image_url}" class="slip-thumb" style="margin-bottom:8px;">` : ''}
-      <input type="text" class="sm-image" placeholder="วาง URL รูป (Supabase Storage)" value="${item.image_url || ''}" style="margin-bottom:8px;">
-
-      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
         <input type="checkbox" class="sm-show-add" ${item.show_in_add_order ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
         <label style="font-size:12px;color:#4A3428;font-weight:600;">แสดงในหน้า "เพิ่มออเดอร์" ให้บาริสต้าเลือกได้ (แยกจากการย้ายไปขึ้นเมนูจริง)</label>
       </div>
 
+      <div style="font-size:13px;font-weight:800;color:#E8863A;border-bottom:2px solid #FFF3E8;padding-bottom:6px;margin-bottom:12px;">📝 ข้อความที่ลูกค้าเห็น</div>
+
+      ${item.image_url ? `<img src="${item.image_url}" class="slip-thumb" style="margin-bottom:8px;">` : ''}
+      <input type="text" class="sm-image" placeholder="วาง URL รูป (Supabase Storage)" value="${item.image_url || ''}" style="margin-bottom:8px;">
+
       <div class="field-label" style="margin-top:0;">ชื่อเมนู</div>
       <input type="text" class="sm-name" value="${item.name.replace(/"/g,'&quot;')}" style="margin-bottom:8px;">
 
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <div style="flex:1;">
-          <div class="field-label" style="margin-top:0;">ราคา (บาท)</div>
-          <input type="number" class="sm-price" value="${item.price}">
-        </div>
-        <div style="flex:1;">
-          <div class="field-label" style="margin-top:0;">ต้นทุนอื่นๆ (บาท)</div>
-          <input type="number" class="sm-misc" value="${item.default_misc_cost !== null ? item.default_misc_cost : ''}" placeholder="เช่น 10">
-        </div>
-      </div>
+      <div class="field-label" style="margin-top:0;">ราคา (บาท)</div>
+      <input type="number" class="sm-price" value="${item.price}" style="margin-bottom:8px;">
 
       <div class="field-label" style="margin-top:0;">🧡 Story — บรรทัดส่วนผสม (เช่น "Earl Grey · Marmalade · Citrus · Coffee")</div>
       <input type="text" class="sm-story-ing" value="${(item.story_ingredients || '').replace(/"/g,'&quot;')}" placeholder="ส่วนผสมหลัก คั่นด้วย ·" style="margin-bottom:8px;">
@@ -1905,8 +1899,14 @@
       <textarea class="sm-story-body" rows="8" placeholder="วางข้อความสไตล์เดียวกับ Kek-Huay Latte ที่นี่ — เกริ่นนำ / tasting journey / flavor tags / poetic line / tagline ปิดร้าน" style="margin-bottom:8px;width:100%;padding:10px 12px;border-radius:10px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;">${item.story_body || ''}</textarea>
 
       <div class="field-label" style="margin-top:0;">🧡 Made From Scratch — รูปกระบวนการ (วาง URL ทีละบรรทัด)</div>
-      <div class="field-hint">โชว์เป็น carousel ใต้ story ในหน้าลูกค้า — ไม่ใส่ก็ได้ ถ้ายังไม่มีรูปจะไม่โชว์หมวดนี้เลย</div>
-      <textarea class="sm-mfs-images" rows="3" placeholder="https://...\nhttps://...\nhttps://..." style="margin-bottom:8px;width:100%;padding:10px 12px;border-radius:10px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;">${(item.made_from_scratch_images || []).join('\n')}</textarea>
+      <div class="field-hint">โชว์เป็น carousel ใต้รูปเมนูในหน้าลูกค้า — ไม่ใส่ก็ได้ ถ้ายังไม่มีรูปจะไม่โชว์หมวดนี้เลย</div>
+      <textarea class="sm-mfs-images" rows="3" placeholder="https://...\nhttps://...\nhttps://..." style="margin-bottom:14px;width:100%;padding:10px 12px;border-radius:10px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;">${(item.made_from_scratch_images || []).join('\n')}</textarea>
+
+      <div style="font-size:13px;font-weight:800;color:#E8863A;border-bottom:2px solid #FFF3E8;padding-bottom:6px;margin-bottom:12px;">🧾 สูตร / ต้นทุน</div>
+
+      <div class="field-label" style="margin-top:0;">ต้นทุนอื่นๆ (บาท)</div>
+      <div class="field-hint">ของนอกสต็อกที่ไม่ได้อยู่ในสูตรด้านล่าง — ตั้งครั้งเดียว ครั้งต่อไปที่ชงจะขึ้นให้อัตโนมัติ</div>
+      <input type="number" class="sm-misc" value="${item.default_misc_cost !== null ? item.default_misc_cost : ''}" placeholder="เช่น 10" style="margin-bottom:8px;">
 
       <div class="field-label" style="margin-top:0;">สูตร / ส่วนผสม</div>
       <div class="sm-recipe-list">
