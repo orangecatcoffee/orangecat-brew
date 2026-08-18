@@ -2217,6 +2217,22 @@
       const mfsImages = card.querySelector('.sm-mfs-images').value
         .split('\n').map(s => s.trim()).filter(Boolean);
 
+      const oldPrice = Number(item.price);
+      if (price !== oldPrice) {
+        const step1 = confirm(`เปลี่ยนราคา "${name}" จาก ${oldPrice}฿ เป็น ${price}฿ ใช่ไหม?\n\nมีผลทันทีกับออเดอร์ใหม่ที่สั่งหลังจากนี้ (ออเดอร์/บิลเก่าที่สั่งไปแล้วไม่กระทบ)`);
+        if (!step1) {
+          statusEl.className = 'status-msg error';
+          statusEl.textContent = 'ยกเลิกแล้ว — ราคายังไม่เปลี่ยน';
+          return;
+        }
+        const step2 = confirm(`ยืนยันอีกครั้ง — บันทึกราคาใหม่ ${price}฿ เลยใช่ไหม?`);
+        if (!step2) {
+          statusEl.className = 'status-msg error';
+          statusEl.textContent = 'ยกเลิกแล้ว — ราคายังไม่เปลี่ยน';
+          return;
+        }
+      }
+
       const { error: updErr } = await sb.from('menu_items').update({
         name, price, image_url: imageUrl,
         needs_bean: needsBean,
