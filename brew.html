@@ -239,6 +239,7 @@
     surprise: '🐱 แมวส้มเลือกหน่อย', espresso: '☕ กลุ่มกาแฟ', dirty: '🤤 Dirty', matcha: '🍵 มัทฉะ',
     cocoa: '🍫 โกโก้', thai_tea: '🧋 ชาไทย', yogurt: '🥤 โยเกิร์ต', signature_item: '🍊 Signature (ขายจริง)',
     special_of_month: '🌟 Special of the Month', secret: '🔮 Secret', signature_draft: '📝 Signature Draft',
+    on_hold: '⏸️ พักการขาย',
   };
   const ALL_MENU_CATEGORY_ORDER = ['surprise', 'espresso', 'dirty', 'matcha', 'cocoa', 'thai_tea', 'yogurt', 'signature_item', 'special_of_month'];
   const CATEGORY_SELECT_OPTIONS = [
@@ -253,6 +254,7 @@
     { value: 'special_of_month', label: 'Special of the Month' },
     { value: 'signature_draft', label: 'Signature Draft (ยังไม่ขาย)' },
     { value: 'secret', label: 'Secret (ยังไม่ขายทั่วไป)' },
+    { value: 'on_hold', label: '⏸️ พักการขาย (On Hold)' },
   ];
   function categoryOptionsHtml(selectedValue, includeEmpty) {
     const empty = includeEmpty ? '<option value="">— เลือกหมวดหมู่ —</option>' : '';
@@ -1245,11 +1247,11 @@
   function renderMenuGrid() {
     const grid = document.getElementById('menuGrid');
     grid.innerHTML = '';
-    // โหมดสั่งปกติ: ซ่อนเฉพาะเมนูลับ/draft ที่ยังไม่เปิดให้บาริสต้าเลือก (show_in_add_order=false ในแท็บ "ลับ")
+    // โหมดสั่งปกติ: ซ่อนเฉพาะเมนูลับ/draft ที่ยังไม่เปิดให้บาริสต้าเลือก (show_in_add_order=false ในแท็บ "เมนู") และเมนูที่พักการขายอยู่ (on_hold)
     // ส่วนเมนูลับที่ตั้งชื่อจริงแล้วและเปิดใช้ ยังเลือกได้ตามปกติ — โหมด Omakase เห็นครบเสมอเพราะต้องใช้เลือก 3 แก้ว
     const visibleMenu = orderMode === 'omakase'
-      ? MENU
-      : MENU.filter(item => (item.category !== 'secret' && item.category !== 'signature_draft') || item.showInAddOrder);
+      ? MENU.filter(item => item.category !== 'on_hold')
+      : MENU.filter(item => item.category !== 'on_hold' && ((item.category !== 'secret' && item.category !== 'signature_draft') || item.showInAddOrder));
     visibleMenu.forEach(item => {
       const div = document.createElement('div');
       div.className = 'menu-card';
