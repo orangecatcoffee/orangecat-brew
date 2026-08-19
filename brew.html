@@ -1473,7 +1473,14 @@
       .eq('active', true)
       .order('category', { ascending: true })
       .order('name', { ascending: true });
-    if (!error && data) allIngredientsCache = data;
+    if (error || !data) return allIngredientsCache;
+
+    // อุปกรณ์บรรจุภัณฑ์ (แก้ว/ฝา/ถุง/กระดาษ) ผูกกับ packaging_type_items แยกต่างหากแล้ว (คิดต้นทุนบรรจุภัณฑ์เอง)
+    // ห้ามให้โผล่ในตัวเลือก "ส่วนผสม" ตอนสร้าง/แก้สูตรเมนู เพราะไม่ใช่วัตถุดิบในสูตรจริง
+    const { data: pkgLinks } = await sb.from('packaging_type_items').select('ingredient_id');
+    const packagingIngredientIds = new Set((pkgLinks || []).map(p => p.ingredient_id));
+
+    allIngredientsCache = data.filter(ing => !packagingIngredientIds.has(ing.id));
     return allIngredientsCache;
   }
 
