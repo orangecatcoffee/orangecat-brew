@@ -1086,6 +1086,7 @@
           if (!confirm(`ลบออเดอร์ "${order.customer_name} - แก้วลับ" ใช่ไหม?`)) return;
           const { error } = await sb.from('preorders').delete().eq('id', order.id);
           if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+          await sb.from('order_log').delete().eq('source_preorder_id', order.id);
           div.style.opacity = '0';
           setTimeout(() => loadToday(), 200);
         });
@@ -1113,6 +1114,7 @@
           if (!confirm(`ลบออเดอร์ "${order.customer_name} - แมวส้มเลือกหน่อย" ใช่ไหม?`)) return;
           const { error } = await sb.from('preorders').delete().eq('id', order.id);
           if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+          await sb.from('order_log').delete().eq('source_preorder_id', order.id);
           div.style.opacity = '0';
           setTimeout(() => loadToday(), 200);
         });
@@ -1140,6 +1142,7 @@
           if (!confirm(`ยกเลิกออเดอร์ Omakase ของ "${order.customer_name}" ใช่ไหม?`)) return;
           const { error } = await sb.from('preorders').delete().eq('id', order.id);
           if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+          await sb.from('order_log').delete().eq('source_preorder_id', order.id);
           div.style.opacity = '0';
           setTimeout(() => loadToday(), 200);
         });
@@ -1188,6 +1191,7 @@
           alert('ลบไม่สำเร็จ: ' + error.message);
           return;
         }
+        await sb.from('order_log').delete().eq('source_preorder_id', order.id);
         div.style.opacity = '0';
         setTimeout(() => loadToday(), 200);
       });
