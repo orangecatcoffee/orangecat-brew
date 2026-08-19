@@ -648,6 +648,7 @@
         if (delErr) {
           alert('เลือกเมนูสำเร็จ แต่ลบออเดอร์เดิมไม่สำเร็จ (มีแถวซ้ำ แจ้ง Claude ให้เช็คด้วย): ' + delErr.message);
         }
+        await sb.from('order_log').delete().eq('source_preorder_id', order.id);
         loadToday();
       });
     });
@@ -833,6 +834,7 @@
       if (delErr) {
         alert('ออกแบบแก้วลับสำเร็จ แต่ลบออเดอร์ placeholder เดิมไม่สำเร็จ (มีแถวซ้ำ แจ้ง Claude ให้เช็คด้วย): ' + delErr.message);
       }
+      await sb.from('order_log').delete().eq('source_preorder_id', order.id);
 
       // เติมเมนูใหม่เข้า MENU cache ของหน้า "เพิ่ม" ทันที (ไม่งั้นบาริสต้าต้องรีโหลดหน้าก่อนถึงจะเลือกเมนูนี้ให้ลูกค้าคนอื่นได้)
       const iconFallback = CATEGORY_ICON[newItem.category] || '✨';
@@ -3127,6 +3129,7 @@
 
     if (pendingReplaceOrderId) {
       await sb.from('preorders').delete().eq('id', pendingReplaceOrderId);
+      await sb.from('order_log').delete().eq('source_preorder_id', pendingReplaceOrderId);
       pendingReplaceOrderId = null;
     }
 
@@ -3471,6 +3474,7 @@
             alert('ลบไม่สำเร็จ: ' + error.message);
             return;
           }
+          await sb.from('order_log').delete().in('source_preorder_id', ids);
           loadBills();
         });
       });
