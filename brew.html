@@ -404,9 +404,25 @@
     return warnings;
   }
 
+  let packagingCostCache = null; // { bag: 1.44, cup_small: 3.91, cup_large: 4.25, tumbler: 0 }
+  async function loadPackagingCosts() {
+    if (packagingCostCache) return packagingCostCache;
+    const { data } = await sb
+      .from('packaging_type_items')
+      .select('type_key, quantity, ingredients(cost_per_base_unit)');
+    const costs = { tumbler: 0, bag: 0, cup_small: 0, cup_large: 0 };
+    (data || []).forEach(row => {
+      costs[row.type_key] = (costs[row.type_key] || 0) + row.quantity * (row.ingredients?.cost_per_base_unit || 0);
+    });
+    packagingCostCache = costs;
+    return costs;
+  }
+
   async function markBrewed(order, cardEl, beanIngredient) {
     const packagingType = cardEl.dataset.selectedPkg || 'bag';
-    const updates = { brewed: true, brewed_at: new Date().toISOString(), packaging_type: packagingType };
+    const packagingCosts = await loadPackagingCosts();
+    const packagingCost = Math.round((packagingCosts[packagingType] || 0) * 100) / 100;
+    const updates = { brewed: true, brewed_at: new Date().toISOString(), packaging_type: packagingType, packaging_cost: packagingCost };
     if (beanIngredient) updates.bean_name = beanIngredient.name;
 
     if (beanIngredient) {
@@ -452,7 +468,10 @@
 
   async function markBrewedWithBlend(order, cardEl, blendRows, opts) {
     opts = opts || {};
-    const updates = { brewed: true, brewed_at: new Date().toISOString() };
+    const packagingType = cardEl.dataset.selectedPkg || 'bag';
+    const packagingCosts = await loadPackagingCosts();
+    const packagingCost = Math.round((packagingCosts[packagingType] || 0) * 100) / 100;
+    const updates = { brewed: true, brewed_at: new Date().toISOString(), packaging_type: packagingType, packaging_cost: packagingCost };
     if (opts.updateBeanName && blendRows && blendRows.length) {
       updates.bean_name = formatBlendName(blendRows);
     }
