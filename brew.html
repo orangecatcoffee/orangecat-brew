@@ -1471,16 +1471,10 @@
       .from('ingredients')
       .select('id, name, category, base_unit, stock_quantity, cost_per_base_unit')
       .eq('active', true)
+      .eq('is_packaging', false) // อุปกรณ์บรรจุภัณฑ์ (แก้ว/ฝา/ถุง/กระดาษ/ถุงกรอง/หลอด) ไม่ใช่วัตถุดิบในสูตร คิดต้นทุนแยกผ่าน packaging_type_items แล้ว
       .order('category', { ascending: true })
       .order('name', { ascending: true });
-    if (error || !data) return allIngredientsCache;
-
-    // อุปกรณ์บรรจุภัณฑ์ (แก้ว/ฝา/ถุง/กระดาษ) ผูกกับ packaging_type_items แยกต่างหากแล้ว (คิดต้นทุนบรรจุภัณฑ์เอง)
-    // ห้ามให้โผล่ในตัวเลือก "ส่วนผสม" ตอนสร้าง/แก้สูตรเมนู เพราะไม่ใช่วัตถุดิบในสูตรจริง
-    const { data: pkgLinks } = await sb.from('packaging_type_items').select('ingredient_id');
-    const packagingIngredientIds = new Set((pkgLinks || []).map(p => p.ingredient_id));
-
-    allIngredientsCache = data.filter(ing => !packagingIngredientIds.has(ing.id));
+    if (!error && data) allIngredientsCache = data;
     return allIngredientsCache;
   }
 
