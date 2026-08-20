@@ -1094,6 +1094,15 @@
     return { start: toISODate(monday), end: toISODate(sunday) };
   }
 
+  function nextWeekRangeISO() {
+    const { start } = currentWeekRangeISO();
+    const nextMonday = new Date(start);
+    nextMonday.setDate(nextMonday.getDate() + 7);
+    const nextSunday = new Date(nextMonday);
+    nextSunday.setDate(nextMonday.getDate() + 6);
+    return { start: toISODate(nextMonday), end: toISODate(nextSunday) };
+  }
+
   async function loadToday() {
     checkStaffReminder();
     const listEl = document.getElementById('todayList');
@@ -1118,26 +1127,38 @@
 
     const todayISO = toISODate(new Date());
     const todayOrders = data.filter(o => o.wanted_date === todayISO);
-    const staffCount = todayOrders.filter(o => o.order_type === 'staff').length;
-    const rewardCount = todayOrders.filter(o => o.order_type === 'reward').length;
-    const treatCount = todayOrders.filter(o => o.order_type === 'our_treat').length;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowISO = toISODate(tomorrow);
+    const tomorrowOrders = data.filter(o => o.wanted_date === tomorrowISO);
+    const thisWeekRange = currentWeekRangeISO();
+    const thisWeekOrders = data.filter(o => o.wanted_date >= thisWeekRange.start && o.wanted_date <= thisWeekRange.end);
+    const nextWeekRange = nextWeekRangeISO();
+    const nextWeekOrders = data.filter(o => o.wanted_date >= nextWeekRange.start && o.wanted_date <= nextWeekRange.end);
+
+    let visibleOrders = data;
+    let filterLabel = 'ทั้งหมด';
+    if (todayFilter === 'today') {
+      visibleOrders = todayOrders;
+      filterLabel = 'วันนี้';
+    } else if (todayFilter === 'tomorrow') {
+      visibleOrders = tomorrowOrders;
+      filterLabel = 'พรุ่งนี้';
+    } else if (todayFilter === 'week') {
+      visibleOrders = thisWeekOrders;
+      filterLabel = 'สัปดาห์นี้';
+    }
+
+    const staffCount = visibleOrders.filter(o => o.order_type === 'staff').length;
+    const rewardCount = visibleOrders.filter(o => o.order_type === 'reward').length;
+    const treatCount = visibleOrders.filter(o => o.order_type === 'our_treat').length;
     const extraNote = (staffCount || rewardCount || treatCount)
       ? ` (staff ${staffCount} · reward ${rewardCount} · Our Treat ${treatCount})`
       : '';
-    summaryEl.textContent = `วันนี้ ${todayOrders.length} แก้ว${extraNote} · ทั้งหมดค้างชง ${data.length} แก้ว`;
-
-    let visibleOrders = data;
-    if (todayFilter === 'today') {
-      visibleOrders = todayOrders;
-    } else if (todayFilter === 'tomorrow') {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowISO = toISODate(tomorrow);
-      visibleOrders = data.filter(o => o.wanted_date === tomorrowISO);
-    } else if (todayFilter === 'week') {
-      const { start, end } = currentWeekRangeISO();
-      visibleOrders = data.filter(o => o.wanted_date >= start && o.wanted_date <= end);
-    }
+    summaryEl.innerHTML = `
+      <div>${filterLabel} ${visibleOrders.length} แก้ว${extraNote}</div>
+      <div style="font-size:12px;opacity:0.75;margin-top:4px;">สัปดาห์นี้ ${thisWeekOrders.length} แก้ว · สัปดาห์หน้า ${nextWeekOrders.length} แก้ว</div>
+    `;
 
     if (visibleOrders.length === 0) {
       const label = todayFilter === 'today' ? 'วันนี้' : todayFilter === 'tomorrow' ? 'พรุ่งนี้' : todayFilter === 'week' ? 'สัปดาห์นี้' : '';
