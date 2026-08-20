@@ -185,16 +185,18 @@
 
 <div class="screen" id="screen-menu">
   <div class="field-label" style="margin-top:0;">📋 เมนูทั้งหมด</div>
-  <div class="field-hint">เมนูที่ขายจริงตอนนี้ทุกหมวด (Comfort / Signature ฯลฯ) — แตะที่เมนูเพื่อแก้ไขชื่อ ราคา รูป สูตร หมวดหมู่</div>
+  <div class="field-hint">ชื่อ ราคา รูป Story และหมวดหมู่ — แก้ไขเร็ว ไม่ต้องรอโหลดสูตร/ต้นทุน (ไปที่แท็บ "สูตร" สำหรับส่วนผสม/ต้นทุน)</div>
   <div id="allMenuList"></div>
+</div>
+
+<div class="screen" id="screen-recipe">
+  <div class="field-label" style="margin-top:0;">🧾 สูตร / ต้นทุน</div>
+  <div class="field-hint">ส่วนผสม ต้นทุน และกำไรต่อแก้วของทุกเมนู — แยกจากแท็บ "เมนู" เพื่อให้แท็บนั้นโหลดเร็วขึ้น</div>
+  <div id="recipeMenuList"></div>
 
   <div class="field-label" style="margin-top:28px;">+ เพิ่มเมนูใหม่</div>
   <div class="field-hint">ต้องกรอกครบ: ชื่อ, ราคา, หมวดหมู่, ต้องเลือกเมล็ดไหม, และสูตร (หรือติ๊ก "ไม่มีสูตร")</div>
   <div id="genericCreateBlock"></div>
-
-  <div class="field-label" style="margin-top:28px;">🔮 เมนูลับ / Draft (ยังไม่ขายทั่วไป)</div>
-  <div class="field-hint">เมนูลับที่ยังไม่ตั้งราคา/ยังไม่พร้อมขาย — แก้ไขสูตร ต้นทุน รูป ราคา ได้ที่นี่ที่เดียว ไม่ปนกับเมนูขายจริงด้านบน</div>
-  <div id="secretMenuList"></div>
 
   <div class="field-label" style="margin-top:28px;">+ สร้างเมนูลับใหม่ (แบบเร็ว)</div>
   <div id="secretCreateBlock"></div>
@@ -215,6 +217,9 @@
   </button>
   <button class="nav-btn" data-screen="menu" onclick="switchScreen('menu')">
     <span class="nav-icon">📋</span>เมนู
+  </button>
+  <button class="nav-btn" data-screen="recipe" onclick="switchScreen('recipe')">
+    <span class="nav-icon">🧾</span>สูตร
   </button>
 </div>
 
@@ -303,7 +308,7 @@
     }));
   }
 
-  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย", members: "จัดการสมาชิก", menu: "จัดการเมนู" };
+  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย", members: "จัดการสมาชิก", menu: "จัดการเมนู", recipe: "สูตร / ต้นทุน" };
   let selectedMenu = null;
   let selectedDate = null;
   let selectedMemberLineId = null;
@@ -336,7 +341,8 @@
     if (name === 'bill') { loadBills(); loadOmakaseMaxBills(); }
     if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); }
     if (name === 'members') { loadMembers(); loadPrograms(); }
-    if (name === 'menu') loadSecretMenuTab();
+    if (name === 'menu') loadMenuContentList();
+    if (name === 'recipe') loadMenuRecipeList();
   }
 
   function fmtDate(d) {
@@ -1861,62 +1867,40 @@
   let programsCache = [];
 
   // ===================== แท็บ "ลับ" — จัดการเมนู secret/draft แยกออกมาต่างหาก ไม่ปนกับเมนูขายจริง =====================
-  async function loadSecretMenuTab() {
-    const listEl = document.getElementById('secretMenuList');
-    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
-    await loadAllIngredients();
+  // TAB_GROUP labels/order ใช้ร่วมกันทั้งแท็บ "เมนู" และ "สูตร" — อ่านจาก menu_categories ตารางเดียวกับที่ order.html ใช้จริง
+  const TAB_GROUP_LABEL = {
+    coffee: '☕ กลุ่มกาแฟ (ลูกค้าเห็นใน Comfort)',
+    matcha: '🍵 กลุ่มชาเขียว (ลูกค้าเห็นใน Comfort)',
+    other: '🥤 อื่นๆ (ลูกค้าเห็นใน Comfort)',
+    signature: '🍊 Signature (ขายจริง)',
+    surprise: '🎲 แมวส้มเลือกหน่อย',
+    hidden: '🔒 ไม่แสดงลูกค้า (Secret / Draft / พักการขาย)',
+  };
+  const TAB_GROUP_ORDER = ['coffee', 'matcha', 'other', 'signature', 'surprise', 'hidden'];
 
-    const { data, error } = await sb
-      .from('menu_items')
-      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
-      .in('category', ['secret', 'signature_draft'])
-      .order('category', { ascending: true })
-      .order('name', { ascending: true });
-
-    if (error || !data) {
-      listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + (error ? error.message : 'unknown') + '</div>';
-    } else if (data.length === 0) {
-      listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนูลับ/draft ในระบบ</div>';
-    } else {
-      listEl.innerHTML = '';
-      data.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'card';
-        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;';
-        const catBadge = item.category === 'secret' ? '🔮' : '📝';
-        row.innerHTML = `
-          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
-            ${item.image_url ? `<img src="${item.image_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span style="font-size:24px;flex-shrink:0;">${catBadge}</span>`}
-            <span class="card-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
-          </div>
-          <span style="color:#A8876F;font-size:12px;flex-shrink:0;">${item.price > 0 ? item.price + '฿' : 'ยังไม่ตั้งราคา'} ▾</span>
-        `;
-        row.addEventListener('click', async () => {
-          const fullCard = await renderMenuItemCard(item);
-          row.replaceWith(fullCard);
-        }, { once: true });
-        listEl.appendChild(row);
-      });
-    }
-
-    renderSecretCreateBlock();
-    loadAllMenuList();
-    renderGenericCreateBlock();
+  function groupByTabGroup(data, tabGroupByCategory) {
+    const grouped = {};
+    data.forEach(item => {
+      const grp = tabGroupByCategory[item.category] || 'hidden';
+      (grouped[grp] = grouped[grp] || []).push(item);
+    });
+    return [
+      ...TAB_GROUP_ORDER.filter(g => grouped[g]),
+      ...Object.keys(grouped).filter(g => !TAB_GROUP_ORDER.includes(g)),
+    ].map(grp => ({ grp, items: grouped[grp] }));
   }
 
-  // ===================== แท็บ "เมนู" — เมนูทั้งหมดที่ขายจริง (ทุกหมวด) แก้ไขได้จากที่นี่ที่เดียว =====================
-  async function loadAllMenuList() {
+  // ===================== แท็บ "เมนู" — ชื่อ/ราคา/รูป/Story ทุกหมวด (เบา ไม่ query สูตร) =====================
+  async function loadMenuContentList() {
     const listEl = document.getElementById('allMenuList');
     listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
-    const [{ data, error }, { data: allRecipeRows }, { data: catMapRows }] = await Promise.all([
+    const [{ data, error }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
         .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
-        .not('category', 'in', '(secret,signature_draft)')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
-      sb.from('menu_recipes').select('menu_item_id, quantity, ingredients(cost_per_base_unit)'),
       sb.from('menu_categories').select('category, tab_group'),
     ]);
 
@@ -1929,18 +1913,65 @@
       return;
     }
 
-    // จัดกลุ่มตาม tab_group เดียวกับที่ลูกค้าเห็นจริงในหน้าสั่งซื้อ (อ่านจาก menu_categories ตารางเดียวกับที่ order.html ใช้)
-    // ไม่ใช่กลุ่มตาม category ดิบๆ ที่ไม่ตรงกับมุมมองลูกค้า
     const tabGroupByCategory = Object.fromEntries((catMapRows || []).map(c => [c.category, c.tab_group]));
-    const TAB_GROUP_LABEL = {
-      coffee: '☕ กลุ่มกาแฟ (ลูกค้าเห็นใน Comfort)',
-      matcha: '🍵 กลุ่มชาเขียว (ลูกค้าเห็นใน Comfort)',
-      other: '🥤 อื่นๆ (ลูกค้าเห็นใน Comfort)',
-      signature: '🍊 Signature (ขายจริง)',
-      surprise: '🎲 แมวส้มเลือกหน่อย',
-      hidden: '🔒 ไม่แสดงลูกค้า (Secret / Draft / พักการขาย)',
-    };
-    const TAB_GROUP_ORDER = ['coffee', 'matcha', 'other', 'signature', 'surprise', 'hidden'];
+    listEl.innerHTML = '';
+    groupByTabGroup(data, tabGroupByCategory).forEach(({ grp, items }) => {
+      const groupLabel = document.createElement('div');
+      groupLabel.className = 'week-label';
+      groupLabel.style.cssText = 'margin:14px 0 6px;';
+      groupLabel.textContent = TAB_GROUP_LABEL[grp] || grp;
+      listEl.appendChild(groupLabel);
+
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'card';
+        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;';
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+            ${item.image_url ? `<img src="${item.image_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span style="font-size:24px;flex-shrink:0;">${CATEGORY_ICON[item.category] || '☕'}</span>`}
+            <span class="card-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
+          </div>
+          <span style="color:#E8863A;font-weight:700;flex-shrink:0;">${item.price > 0 ? item.price + '฿' : 'ยังไม่ตั้งราคา'} ▾</span>
+        `;
+        row.addEventListener('click', async () => {
+          const fullCard = renderContentCard(item);
+          row.replaceWith(fullCard);
+        }, { once: true });
+        listEl.appendChild(row);
+      });
+    });
+  }
+
+  // ===================== แท็บ "สูตร" — ส่วนผสม/ต้นทุน/กำไร ทุกหมวด (หนักกว่า — คำนวณกำไรสด) =====================
+  async function loadMenuRecipeList() {
+    const listEl = document.getElementById('recipeMenuList');
+    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+    await loadAllIngredients();
+
+    const [{ data, error }, { data: allRecipeRows }, { data: catMapRows }] = await Promise.all([
+      sb.from('menu_items')
+        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
+        .eq('is_omakase_placeholder', false)
+        .order('category', { ascending: true })
+        .order('name', { ascending: true }),
+      sb.from('menu_recipes').select('menu_item_id, quantity, ingredients(cost_per_base_unit)'),
+      sb.from('menu_categories').select('category, tab_group'),
+    ]);
+
+    if (error || !data) {
+      listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + (error ? error.message : 'unknown') + '</div>';
+      renderGenericCreateBlock();
+      renderSecretCreateBlock();
+      return;
+    }
+    if (data.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนูในระบบ</div>';
+      renderGenericCreateBlock();
+      renderSecretCreateBlock();
+      return;
+    }
+
+    const tabGroupByCategory = Object.fromEntries((catMapRows || []).map(c => [c.category, c.tab_group]));
 
     // รวมต้นทุนวัตถุดิบต่อเมนู (ไม่รวม flat กาแฟ/misc — บวกทีหลังตอนคำนวณต่อรายการ)
     const ingredientCostByItem = {};
@@ -1964,24 +1995,14 @@
     }
 
     listEl.innerHTML = '';
-    const grouped = {};
-    data.forEach(item => {
-      const grp = tabGroupByCategory[item.category] || 'hidden';
-      (grouped[grp] = grouped[grp] || []).push(item);
-    });
-    const orderedGroups = [
-      ...TAB_GROUP_ORDER.filter(g => grouped[g]),
-      ...Object.keys(grouped).filter(g => !TAB_GROUP_ORDER.includes(g)),
-    ];
-
-    orderedGroups.forEach(grp => {
+    groupByTabGroup(data, tabGroupByCategory).forEach(({ grp, items }) => {
       const groupLabel = document.createElement('div');
       groupLabel.className = 'week-label';
       groupLabel.style.cssText = 'margin:14px 0 6px;';
       groupLabel.textContent = TAB_GROUP_LABEL[grp] || grp;
       listEl.appendChild(groupLabel);
 
-      grouped[grp].forEach(item => {
+      items.forEach(item => {
         const row = document.createElement('div');
         row.className = 'card';
         row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;';
@@ -1996,12 +2017,15 @@
           </div>
         `;
         row.addEventListener('click', async () => {
-          const fullCard = await renderMenuItemCard(item);
+          const fullCard = await renderRecipeCard(item);
           row.replaceWith(fullCard);
         }, { once: true });
         listEl.appendChild(row);
       });
     });
+
+    renderGenericCreateBlock();
+    renderSecretCreateBlock();
   }
 
   function renderGenericCreateBlock() {
@@ -2173,86 +2197,37 @@
           statusEl.className = 'status-msg error';
           statusEl.textContent = 'สร้างเมนูสำเร็จ แต่บันทึกสูตรไม่สำเร็จ: ' + recipeErr.message;
           btn.disabled = false; btn.textContent = 'เพิ่มเมนูใหม่';
-          loadSecretMenuTab();
+          loadMenuRecipeList();
           return;
         }
       }
 
       statusEl.className = 'status-msg success';
       statusEl.textContent = `✅ เพิ่มเมนู "${name}" แล้ว`;
-      loadSecretMenuTab();
+      loadMenuRecipeList();
     });
   }
 
-  async function loadLiveSignatureList() {
-    const listEl = document.getElementById('liveSignatureList');
-    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
-    const { data, error } = await sb
-      .from('menu_items')
-      .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
-      .eq('category', 'signature_item')
-      .order('name', { ascending: true });
-
-    if (error || !data) {
-      listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + (error ? error.message : 'unknown') + '</div>';
-      return;
-    }
-    if (data.length === 0) {
-      listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนู Signature ที่ขายจริงตอนนี้</div>';
-      return;
-    }
-
-    listEl.innerHTML = '';
-    data.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'card';
-      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;';
-      const menuUrl = `https://liff.line.me/2010600301-WA7nM057?tab=signature&item=${encodeURIComponent(item.name)}`;
-      row.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer;" class="sm-live-expand">
-          ${item.image_url ? `<img src="${item.image_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : '<span style="font-size:24px;flex-shrink:0;">☕</span>'}
-          <span class="card-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
-        </div>
-        <span style="color:#E8863A;font-weight:700;flex-shrink:0;">${item.price}฿</span>
-        <a href="${menuUrl}" target="_blank" rel="noopener" style="flex-shrink:0;text-decoration:none;background:#FFF3E8;color:#E8863A;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;" onclick="event.stopPropagation();">🔗 ดูหน้าเมนู</a>
-      `;
-      row.querySelector('.sm-live-expand').addEventListener('click', async () => {
-        const fullCard = await renderMenuItemCard(item);
-        row.replaceWith(fullCard);
-      }, { once: true });
-      listEl.appendChild(row);
-    });
-  }
-
-  async function renderMenuItemCard(item) {
-    const { data: recipeRows } = await sb
-      .from('menu_recipes')
-      .select('id, quantity, notes, ingredients(id, name, base_unit, category, cost_per_base_unit)')
-      .eq('menu_item_id', item.id);
-    const recipe = recipeRows || [];
-
+  // ===================== การ์ดแก้ไข "เนื้อหา" (แท็บเมนู) — เบา ไม่ query สูตร =====================
+  function renderContentCard(item) {
     const card = document.createElement('div');
     card.className = 'card';
     const isDraftCat = item.category === 'secret' || item.category === 'signature_draft';
     const catLabel = CATEGORY_LABEL_TH[item.category] || item.category;
+    const menuUrl = item.category === 'signature_item'
+      ? `https://liff.line.me/2010600301-WA7nM057?tab=signature&item=${encodeURIComponent(item.name)}`
+      : null;
     card.innerHTML = `
       <div class="card-top">
         <span class="card-name">${catLabel}</span>
         <button type="button" class="btn-delete" data-del-menu="${item.id}">✕</button>
       </div>
 
-      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
         <input type="checkbox" class="sm-show-add" ${item.show_in_add_order ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
         <label style="font-size:12px;color:#4A3428;font-weight:600;">แสดงในหน้า "เพิ่มออเดอร์" ให้บาริสต้าเลือกได้ (แยกจากการย้ายไปขึ้นเมนูจริง)</label>
       </div>
-
-      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
-        <input type="checkbox" class="sm-needs-bean" ${item.needs_bean ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
-        <label style="font-size:12px;color:#4A3428;font-weight:600;">เมนูนี้ต้องเลือกเมล็ดกาแฟ (needs_bean)</label>
-      </div>
-
-      <div style="font-size:13px;font-weight:800;color:#E8863A;border-bottom:2px solid #FFF3E8;padding-bottom:6px;margin-bottom:12px;">📝 ข้อความที่ลูกค้าเห็น</div>
 
       ${item.image_url ? `<img src="${item.image_url}" class="slip-thumb" style="margin-bottom:8px;">` : ''}
       <input type="text" class="sm-image" placeholder="วาง URL รูป (Supabase Storage)" value="${item.image_url || ''}" style="margin-bottom:8px;">
@@ -2273,36 +2248,10 @@
       <div class="field-hint">โชว์เป็น carousel ใต้รูปเมนูในหน้าลูกค้า — ไม่ใส่ก็ได้ ถ้ายังไม่มีรูปจะไม่โชว์หมวดนี้เลย</div>
       <textarea class="sm-mfs-images" rows="3" placeholder="https://...\nhttps://...\nhttps://..." style="margin-bottom:14px;width:100%;padding:10px 12px;border-radius:10px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;">${(item.made_from_scratch_images || []).join('\n')}</textarea>
 
-      <div style="font-size:13px;font-weight:800;color:#E8863A;border-bottom:2px solid #FFF3E8;padding-bottom:6px;margin-bottom:12px;">🧾 สูตร / ต้นทุน</div>
+      <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;">บันทึกการแก้ไข</button>
+      ${menuUrl ? `<a href="${menuUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;background:#FFF3E8;color:#E8863A;border-radius:10px;padding:10px;font-size:13px;font-weight:700;margin-top:8px;">🔗 ดูหน้าเมนู</a>` : ''}
 
-      <div class="sm-cost-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"></div>
-
-      <div class="field-label" style="margin-top:0;">ต้นทุนอื่นๆ (บาท)</div>
-      <div class="field-hint">ของนอกสต็อกที่ไม่ได้อยู่ในสูตรด้านล่าง — ตั้งครั้งเดียว ครั้งต่อไปที่ชงจะขึ้นให้อัตโนมัติ</div>
-      <input type="number" class="sm-misc" value="${item.default_misc_cost !== null ? item.default_misc_cost : ''}" placeholder="เช่น 10" style="margin-bottom:8px;">
-
-      <div class="field-label" style="margin-top:0;">สูตร / ส่วนผสม</div>
-      <div class="sm-recipe-list">
-        ${recipe.length ? recipe.map(r => `
-          <div class="bill-item" data-recipe-row="${r.id}" style="flex-direction:column;align-items:stretch;gap:4px;padding:8px 0;">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <span style="font-size:12.5px;font-weight:600;">${r.ingredients.name}</span>
-              <button type="button" class="btn-item-delete" data-del-recipe="${r.id}">ลบ</button>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <input type="number" min="0" step="0.1" class="sm-recipe-qty" data-recipe-id="${r.id}" data-cost-per-unit="${r.ingredients.cost_per_base_unit || 0}" value="${r.quantity}" style="width:80px;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;text-align:center;">
-              <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">${r.ingredients.base_unit} · ฿${Number(r.ingredients.cost_per_base_unit || 0).toFixed(3)}/${r.ingredients.base_unit}</span>
-              <span class="sm-recipe-line-cost" style="margin-left:auto;font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿${(r.quantity * (r.ingredients.cost_per_base_unit || 0)).toFixed(2)}</span>
-            </div>
-            <input type="text" class="sm-recipe-notes" data-recipe-id="${r.id}" value="${(r.notes || '').replace(/"/g, '&quot;')}" placeholder="📝 หมายเหตุ (ไม่บังคับ) เช่น เทคนิคการชง" style="font-size:11.5px;padding:6px 8px;border-radius:8px;border:1.5px dashed #F0E4D8;background:transparent;">
-          </div>
-        `).join('') : '<div class="field-hint" style="margin:0 0 8px;">ยังไม่มีสูตร</div>'}
-      </div>
-      <div class="chip-row sm-add-chips" style="margin-top:8px;"></div>
-      <div class="sm-add-qty-block"></div>
-
-      <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;margin-top:12px;">บันทึกการแก้ไข</button>
-      <div class="field-hint" style="margin-top:10px;">${isDraftCat ? '👇 พร้อมขึ้นจริงเมื่อไหร่ เลือกหมวดขายจริงแล้วกด "Push ขึ้นเมนูจริง" — Story ที่บันทึกไว้ด้านบนจะโชว์ในหน้าลูกค้าทันที' : '👇 ย้ายหมวดหมู่เมนูนี้ได้ที่นี่ (เช่น ย้ายจากกาแฟไปมัทฉะ)'}</div>
+      <div class="field-hint" style="margin-top:14px;">${isDraftCat ? '👇 พร้อมขึ้นจริงเมื่อไหร่ เลือกหมวดขายจริงแล้วกด "Push ขึ้นเมนูจริง" — Story ที่บันทึกไว้ด้านบนจะโชว์ในหน้าลูกค้าทันที (สูตร/ต้นทุนแก้ที่แท็บ "สูตร")' : '👇 ย้ายหมวดหมู่เมนูนี้ได้ที่นี่ (เช่น ย้ายจากกาแฟไปมัทฉะ)'}</div>
       <div style="display:flex;gap:8px;margin-top:8px;">
         <select class="sm-category-select" style="flex:1;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;background:#fff;color:#4A3428;">
           ${categoryOptionsHtml(item.category, false)}
@@ -2320,120 +2269,12 @@
       <div class="status-msg sm-status"></div>
     `;
 
-    function updateCostSummary() {
-      let existingCost = 0;
-      card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
-        const qty = Number(inp.value) || 0;
-        const costPerUnit = Number(inp.dataset.costPerUnit) || 0;
-        existingCost += qty * costPerUnit;
-      });
-      const addedCost = Object.values(localAdd).reduce((sum, s) => sum + ((s.qty || 0) * (s.ingredient.cost_per_base_unit || 0)), 0);
-      const needsBean = card.querySelector('.sm-needs-bean').checked;
-      const miscVal = Number(card.querySelector('.sm-misc').value) || 0;
-      const totalCost = existingCost + addedCost + (needsBean ? FLAT_COFFEE_COST : 0) + miscVal;
-      const price = Number(card.querySelector('.sm-price').value) || 0;
-      const profit = price - totalCost;
-      const gp = price ? (profit / price * 100) : 0;
-      const hasAnyRecipe = recipe.length > 0 || Object.keys(localAdd).length > 0 || needsBean;
-
-      const summaryEl = card.querySelector('.sm-cost-summary');
-      if (!hasAnyRecipe) {
-        summaryEl.innerHTML = `<div style="grid-column:1/-1;" class="field-hint">ยังไม่มีสูตร — ใส่ส่วนผสมด้านล่างเพื่อคำนวณต้นทุน/กำไร</div>`;
-        return;
-      }
-      const profitColor = profit >= 0 ? '#4A9B5C' : '#D64545';
-      summaryEl.innerHTML = `
-        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
-          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">ต้นทุน</div>
-          <div style="font-size:14px;font-weight:700;color:#4A3428;">฿${totalCost.toFixed(2)}</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
-          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">กำไร/แก้ว</div>
-          <div style="font-size:14px;font-weight:700;color:${profitColor};">฿${profit.toFixed(2)}</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
-          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">GP%</div>
-          <div style="font-size:14px;font-weight:700;color:${profitColor};">${gp.toFixed(0)}%</div>
-        </div>
-      `;
-    }
-
-    // --- เพิ่มวัตถุดิบ ---
-    const localAdd = {};
-    function renderAddChips() {
-      const row = card.querySelector('.sm-add-chips');
-      row.innerHTML = '';
-      allIngredientsCache
-        .filter(ing => !recipe.some(r => r.ingredients.id === ing.id))
-        .forEach(ing => {
-          const chip = document.createElement('button');
-          chip.type = 'button';
-          chip.className = 'chip' + (localAdd[ing.id] ? ' selected' : '');
-          chip.textContent = ing.name;
-          chip.addEventListener('click', () => {
-            if (localAdd[ing.id]) delete localAdd[ing.id];
-            else localAdd[ing.id] = { ingredient: ing, qty: null };
-            renderAddChips();
-            renderAddQtyBlock();
-            updateCostSummary();
-          });
-          row.appendChild(chip);
-        });
-    }
-    function renderAddQtyBlock() {
-      const block = card.querySelector('.sm-add-qty-block');
-      block.innerHTML = '';
-      Object.values(localAdd).forEach(sel => {
-        const costPerUnit = sel.ingredient.cost_per_base_unit || 0;
-        const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;';
-        wrap.innerHTML = `
-          <span style="flex:1;min-width:80px;font-size:12.5px;">${sel.ingredient.name}</span>
-          <input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">
-          <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">฿${costPerUnit.toFixed(3)}/${sel.ingredient.base_unit}</span>
-          <span class="sm-add-line-cost" style="font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿0.00</span>
-        `;
-        const input = wrap.querySelector('input');
-        const lineCostEl = wrap.querySelector('.sm-add-line-cost');
-        input.addEventListener('input', () => {
-          sel.qty = input.value ? Number(input.value) : null;
-          lineCostEl.textContent = `= ฿${((sel.qty || 0) * costPerUnit).toFixed(2)}`;
-          updateCostSummary();
-        });
-        block.appendChild(wrap);
-      });
-    }
-    renderAddChips();
-    updateCostSummary();
-    card.querySelector('.sm-needs-bean').addEventListener('change', updateCostSummary);
-    card.querySelector('.sm-misc').addEventListener('input', updateCostSummary);
-    card.querySelector('.sm-price').addEventListener('input', updateCostSummary);
-    card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
-      inp.addEventListener('input', () => {
-        const qty = Number(inp.value) || 0;
-        const costPerUnit = Number(inp.dataset.costPerUnit) || 0;
-        const lineCostEl = inp.closest('.bill-item').querySelector('.sm-recipe-line-cost');
-        if (lineCostEl) lineCostEl.textContent = `= ฿${(qty * costPerUnit).toFixed(2)}`;
-        updateCostSummary();
-      });
-    });
-
-    card.querySelectorAll('[data-del-recipe]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('ลบวัตถุดิบนี้ออกจากสูตรไหม?')) return;
-        await sb.from('menu_recipes').delete().eq('id', btn.dataset.delRecipe);
-        loadSecretMenuTab();
-      });
-    });
-
     card.querySelector('.sm-save-btn').addEventListener('click', async () => {
       const statusEl = card.querySelector('.sm-status');
       const name = card.querySelector('.sm-name').value.trim();
       const price = Number(card.querySelector('.sm-price').value) || 0;
-      const miscVal = card.querySelector('.sm-misc').value;
       const imageUrl = card.querySelector('.sm-image').value.trim() || null;
       const showInAddOrder = card.querySelector('.sm-show-add').checked;
-      const needsBean = card.querySelector('.sm-needs-bean').checked;
       const storyIng = card.querySelector('.sm-story-ing').value.trim() || null;
       const storyBody = card.querySelector('.sm-story-body').value.trim() || null;
       const mfsImages = card.querySelector('.sm-mfs-images').value
@@ -2457,50 +2298,19 @@
 
       const { error: updErr } = await sb.from('menu_items').update({
         name, price, image_url: imageUrl,
-        needs_bean: needsBean,
-        default_misc_cost: miscVal ? Number(miscVal) : null,
         show_in_add_order: showInAddOrder,
         story_ingredients: storyIng,
         story_body: storyBody,
         made_from_scratch_images: mfsImages.length ? mfsImages : null,
       }).eq('id', item.id);
 
-      const newRecipeRows = Object.values(localAdd)
-        .filter(s => s.qty && s.qty > 0)
-        .map(s => ({ menu_item_id: item.id, ingredient_id: s.ingredient.id, quantity: s.qty }));
-      let recipeErr = null;
-      if (newRecipeRows.length) {
-        const res = await sb.from('menu_recipes').insert(newRecipeRows);
-        recipeErr = res.error;
-      }
-
-      // บันทึกปริมาณ/หมายเหตุที่แก้ในสูตรเดิม (ถ้ามีการเปลี่ยน)
-      const qtyUpdates = [];
-      card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
-        const recipeId = inp.dataset.recipeId;
-        const newQty = Number(inp.value) || 0;
-        const original = recipe.find(r => r.id === recipeId);
-        const notesInput = card.querySelector(`.sm-recipe-notes[data-recipe-id="${recipeId}"]`);
-        const newNotes = notesInput ? (notesInput.value.trim() || null) : (original ? original.notes : null);
-        const qtyChanged = original && newQty > 0 && Number(original.quantity) !== newQty;
-        const notesChanged = original && (original.notes || null) !== newNotes;
-        if (qtyChanged || notesChanged) {
-          qtyUpdates.push({ id: recipeId, quantity: qtyChanged ? newQty : Number(original.quantity), notes: newNotes });
-        }
-      });
-      let qtyUpdateErr = null;
-      for (const upd of qtyUpdates) {
-        const res = await sb.from('menu_recipes').update({ quantity: upd.quantity, notes: upd.notes }).eq('id', upd.id);
-        if (res.error) qtyUpdateErr = res.error;
-      }
-
-      if (updErr || recipeErr || qtyUpdateErr) {
+      if (updErr) {
         statusEl.className = 'status-msg error';
-        statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + ((updErr || recipeErr || qtyUpdateErr).message);
+        statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + updErr.message;
       } else {
         statusEl.className = 'status-msg success';
         statusEl.textContent = '✅ บันทึกแล้ว';
-        loadSecretMenuTab();
+        loadMenuContentList();
       }
     });
 
@@ -2514,7 +2324,7 @@
         show_in_add_order: isRealCat ? true : card.querySelector('.sm-show-add').checked,
       }).eq('id', item.id);
       if (catErr) { alert('ย้ายไม่สำเร็จ: ' + catErr.message); return; }
-      loadSecretMenuTab();
+      loadMenuContentList();
     });
 
     card.querySelector('[data-del-menu]').addEventListener('click', async () => {
@@ -2522,7 +2332,7 @@
       await sb.from('menu_recipes').delete().eq('menu_item_id', item.id);
       const { error: delErr } = await sb.from('menu_items').delete().eq('id', item.id);
       if (delErr) { alert('ลบไม่สำเร็จ: ' + delErr.message); return; }
-      loadSecretMenuTab();
+      loadMenuContentList();
     });
 
     // --- Push to LINE — เลือกส่งหาคนเดียว/หลายคน หรือ ALL (broadcast) ---
@@ -2626,6 +2436,214 @@
     return card;
   }
 
+  // ===================== การ์ดแก้ไข "สูตร/ต้นทุน" (แท็บสูตร) — หนักกว่า query สูตรจริง =====================
+  async function renderRecipeCard(item) {
+    const { data: recipeRows } = await sb
+      .from('menu_recipes')
+      .select('id, quantity, notes, ingredients(id, name, base_unit, category, cost_per_base_unit)')
+      .eq('menu_item_id', item.id);
+    const recipe = recipeRows || [];
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    const catLabel = CATEGORY_LABEL_TH[item.category] || item.category;
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="card-name">${catLabel} · ${item.name}</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+        <input type="checkbox" class="sm-needs-bean" ${item.needs_bean ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
+        <label style="font-size:12px;color:#4A3428;font-weight:600;">เมนูนี้ต้องเลือกเมล็ดกาแฟ (needs_bean)</label>
+      </div>
+
+      <div class="sm-cost-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"></div>
+
+      <div class="field-label" style="margin-top:0;">ต้นทุนอื่นๆ (บาท)</div>
+      <div class="field-hint">ของนอกสต็อกที่ไม่ได้อยู่ในสูตรด้านล่าง — ตั้งครั้งเดียว ครั้งต่อไปที่ชงจะขึ้นให้อัตโนมัติ</div>
+      <input type="number" class="sm-misc" value="${item.default_misc_cost !== null ? item.default_misc_cost : ''}" placeholder="เช่น 10" style="margin-bottom:8px;">
+
+      <div class="field-label" style="margin-top:0;">สูตร / ส่วนผสม</div>
+      <div class="sm-recipe-list">
+        ${recipe.length ? recipe.map(r => `
+          <div class="bill-item" data-recipe-row="${r.id}" style="flex-direction:column;align-items:stretch;gap:4px;padding:8px 0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="font-size:12.5px;font-weight:600;">${r.ingredients.name}</span>
+              <button type="button" class="btn-item-delete" data-del-recipe="${r.id}">ลบ</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="number" min="0" step="0.1" class="sm-recipe-qty" data-recipe-id="${r.id}" data-cost-per-unit="${r.ingredients.cost_per_base_unit || 0}" value="${r.quantity}" style="width:80px;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;text-align:center;">
+              <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">${r.ingredients.base_unit} · ฿${Number(r.ingredients.cost_per_base_unit || 0).toFixed(3)}/${r.ingredients.base_unit}</span>
+              <span class="sm-recipe-line-cost" style="margin-left:auto;font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿${(r.quantity * (r.ingredients.cost_per_base_unit || 0)).toFixed(2)}</span>
+            </div>
+            <input type="text" class="sm-recipe-notes" data-recipe-id="${r.id}" value="${(r.notes || '').replace(/"/g, '&quot;')}" placeholder="📝 หมายเหตุ (ไม่บังคับ) เช่น เทคนิคการชง" style="font-size:11.5px;padding:6px 8px;border-radius:8px;border:1.5px dashed #F0E4D8;background:transparent;">
+          </div>
+        `).join('') : '<div class="field-hint" style="margin:0 0 8px;">ยังไม่มีสูตร</div>'}
+      </div>
+      <div class="chip-row sm-add-chips" style="margin-top:8px;"></div>
+      <div class="sm-add-qty-block"></div>
+
+      <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;margin-top:12px;">บันทึกการแก้ไข</button>
+      <div class="status-msg sm-status"></div>
+    `;
+
+    function updateCostSummary() {
+      let existingCost = 0;
+      card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
+        const qty = Number(inp.value) || 0;
+        const costPerUnit = Number(inp.dataset.costPerUnit) || 0;
+        existingCost += qty * costPerUnit;
+      });
+      const addedCost = Object.values(localAdd).reduce((sum, s) => sum + ((s.qty || 0) * (s.ingredient.cost_per_base_unit || 0)), 0);
+      const needsBean = card.querySelector('.sm-needs-bean').checked;
+      const miscVal = Number(card.querySelector('.sm-misc').value) || 0;
+      const totalCost = existingCost + addedCost + (needsBean ? FLAT_COFFEE_COST : 0) + miscVal;
+      const price = Number(item.price) || 0;
+      const profit = price - totalCost;
+      const gp = price ? (profit / price * 100) : 0;
+      const hasAnyRecipe = recipe.length > 0 || Object.keys(localAdd).length > 0 || needsBean;
+
+      const summaryEl = card.querySelector('.sm-cost-summary');
+      if (!hasAnyRecipe) {
+        summaryEl.innerHTML = `<div style="grid-column:1/-1;" class="field-hint">ยังไม่มีสูตร — ใส่ส่วนผสมด้านล่างเพื่อคำนวณต้นทุน/กำไร</div>`;
+        return;
+      }
+      const profitColor = profit >= 0 ? '#4A9B5C' : '#D64545';
+      summaryEl.innerHTML = `
+        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">ต้นทุน</div>
+          <div style="font-size:14px;font-weight:700;color:#4A3428;">฿${totalCost.toFixed(2)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">กำไร/แก้ว (ราคา ฿${price})</div>
+          <div style="font-size:14px;font-weight:700;color:${profitColor};">฿${profit.toFixed(2)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+          <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">GP%</div>
+          <div style="font-size:14px;font-weight:700;color:${profitColor};">${gp.toFixed(0)}%</div>
+        </div>
+      `;
+    }
+
+    // --- เพิ่มวัตถุดิบ ---
+    const localAdd = {};
+    function renderAddChips() {
+      const row = card.querySelector('.sm-add-chips');
+      row.innerHTML = '';
+      allIngredientsCache
+        .filter(ing => !recipe.some(r => r.ingredients.id === ing.id))
+        .forEach(ing => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'chip' + (localAdd[ing.id] ? ' selected' : '');
+          chip.textContent = ing.name;
+          chip.addEventListener('click', () => {
+            if (localAdd[ing.id]) delete localAdd[ing.id];
+            else localAdd[ing.id] = { ingredient: ing, qty: null };
+            renderAddChips();
+            renderAddQtyBlock();
+            updateCostSummary();
+          });
+          row.appendChild(chip);
+        });
+    }
+    function renderAddQtyBlock() {
+      const block = card.querySelector('.sm-add-qty-block');
+      block.innerHTML = '';
+      Object.values(localAdd).forEach(sel => {
+        const costPerUnit = sel.ingredient.cost_per_base_unit || 0;
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;';
+        wrap.innerHTML = `
+          <span style="flex:1;min-width:80px;font-size:12.5px;">${sel.ingredient.name}</span>
+          <input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">
+          <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">฿${costPerUnit.toFixed(3)}/${sel.ingredient.base_unit}</span>
+          <span class="sm-add-line-cost" style="font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿0.00</span>
+        `;
+        const input = wrap.querySelector('input');
+        const lineCostEl = wrap.querySelector('.sm-add-line-cost');
+        input.addEventListener('input', () => {
+          sel.qty = input.value ? Number(input.value) : null;
+          lineCostEl.textContent = `= ฿${((sel.qty || 0) * costPerUnit).toFixed(2)}`;
+          updateCostSummary();
+        });
+        block.appendChild(wrap);
+      });
+    }
+    renderAddChips();
+    updateCostSummary();
+    card.querySelector('.sm-needs-bean').addEventListener('change', updateCostSummary);
+    card.querySelector('.sm-misc').addEventListener('input', updateCostSummary);
+    card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const qty = Number(inp.value) || 0;
+        const costPerUnit = Number(inp.dataset.costPerUnit) || 0;
+        const lineCostEl = inp.closest('.bill-item').querySelector('.sm-recipe-line-cost');
+        if (lineCostEl) lineCostEl.textContent = `= ฿${(qty * costPerUnit).toFixed(2)}`;
+        updateCostSummary();
+      });
+    });
+
+    card.querySelectorAll('[data-del-recipe]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('ลบวัตถุดิบนี้ออกจากสูตรไหม?')) return;
+        await sb.from('menu_recipes').delete().eq('id', btn.dataset.delRecipe);
+        loadMenuRecipeList();
+      });
+    });
+
+    card.querySelector('.sm-save-btn').addEventListener('click', async () => {
+      const statusEl = card.querySelector('.sm-status');
+      const miscVal = card.querySelector('.sm-misc').value;
+      const needsBean = card.querySelector('.sm-needs-bean').checked;
+
+      const { error: updErr } = await sb.from('menu_items').update({
+        needs_bean: needsBean,
+        default_misc_cost: miscVal ? Number(miscVal) : null,
+      }).eq('id', item.id);
+
+      const newRecipeRows = Object.values(localAdd)
+        .filter(s => s.qty && s.qty > 0)
+        .map(s => ({ menu_item_id: item.id, ingredient_id: s.ingredient.id, quantity: s.qty }));
+      let recipeErr = null;
+      if (newRecipeRows.length) {
+        const res = await sb.from('menu_recipes').insert(newRecipeRows);
+        recipeErr = res.error;
+      }
+
+      // บันทึกปริมาณ/หมายเหตุที่แก้ในสูตรเดิม (ถ้ามีการเปลี่ยน)
+      const qtyUpdates = [];
+      card.querySelectorAll('.sm-recipe-qty').forEach(inp => {
+        const recipeId = inp.dataset.recipeId;
+        const newQty = Number(inp.value) || 0;
+        const original = recipe.find(r => r.id === recipeId);
+        const notesInput = card.querySelector(`.sm-recipe-notes[data-recipe-id="${recipeId}"]`);
+        const newNotes = notesInput ? (notesInput.value.trim() || null) : (original ? original.notes : null);
+        const qtyChanged = original && newQty > 0 && Number(original.quantity) !== newQty;
+        const notesChanged = original && (original.notes || null) !== newNotes;
+        if (qtyChanged || notesChanged) {
+          qtyUpdates.push({ id: recipeId, quantity: qtyChanged ? newQty : Number(original.quantity), notes: newNotes });
+        }
+      });
+      let qtyUpdateErr = null;
+      for (const upd of qtyUpdates) {
+        const res = await sb.from('menu_recipes').update({ quantity: upd.quantity, notes: upd.notes }).eq('id', upd.id);
+        if (res.error) qtyUpdateErr = res.error;
+      }
+
+      if (updErr || recipeErr || qtyUpdateErr) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + ((updErr || recipeErr || qtyUpdateErr).message);
+      } else {
+        statusEl.className = 'status-msg success';
+        statusEl.textContent = '✅ บันทึกแล้ว';
+        loadMenuRecipeList();
+      }
+    });
+
+    return card;
+  }
+
   function renderSecretCreateBlock() {
     const block = document.getElementById('secretCreateBlock');
     block.innerHTML = `
@@ -2724,7 +2742,7 @@
       const recipeRows = list.map(s => ({ menu_item_id: newItem.id, ingredient_id: s.ingredient.id, quantity: s.qty }));
       await sb.from('menu_recipes').insert(recipeRows);
 
-      loadSecretMenuTab();
+      loadMenuRecipeList();
     });
   }
 
