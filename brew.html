@@ -241,7 +241,6 @@
     special_of_month: '🌟 Special of the Month', secret: '🔮 Secret', signature_draft: '📝 Signature Draft',
     on_hold: '⏸️ พักการขาย',
   };
-  const ALL_MENU_CATEGORY_ORDER = ['surprise', 'espresso', 'dirty', 'matcha', 'cocoa', 'thai_tea', 'yogurt', 'signature_item', 'special_of_month'];
   const CATEGORY_SELECT_OPTIONS = [
     { value: 'surprise', label: 'แมวส้มเลือกหน่อย' },
     { value: 'espresso', label: 'กลุ่มกาแฟ' },
@@ -1910,7 +1909,7 @@
     const listEl = document.getElementById('allMenuList');
     listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
-    const [{ data, error }, { data: allRecipeRows }] = await Promise.all([
+    const [{ data, error }, { data: allRecipeRows }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
         .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
         .not('category', 'in', '(secret,signature_draft)')
@@ -1918,6 +1917,7 @@
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
       sb.from('menu_recipes').select('menu_item_id, quantity, ingredients(cost_per_base_unit)'),
+      sb.from('menu_categories').select('category, tab_group'),
     ]);
 
     if (error || !data) {
@@ -1928,6 +1928,19 @@
       listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนูในระบบ</div>';
       return;
     }
+
+    // จัดกลุ่มตาม tab_group เดียวกับที่ลูกค้าเห็นจริงในหน้าสั่งซื้อ (อ่านจาก menu_categories ตารางเดียวกับที่ order.html ใช้)
+    // ไม่ใช่กลุ่มตาม category ดิบๆ ที่ไม่ตรงกับมุมมองลูกค้า
+    const tabGroupByCategory = Object.fromEntries((catMapRows || []).map(c => [c.category, c.tab_group]));
+    const TAB_GROUP_LABEL = {
+      coffee: '☕ กลุ่มกาแฟ (ลูกค้าเห็นใน Comfort)',
+      matcha: '🍵 กลุ่มชาเขียว (ลูกค้าเห็นใน Comfort)',
+      other: '🥤 อื่นๆ (ลูกค้าเห็นใน Comfort)',
+      signature: '🍊 Signature (ขายจริง)',
+      surprise: '🎲 แมวส้มเลือกหน่อย',
+      hidden: '🔒 ไม่แสดงลูกค้า (Secret / Draft / พักการขาย)',
+    };
+    const TAB_GROUP_ORDER = ['coffee', 'matcha', 'other', 'signature', 'surprise', 'hidden'];
 
     // รวมต้นทุนวัตถุดิบต่อเมนู (ไม่รวม flat กาแฟ/misc — บวกทีหลังตอนคำนวณต่อรายการ)
     const ingredientCostByItem = {};
@@ -1952,20 +1965,23 @@
 
     listEl.innerHTML = '';
     const grouped = {};
-    data.forEach(item => { (grouped[item.category] = grouped[item.category] || []).push(item); });
-    const orderedCats = [
-      ...ALL_MENU_CATEGORY_ORDER.filter(c => grouped[c]),
-      ...Object.keys(grouped).filter(c => !ALL_MENU_CATEGORY_ORDER.includes(c)),
+    data.forEach(item => {
+      const grp = tabGroupByCategory[item.category] || 'hidden';
+      (grouped[grp] = grouped[grp] || []).push(item);
+    });
+    const orderedGroups = [
+      ...TAB_GROUP_ORDER.filter(g => grouped[g]),
+      ...Object.keys(grouped).filter(g => !TAB_GROUP_ORDER.includes(g)),
     ];
 
-    orderedCats.forEach(cat => {
+    orderedGroups.forEach(grp => {
       const groupLabel = document.createElement('div');
       groupLabel.className = 'week-label';
       groupLabel.style.cssText = 'margin:14px 0 6px;';
-      groupLabel.textContent = CATEGORY_LABEL_TH[cat] || cat;
+      groupLabel.textContent = TAB_GROUP_LABEL[grp] || grp;
       listEl.appendChild(groupLabel);
 
-      grouped[cat].forEach(item => {
+      grouped[grp].forEach(item => {
         const row = document.createElement('div');
         row.className = 'card';
         row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;';
