@@ -138,6 +138,11 @@
   <div class="field-hint" id="discountHint">ใส่จำนวนบาทที่ลด — ราคาสุทธิจะหักให้อัตโนมัติตอนบันทึก</div>
   <input type="number" id="discountAmount" placeholder="เช่น 20" min="0" step="1" style="margin-bottom:8px;">
 
+  <div id="noCoffeeRow" style="display:none;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+    <input type="checkbox" id="noCoffeeCheckbox" style="width:20px;height:20px;flex-shrink:0;">
+    <label for="noCoffeeCheckbox" style="font-size:12.5px;color:#4A3428;font-weight:600;">☕🚫 ไม่ใช้กาแฟแก้วนี้ (ไม่ตัดสต็อกเมล็ด/ไม่บวกต้นทุนกาแฟ — หลังบ้านเท่านั้น)</label>
+  </div>
+
   <div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
     <input type="checkbox" id="isMaxCup" style="width:20px;height:20px;flex-shrink:0;">
     <label for="isMaxCup" style="font-size:12.5px;color:#4A3428;font-weight:600;">🎴 นับเป็นแก้ว Omakase Max สัปดาห์นี้ (ไม่คิดเงินตอนนี้ ไปรวมเก็บทีหลัง)</label>
@@ -273,7 +278,7 @@
   async function loadMenuItems() {
     const { data, error } = await sb
       .from('menu_items')
-      .select('id, name, price, category, needs_bean, image_url, uses_misc_cost_estimate, show_in_add_order')
+      .select('id, name, price, category, needs_bean, image_url, uses_misc_cost_estimate, show_in_add_order, coffee_flexible')
       .eq('is_omakase_placeholder', false);
     if (error || !data) {
       alert('โหลดเมนูไม่สำเร็จ: ' + (error ? error.message : 'unknown error'));
@@ -295,6 +300,7 @@
       category: m.category,
       usesMiscCost: !!m.uses_misc_cost_estimate,
       showInAddOrder: !!m.show_in_add_order,
+      coffeeFlexible: !!m.coffee_flexible,
     }));
   }
 
@@ -1270,7 +1276,7 @@
             <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
           </div>
         </div>
-        <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.bean_name ? ` · ${order.bean_name}` : ''}</div>
+        <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}</div>
         <div class="pkg-row">
           <button type="button" class="pkg-btn" data-pkg="tumbler">♻️ กระติก</button>
           <button type="button" class="pkg-btn selected" data-pkg="bag">🛍️ ถุง</button>
@@ -1300,7 +1306,16 @@
       });
       const doneBtn = div.querySelector('.btn-done');
       doneBtn.addEventListener('click', async () => {
-        if (needsBean(order.menu_item_name) || isSecretMenuName(order.menu_item_name)) {
+        if (order.no_coffee) {
+          // ตั้งค่าไว้แล้วตอนสั่งว่าไม่ใช้กาแฟแก้วนี้ — ข้ามตัวเลือกเมล็ดไปเลย ไม่ตัดสต็อก ไม่บวกต้นทุนกาแฟ
+          doneBtn.textContent = 'กำลังบันทึก...';
+          doneBtn.disabled = true;
+          const ok = await markBrewed(order, div, null);
+          if (!ok) {
+            doneBtn.textContent = 'ชงแล้ว';
+            doneBtn.disabled = false;
+          }
+        } else if (needsBean(order.menu_item_name) || isSecretMenuName(order.menu_item_name)) {
           await showBeanPicker(div, order, doneBtn);
         } else {
           doneBtn.textContent = 'กำลังบันทึก...';
@@ -1373,6 +1388,9 @@
           document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
           div.classList.add('selected');
           selectedMenu = item;
+          const noCoffeeRow = document.getElementById('noCoffeeRow');
+          noCoffeeRow.style.display = item.coffeeFlexible ? 'flex' : 'none';
+          if (!item.coffeeFlexible) document.getElementById('noCoffeeCheckbox').checked = false;
         }
         updateSubmitState();
       });
@@ -1880,7 +1898,7 @@
 
     const [{ data, error }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
+        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
@@ -1933,7 +1951,7 @@
 
     const [{ data, error }, { data: allRecipeRows }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images')
+        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
@@ -2440,6 +2458,11 @@
         <label style="font-size:12px;color:#4A3428;font-weight:600;">เมนูนี้ต้องเลือกเมล็ดกาแฟ (needs_bean)</label>
       </div>
 
+      <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+        <input type="checkbox" class="sm-coffee-flexible" ${item.coffee_flexible ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
+        <label style="font-size:12px;color:#4A3428;font-weight:600;">เมนูนี้ทำแบบไม่ใส่กาแฟได้ (เช่น Amber Velvet) — เปิดแล้วจะมี checkbox "ไม่ใช้กาแฟแก้วนี้" ให้เลือกตอนเพิ่มออเดอร์</label>
+      </div>
+
       <div class="sm-cost-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"></div>
 
       <div class="field-label" style="margin-top:0;">ต้นทุนอื่นๆ (บาท)</div>
@@ -2579,9 +2602,11 @@
       const statusEl = card.querySelector('.sm-status');
       const miscVal = card.querySelector('.sm-misc').value;
       const needsBean = card.querySelector('.sm-needs-bean').checked;
+      const coffeeFlexible = card.querySelector('.sm-coffee-flexible').checked;
 
       const { error: updErr } = await sb.from('menu_items').update({
         needs_bean: needsBean,
+        coffee_flexible: coffeeFlexible,
         default_misc_cost: miscVal ? Number(miscVal) : null,
       }).eq('id', item.id);
 
@@ -2966,6 +2991,9 @@
     selectedMenu = MENU[idx];
     const cards = document.querySelectorAll('.menu-card');
     cards.forEach((c, i) => c.classList.toggle('selected', i === idx));
+    const noCoffeeRow = document.getElementById('noCoffeeRow');
+    noCoffeeRow.style.display = selectedMenu.coffeeFlexible ? 'flex' : 'none';
+    if (!selectedMenu.coffeeFlexible) document.getElementById('noCoffeeCheckbox').checked = false;
   }
 
   function setSweetnessValue(val) {
@@ -3111,6 +3139,7 @@
         paid: isMaxCup ? false : isFree,
         sweetness: selectedSweetness,
         channel: isMaxCup ? 'liff-omakase-fullweek' : 'walk-in',
+        no_coffee: selectedMenu.coffeeFlexible ? document.getElementById('noCoffeeCheckbox').checked : false,
       }];
     }
 
@@ -3168,6 +3197,8 @@
     orderType = 'customer';
     selectedSweetness = 'ไม่หวาน';
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
+    document.getElementById('noCoffeeRow').style.display = 'none';
+    document.getElementById('noCoffeeCheckbox').checked = false;
     orderMode = 'normal';
     omakaseSlots = [null, null, null];
     omakaseDates = [null, null, null];
