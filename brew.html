@@ -420,12 +420,13 @@
     return costs;
   }
 
-  async function markBrewed(order, cardEl, beanIngredient) {
+  async function markBrewed(order, cardEl, beanIngredient, noCoffee) {
     const packagingType = cardEl.dataset.selectedPkg || 'bag';
     const packagingCosts = await loadPackagingCosts();
     const packagingCost = Math.round((packagingCosts[packagingType] || 0) * 100) / 100;
     const updates = { brewed: true, brewed_at: new Date().toISOString(), packaging_type: packagingType, packaging_cost: packagingCost };
     if (beanIngredient) updates.bean_name = beanIngredient.name;
+    if (noCoffee) updates.no_coffee = true;
 
     if (beanIngredient) {
       const newStock = Number(beanIngredient.stock_quantity) - BEAN_DOSE_G;
@@ -544,6 +545,7 @@
           <button class="btn-bean-cancel">ยกเลิก</button>
           <button class="btn-bean-confirm" disabled>ยืนยันชง</button>
         </div>
+        ${mh.coffeeFlexible ? `<button type="button" class="btn-no-coffee" style="width:100%;margin-top:8px;padding:9px;border-radius:8px;border:2px solid #D64545;background:#fff;color:#D64545;font-size:12px;font-weight:700;">☕🚫 ไม่ใช้กาแฟแก้วนี้ (ไม่ตัดสต็อก)</button>` : ''}
       `;
       if (mh.wireMixerChips) mh.wireMixerChips(wrap);
 
@@ -571,6 +573,13 @@
         });
       });
       wrap.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
+      const noCoffeeBtn = wrap.querySelector('.btn-no-coffee');
+      if (noCoffeeBtn) {
+        noCoffeeBtn.addEventListener('click', async () => {
+          noCoffeeBtn.disabled = true; noCoffeeBtn.textContent = 'กำลังบันทึก...';
+          await markBrewed(order, cardEl, null, true);
+        });
+      }
       wrap.querySelector('.btn-bean-confirm').addEventListener('click', async () => {
         const chosen = state.ids.map(id => ({
           id,
@@ -953,12 +962,14 @@
     // แก้วลับบางแก้วไม่มีกาแฟเลย (เช่น ฐานผลไม้/ชา) — allowZeroBeans ให้ยืนยันชงได้โดยไม่ต้องเลือกเมล็ดเลย
     const allowZeroBeans = isSecretMenuName(order.menu_item_name) && !needsBean(order.menu_item_name);
     let isSecretMenu = false;
+    let coffeeFlexible = false;
     let mixerOptions = [];
     let defaultMiscCost = null;
     try {
-      const { data: menuRows } = await sb.from('menu_items').select('category, uses_misc_cost_estimate, default_misc_cost').eq('name', order.menu_item_name).limit(1);
+      const { data: menuRows } = await sb.from('menu_items').select('category, uses_misc_cost_estimate, default_misc_cost, coffee_flexible').eq('name', order.menu_item_name).limit(1);
       const menuRow = menuRows && menuRows[0];
       isSecretMenu = !!(menuRow && (menuRow.category === 'secret' || menuRow.uses_misc_cost_estimate));
+      coffeeFlexible = !!(menuRow && menuRow.coffee_flexible);
       if (menuRow && menuRow.default_misc_cost !== null && menuRow.default_misc_cost !== undefined) {
         defaultMiscCost = menuRow.default_misc_cost;
       }
@@ -1048,6 +1059,7 @@
           <button class="btn-bean-change" style="flex:1;padding:9px;border-radius:8px;border:2px solid #F0E4D8;background:#fff;color:#4A3428;font-size:12px;font-weight:700;">เปลี่ยนเมล็ด</button>
           <button class="btn-bean-confirm">ยืนยันชง</button>
         </div>
+        ${coffeeFlexible ? `<button type="button" class="btn-no-coffee" style="width:100%;margin-top:8px;padding:9px;border-radius:8px;border:2px solid #D64545;background:#fff;color:#D64545;font-size:12px;font-weight:700;">☕🚫 ไม่ใช้กาแฟแก้วนี้ (ไม่ตัดสต็อก)</button>` : ''}
       `;
       wireMixerChips(wrap);
       wrap.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
@@ -1057,10 +1069,17 @@
         await markBrewedWithBlend(order, cardEl, currentBeans, { updateBeanName: false, replaceBlendRows: false, mixerName: getSelectedMixer(wrap), miscCost: getMiscCost(wrap) });
       });
       wrap.querySelector('.btn-bean-change').addEventListener('click', () => {
-        renderBlendEditor(wrap, cardEl, order, beans, currentBeans, { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost, allowZeroBeans });
+        renderBlendEditor(wrap, cardEl, order, beans, currentBeans, { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost, allowZeroBeans, coffeeFlexible });
       });
+      const noCoffeeBtn = wrap.querySelector('.btn-no-coffee');
+      if (noCoffeeBtn) {
+        noCoffeeBtn.addEventListener('click', async () => {
+          noCoffeeBtn.disabled = true; noCoffeeBtn.textContent = 'กำลังบันทึก...';
+          await markBrewed(order, cardEl, null, true);
+        });
+      }
     } else {
-      renderBlendEditor(wrap, cardEl, order, beans, [], { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost, allowZeroBeans });
+      renderBlendEditor(wrap, cardEl, order, beans, [], { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost, allowZeroBeans, coffeeFlexible });
     }
   }
 
