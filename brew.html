@@ -134,6 +134,10 @@
   <div class="field-label">วันที่ต้องการ</div>
   <div class="date-row" id="dateRow"></div>
 
+  <div class="field-label">หมายเหตุ (ไม่บังคับ)</div>
+  <div class="field-hint">เช่น ลูกค้าขอหวานน้อยมากๆ, แพ้นมวัว, ขอน้ำแข็งน้อย ฯลฯ</div>
+  <textarea id="orderNotes" rows="2" placeholder="พิมพ์หมายเหตุที่ลูกค้าบอก..." style="margin-bottom:8px;width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;resize:vertical;"></textarea>
+
   <div class="field-label">ส่วนลด (ไม่บังคับ)</div>
   <div class="field-hint" id="discountHint">ใส่จำนวนบาทที่ลด — ราคาสุทธิจะหักให้อัตโนมัติตอนบันทึก</div>
   <input type="number" id="discountAmount" placeholder="เช่น 20" min="0" step="1" style="margin-bottom:8px;">
@@ -1296,6 +1300,7 @@
           </div>
         </div>
         <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}</div>
+        ${order.notes ? `<div style="font-size:11.5px;color:#A85A1E;background:#FFF3E8;border-radius:8px;padding:6px 10px;margin-bottom:8px;">📝 ${order.notes}</div>` : ''}
         <div class="pkg-row">
           <button type="button" class="pkg-btn" data-pkg="tumbler">♻️ กระติก</button>
           <button type="button" class="pkg-btn selected" data-pkg="bag">🛍️ ถุง</button>
@@ -3126,6 +3131,7 @@
     const blendPayload = selectedBeanIds.length >= 2 ? getBlendGramsPayload() : null;
     const isFree = orderType !== 'customer';
     const discountInput = Number(document.getElementById('discountAmount').value) || 0;
+    const orderNotes = document.getElementById('orderNotes').value.trim() || null;
 
     let insertRows;
     if (orderMode === 'omakase') {
@@ -3142,6 +3148,7 @@
         sweetness: selectedSweetness,
         channel: 'walk-in',
         omakase_set_id: omakaseSetId,
+        notes: orderNotes,
       }));
     } else {
       const isMaxCup = document.getElementById('isMaxCup').checked;
@@ -3159,6 +3166,7 @@
         sweetness: selectedSweetness,
         channel: isMaxCup ? 'liff-omakase-fullweek' : 'walk-in',
         no_coffee: selectedMenu.coffeeFlexible ? document.getElementById('noCoffeeCheckbox').checked : false,
+        notes: orderNotes,
       }];
     }
 
@@ -3218,6 +3226,7 @@
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
     document.getElementById('noCoffeeRow').style.display = 'none';
     document.getElementById('noCoffeeCheckbox').checked = false;
+    document.getElementById('orderNotes').value = '';
     orderMode = 'normal';
     omakaseSlots = [null, null, null];
     omakaseDates = [null, null, null];
