@@ -1924,7 +1924,7 @@
 
     const [{ data, error }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible')
+        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
@@ -1977,7 +1977,7 @@
 
     const [{ data, error }, { data: allRecipeRows }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible')
+        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
@@ -2265,6 +2265,21 @@
       <div class="field-label" style="margin-top:0;">ราคา (บาท)</div>
       <input type="number" class="sm-price" value="${item.price}" style="margin-bottom:8px;">
 
+      ${item.category === 'signature_item' ? `
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <div style="flex:1;">
+          <div class="field-label" style="margin-top:0;">Chapter #</div>
+          <div class="field-hint">เลขลำดับที่โชว์ในแท็บ Signature — ตั้งเองกันสลับที่ผิด</div>
+          <input type="number" min="1" step="1" class="sm-chapter-number" value="${item.chapter_number !== null && item.chapter_number !== undefined ? item.chapter_number : ''}" placeholder="เช่น 3">
+        </div>
+        <div style="flex:1;">
+          <div class="field-label" style="margin-top:0;">วันที่ขึ้นขาย</div>
+          <div class="field-hint">โชว์เป็นแสตมป์เล็กๆ ใต้ชื่อเมนู ไม่สำคัญมาก แค่บันทึกไว้</div>
+          <input type="date" class="sm-release-date" value="${item.release_date || ''}">
+        </div>
+      </div>
+      ` : ''}
+
       <div class="field-label" style="margin-top:0;">🧡 Story — บรรทัดส่วนผสม (เช่น "Earl Grey · Marmalade · Citrus · Coffee")</div>
       <input type="text" class="sm-story-ing" value="${(item.story_ingredients || '').replace(/"/g,'&quot;')}" placeholder="ส่วนผสมหลัก คั่นด้วย ·" style="margin-bottom:8px;">
 
@@ -2306,6 +2321,10 @@
       const storyBody = card.querySelector('.sm-story-body').value.trim() || null;
       const mfsImages = card.querySelector('.sm-mfs-images').value
         .split('\n').map(s => s.trim()).filter(Boolean);
+      const chapterInput = card.querySelector('.sm-chapter-number');
+      const releaseDateInput = card.querySelector('.sm-release-date');
+      const chapterNumber = chapterInput && chapterInput.value ? Number(chapterInput.value) : null;
+      const releaseDate = releaseDateInput && releaseDateInput.value ? releaseDateInput.value : null;
 
       const oldPrice = Number(item.price);
       if (price !== oldPrice) {
@@ -2323,13 +2342,19 @@
         }
       }
 
-      const { error: updErr } = await sb.from('menu_items').update({
+      const updatePayload = {
         name, price, image_url: imageUrl,
         show_in_add_order: showInAddOrder,
         story_ingredients: storyIng,
         story_body: storyBody,
         made_from_scratch_images: mfsImages.length ? mfsImages : null,
-      }).eq('id', item.id);
+      };
+      if (item.category === 'signature_item') {
+        updatePayload.chapter_number = chapterNumber;
+        updatePayload.release_date = releaseDate;
+      }
+
+      const { error: updErr } = await sb.from('menu_items').update(updatePayload).eq('id', item.id);
 
       if (updErr) {
         statusEl.className = 'status-msg error';
