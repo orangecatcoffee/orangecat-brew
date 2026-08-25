@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Brew Tracker">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: #FFF8F0; color: #4A3428; padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, #FFF3E8, #FFE4CC); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: #A8876F; letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: #4A3428; } .header .date { font-size: 13px; color: #E8863A; font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: #4A3428; color: #FFF8F0; border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid #E0D2C2; } .card.today { border-left-color: #E8863A; } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: #A8876F; cursor: pointer; border-bottom: 1px dotted #A8876F; padding-bottom: 1px; } .card-item-name { cursor: pointer; border-bottom: 1px dotted #6B5445; padding-bottom: 1px; } .card-menu { font-size: 13px; color: #6B5445; margin-bottom: 10px; } .card-menu .price { color: #E8863A; font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #F0E4D8; color: #4A3428; font-size: 13px; font-weight: 600; } .btn-done.checked { background: #4A9B5C; color: #fff; } .pkg-row { display: flex; gap: 4px; margin-bottom: 8px; } .pkg-btn { flex: 1; padding: 6px 1px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; font-size: 9.5px; color: #4A3428; font-family: inherit; white-space: nowrap; } .pkg-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; margin-bottom: 6px; background: #fff; color: #4A3428; } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #E8863A; color: #fff; font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: #D8C4B0; } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #A8876F; font-size: 12px; } .bean-empty-note { font-size: 11px; color: #D64545; } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: #D64545; font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: #6B5445; border-bottom: 1px solid #F5EEE5; } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: #D64545; font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: #A8876F; font-size: 14px; } .field-label { font-size: 12px; color: #8a6a4a; margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: #A8876F; margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: #E8863A; border-color: #E8863A; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; } .chip.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 15px; font-family: inherit; } input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #E8863A; } .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .menu-card { border: 2px solid #F0E4D8; border-radius: 10px; padding: 4px 4px 6px; text-align: center; cursor: pointer; transition: all 0.15s; overflow: hidden; background: #fff; } .menu-card.selected { border-color: #E8863A; background: #FFF3E8; } .menu-card .icon { margin: -4px -4px 4px; font-size: 24px; line-height: 1.4; } .cup-icon { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px 8px 0 0; display: block; } .menu-card .name { font-size: 9.5px; font-weight: 600; line-height: 1.25; margin-bottom: 2px; min-height: 23px; } .menu-card .price { font-size: 9.5px; color: #E8863A; font-weight: 700; } .date-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .date-btn { padding: 10px 4px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 12px; text-align: center; line-height: 1.3; } .date-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: #E8863A; color: #fff; font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: #D8C4B0; } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: #4A9B5C; } .status-msg.error { color: #D64545; } .link-hint { font-size: 11px; color: #A8876F; margin-top: 6px; } .link-hint.linked { color: #4A9B5C; font-weight: 600; } .bill-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: #E8863A; } .bill-detail { font-size: 12px; color: #A8876F; margin-bottom: 12px; } .btn-paid { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #4A3428; color: #fff; font-size: 13px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #E8863A; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: #D8C4B0; } .request-note { font-size: 11.5px; color: #A8876F; text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: #4A9B5C; font-weight: 600; } .bill-err { color: #D64545; font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: #E8863A; font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed #F0E4D8; border-radius: 10px; font-size: 12.5px; color: #8a6a4a; cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: #FFF3E8; } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid #F0E4D8; cursor: pointer; display: block; margin-bottom: 4px; background: #FFF8F0; } .slip-label { font-size: 11px; color: #4A9B5C; font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #F0E4D8; padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: #A8876F; font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: #E8863A; font-weight: 700; } .loading { text-align: center; color: #A8876F; font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFF3E8; border: 2px solid #F0E4D8; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: #4A3428; } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: #E8863A; margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: #A8876F; margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,#4A3428,#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; } .staff-reminder { background: #FFF3E8; border: 2px solid #E8863A; color: #A85A1E; font-size: 12.5px; font-weight: 600; text-align: center; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; }</style>
+<style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: #FFF8F0; color: #4A3428; padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, #FFF3E8, #FFE4CC); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: #A8876F; letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: #4A3428; } .header .date { font-size: 13px; color: #E8863A; font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: #4A3428; color: #FFF8F0; border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid #E0D2C2; } .card.today { border-left-color: #E8863A; } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: #A8876F; cursor: pointer; border-bottom: 1px dotted #A8876F; padding-bottom: 1px; } .card-item-name { cursor: pointer; border-bottom: 1px dotted #6B5445; padding-bottom: 1px; } .card-menu { font-size: 13px; color: #6B5445; margin-bottom: 10px; } .card-menu .price { color: #E8863A; font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #F0E4D8; color: #4A3428; font-size: 13px; font-weight: 600; } .btn-done.checked { background: #4A9B5C; color: #fff; } .pkg-row { display: flex; gap: 4px; margin-bottom: 8px; } .pkg-btn { flex: 1; padding: 6px 1px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; font-size: 9.5px; color: #4A3428; font-family: inherit; white-space: nowrap; } .pkg-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; margin-bottom: 6px; background: #fff; color: #4A3428; } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #E8863A; color: #fff; font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: #D8C4B0; } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #A8876F; font-size: 12px; } .bean-empty-note { font-size: 11px; color: #D64545; } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: #D64545; font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: #6B5445; border-bottom: 1px solid #F5EEE5; } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: #D64545; font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: #A8876F; font-size: 14px; } .field-label { font-size: 12px; color: #8a6a4a; margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: #A8876F; margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: #E8863A; border-color: #E8863A; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; } .chip.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 15px; font-family: inherit; } input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #E8863A; } .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .menu-card { border: 2px solid #F0E4D8; border-radius: 10px; padding: 4px 4px 6px; text-align: center; cursor: pointer; transition: all 0.15s; overflow: hidden; background: #fff; } .menu-card.selected { border-color: #E8863A; background: #FFF3E8; } .menu-card .icon { margin: -4px -4px 4px; font-size: 24px; line-height: 1.4; } .cup-icon { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px 8px 0 0; display: block; } .menu-card .name { font-size: 9.5px; font-weight: 600; line-height: 1.25; margin-bottom: 2px; min-height: 23px; } .menu-card .price { font-size: 9.5px; color: #E8863A; font-weight: 700; } .date-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .date-btn { padding: 10px 4px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 12px; text-align: center; line-height: 1.3; } .date-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: #E8863A; color: #fff; font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: #D8C4B0; } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: #4A9B5C; } .status-msg.error { color: #D64545; } .link-hint { font-size: 11px; color: #A8876F; margin-top: 6px; } .link-hint.linked { color: #4A9B5C; font-weight: 600; } .bill-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: #E8863A; } .bill-detail { font-size: 12px; color: #A8876F; margin-bottom: 12px; } .btn-paid { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #4A3428; color: #fff; font-size: 13px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #E8863A; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: #D8C4B0; } .request-note { font-size: 11.5px; color: #A8876F; text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: #4A9B5C; font-weight: 600; } .bill-err { color: #D64545; font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: #E8863A; font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed #F0E4D8; border-radius: 10px; font-size: 12.5px; color: #8a6a4a; cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: #FFF3E8; } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid #F0E4D8; cursor: pointer; display: block; margin-bottom: 4px; background: #FFF8F0; } .slip-label { font-size: 11px; color: #4A9B5C; font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #F0E4D8; padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: #A8876F; font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: #E8863A; font-weight: 700; } .loading { text-align: center; color: #A8876F; font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFF3E8; border: 2px solid #F0E4D8; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: #4A3428; } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: #E8863A; margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: #A8876F; margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,#4A3428,#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; } .staff-reminder { background: #FFF3E8; border: 2px solid #E8863A; color: #A85A1E; font-size: 12.5px; font-weight: 600; text-align: center; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; } .cal-widget { margin-bottom: 4px; } .cal-week-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; } .cal-week-label { font-size: 11px; color: #A8876F; font-weight: 600; } .cal-today-link { font-size: 11px; color: #E8863A; font-weight: 700; cursor: pointer; border-bottom: 1px dotted #E8863A; padding-bottom: 1px; } .cal-row { display: flex; align-items: center; gap: 2px; } .cal-arrow { flex-shrink: 0; width: 20px; height: 36px; border: none; background: none; color: #A8876F; font-size: 18px; font-family: inherit; } .cal-arrow:active { color: #E8863A; } .cal-days { display: flex; flex: 1; gap: 5px; touch-action: pan-y; } .cal-day { flex: 1 1 0; aspect-ratio: 1 / 1; max-width: 42px; border-radius: 50%; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-family: inherit; font-weight: 700; font-size: 13px; color: #4A3428; padding: 0; }  .cal-day:active { transform: scale(0.92); } .cal-day.is-today { outline: 2px dashed #4A3428; outline-offset: 2px; } .cal-day.selected { border-color: #4A3428; box-shadow: 0 2px 4px rgba(0,0,0,0.18); } .menu-group-card { background: #fff; border-radius: 14px; padding: 12px 14px 4px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .menu-group-header { display: flex; justify-content: space-between; align-items: center; font-size: 14.5px; font-weight: 700; color: #4A3428; padding-bottom: 8px; border-bottom: 2px solid #F0E4D8; margin-bottom: 8px; } .menu-group-count { color: #E8863A; font-weight: 700; font-size: 13px; white-space: nowrap; } .card.compact { box-shadow: none; border-radius: 10px; background: #FFFBF6; margin-bottom: 8px; padding: 10px 12px; border-left-width: 3px; }</style>
 </head>
 <body>
 <div id="pinGateOverlay" style="position:fixed;inset:0;background:#FFF8F0;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px;font-family:-apple-system,'Segoe UI','Mitr',sans-serif;">
@@ -57,12 +57,24 @@
 <div class="screen active" id="screen-today">
   <div id="staffReminderBanner"></div>
   <div class="summary-bar" id="todaySummary">กำลังโหลด...</div>
-  <div class="chip-row" id="dateFilterRow" style="margin-bottom:12px;">
-    <button type="button" class="chip selected" data-filter="all">ทั้งหมด</button>
-    <button type="button" class="chip" data-filter="today">วันนี้</button>
-    <button type="button" class="chip" data-filter="tomorrow">พรุ่งนี้</button>
-    <button type="button" class="chip" data-filter="week">สัปดาห์นี้</button>
+
+  <div class="cal-widget" id="calWidget">
+    <div class="cal-week-label-row">
+      <span class="cal-week-label" id="calWeekLabel"></span>
+      <span class="cal-today-link" id="calTodayLink">กลับวันนี้</span>
+    </div>
+    <div class="cal-row">
+      <button type="button" class="cal-arrow" id="calPrev" aria-label="สัปดาห์ก่อนหน้า">‹</button>
+      <div class="cal-days" id="calDays"></div>
+      <button type="button" class="cal-arrow" id="calNext" aria-label="สัปดาห์ถัดไป">›</button>
+    </div>
   </div>
+
+  <div class="chip-row" id="viewToggleRow" style="margin:10px 0 12px;">
+    <button type="button" class="chip selected" data-view="customer">👤 รายลูกค้า</button>
+    <button type="button" class="chip" data-view="menu">☕ รายเมนู</button>
+  </div>
+
   <div id="todayList"></div>
 </div>
 
@@ -329,6 +341,15 @@
   const SECRET_PLACEHOLDER_NAME = "🔮 แก้วลับ (รอออกแบบ)"; // ต้องตรงกับชื่อใน menu_items เป๊ะ
   const OMAKASE_WEEKLY_PRICE = 270; // ราคาแพ็กเกจ Omakase Classic ที่เรียกเก็บลูกค้าจริง (ไม่ใช่ผลรวมราคาเมนูแต่ละแก้ว)
   let allIngredientsCache = [];
+
+  // ปฏิทิน 7 วัน + สลับมุมมองรายลูกค้า/รายเมนู ในหน้า "วันนี้"
+  // toISODate ถูกประกาศด้วย function declaration ด้านล่างไฟล์นี้ — hoisted ใช้ตรงนี้ได้เลย
+  let selectedDates = new Set([toISODate(new Date())]); // ค่าเริ่มต้น: วันนี้
+  let calendarWeekOffset = 0; // 0 = สัปดาห์ปัจจุบัน, +1/-1 = สัปดาห์ถัดไป/ก่อนหน้า
+  let viewMode = 'customer'; // 'customer' | 'menu'
+  let lastLoadedOrders = [];
+  const DAY_COLORS = ['#FFECA8', '#FFD1E0', '#C9F2D6', '#FFD3A8', '#C6E7FF', '#DCC9FF', '#FFC9C9']; // จ อ พ พฤ ศ ส อา — สีวันแบบไทยโทนพาสเทล
+  const DAY_LABELS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
 
   function switchScreen(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -1109,8 +1130,6 @@
     } catch (e) { /* เงียบไว้ ไม่ critical */ }
   }
 
-  let todayFilter = 'all'; // 'all' | 'today' | 'week' — ฟิลเตอร์แสดงคิวชง ไม่กระทบ query จาก DB แค่กรองฝั่ง client
-
   function currentWeekRangeISO() {
     // สัปดาห์นี้ = จันทร์-อาทิตย์ของสัปดาห์ปัจจุบัน
     const now = new Date();
@@ -1132,10 +1151,74 @@
     return { start: toISODate(nextMonday), end: toISODate(nextSunday) };
   }
 
+  function calendarWeekStartISO(offset) {
+    const { start } = currentWeekRangeISO(); // จันทร์ของสัปดาห์ปัจจุบันจริง (อิงวันนี้จริงเสมอ ไม่ขึ้นกับ offset เก่า)
+    const d = new Date(start + 'T00:00:00');
+    d.setDate(d.getDate() + offset * 7);
+    return toISODate(d);
+  }
+
+  function renderCalendarRow() {
+    const daysEl = document.getElementById('calDays');
+    const labelEl = document.getElementById('calWeekLabel');
+    if (!daysEl) return;
+    const mondayISO = calendarWeekStartISO(calendarWeekOffset);
+    const monday = new Date(mondayISO + 'T00:00:00');
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const todayISO = toISODate(new Date());
+    labelEl.textContent = `${fmtDate(monday)} – ${fmtDate(sunday)}` + (calendarWeekOffset === 0 ? ' (สัปดาห์นี้)' : '');
+    daysEl.innerHTML = '';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const iso = toISODate(d);
+      const count = lastLoadedOrders.filter(o => o.wanted_date === iso).length;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cal-day' + (selectedDates.has(iso) ? ' selected' : '') + (iso === todayISO ? ' is-today' : '');
+      btn.style.background = DAY_COLORS[i];
+      btn.dataset.iso = iso;
+      btn.title = `${DAY_LABELS[i]} ${d.getDate()}/${d.getMonth() + 1}`;
+      btn.textContent = String(count);
+      daysEl.appendChild(btn);
+    }
+  }
+
+  function getMenuGroupKey(order) {
+    if (order.menu_item_name === SECRET_PLACEHOLDER_NAME) return SECRET_PLACEHOLDER_NAME;
+    if (order.menu_item_name === '🐱 แมวส้มเลือกหน่อย' && !order.surprise_actual_item_id) return '🐱 แมวส้มเลือกหน่อย (รอเลือกเมนู)';
+    if (order.omakase_pending) return '🎴 Omakase (รอเลือกเมนู)';
+    return order.menu_item_name;
+  }
+
+  const PENDING_GROUP_KEYS = [SECRET_PLACEHOLDER_NAME, '🐱 แมวส้มเลือกหน่อย (รอเลือกเมนู)', '🎴 Omakase (รอเลือกเมนู)'];
+
+  function renderMenuGroupedList(listEl, orders, todayISO) {
+    const groups = new Map();
+    orders.forEach(o => {
+      const key = getMenuGroupKey(o);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(o);
+    });
+    const entries = [...groups.entries()].sort((a, b) => {
+      const aPending = PENDING_GROUP_KEYS.includes(a[0]), bPending = PENDING_GROUP_KEYS.includes(b[0]);
+      if (aPending !== bPending) return aPending ? 1 : -1; // การ์ดที่ยังรอเลือกเมนูจริง ให้ไปอยู่ท้ายสุด
+      return b[1].length - a[1].length; // เมนูที่ต้องเตรียมเยอะสุดขึ้นก่อน
+    });
+    entries.forEach(([key, groupOrders]) => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'menu-group-card';
+      groupDiv.innerHTML = `<div class="menu-group-header"><span>${key}</span><span class="menu-group-count">${groupOrders.length} แก้ว</span></div><div class="menu-group-body"></div>`;
+      listEl.appendChild(groupDiv);
+      const body = groupDiv.querySelector('.menu-group-body');
+      groupOrders.forEach(order => renderOrderCard(body, order, todayISO, true));
+    });
+  }
+
   async function loadToday() {
     checkStaffReminder();
     const listEl = document.getElementById('todayList');
-    const summaryEl = document.getElementById('todaySummary');
     listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
     const { data, error } = await sb
@@ -1148,34 +1231,38 @@
       listEl.innerHTML = `<div class="empty-state">โหลดไม่สำเร็จ: ${error.message}</div>`;
       return;
     }
-    if (!data || data.length === 0) {
+    lastLoadedOrders = data || [];
+    renderCalendarRow();
+    renderTodayList();
+  }
+
+  function renderTodayList() {
+    const listEl = document.getElementById('todayList');
+    const summaryEl = document.getElementById('todaySummary');
+    const data = lastLoadedOrders;
+
+    if (data.length === 0) {
       summaryEl.textContent = 'ไม่มีออเดอร์ค้างชง 🎉';
       listEl.innerHTML = '<div class="empty-state">ว่างครับ พักได้เลย</div>';
       return;
     }
 
     const todayISO = toISODate(new Date());
-    const todayOrders = data.filter(o => o.wanted_date === todayISO);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowISO = toISODate(tomorrow);
-    const tomorrowOrders = data.filter(o => o.wanted_date === tomorrowISO);
     const thisWeekRange = currentWeekRangeISO();
     const thisWeekOrders = data.filter(o => o.wanted_date >= thisWeekRange.start && o.wanted_date <= thisWeekRange.end);
     const nextWeekRange = nextWeekRangeISO();
     const nextWeekOrders = data.filter(o => o.wanted_date >= nextWeekRange.start && o.wanted_date <= nextWeekRange.end);
 
-    let visibleOrders = data;
-    let filterLabel = 'ทั้งหมด';
-    if (todayFilter === 'today') {
-      visibleOrders = todayOrders;
-      filterLabel = 'วันนี้';
-    } else if (todayFilter === 'tomorrow') {
-      visibleOrders = tomorrowOrders;
-      filterLabel = 'พรุ่งนี้';
-    } else if (todayFilter === 'week') {
-      visibleOrders = thisWeekOrders;
-      filterLabel = 'สัปดาห์นี้';
+    const visibleOrders = selectedDates.size === 0 ? data : data.filter(o => selectedDates.has(o.wanted_date));
+
+    let filterLabel;
+    if (selectedDates.size === 0) {
+      filterLabel = 'ทั้งหมด';
+    } else if (selectedDates.size === 1) {
+      const only = [...selectedDates][0];
+      filterLabel = only === todayISO ? 'วันนี้' : fmtDate(new Date(only + 'T00:00:00'));
+    } else {
+      filterLabel = `${selectedDates.size} วันที่เลือก`;
     }
 
     const staffCount = visibleOrders.filter(o => o.order_type === 'staff').length;
@@ -1190,169 +1277,175 @@
     `;
 
     if (visibleOrders.length === 0) {
-      const label = todayFilter === 'today' ? 'วันนี้' : todayFilter === 'tomorrow' ? 'พรุ่งนี้' : todayFilter === 'week' ? 'สัปดาห์นี้' : '';
-      listEl.innerHTML = `<div class="empty-state">ไม่มีออเดอร์ค้างชง${label ? 'ของ' + label : ''} 🎉</div>`;
+      listEl.innerHTML = `<div class="empty-state">ไม่มีออเดอร์ค้างชง${filterLabel !== 'ทั้งหมด' ? 'ของ' + filterLabel : ''} 🎉</div>`;
       return;
     }
 
     listEl.innerHTML = '';
-    visibleOrders.forEach(order => {
-      const isToday = order.wanted_date === todayISO;
+    if (viewMode === 'menu') {
+      renderMenuGroupedList(listEl, visibleOrders, todayISO);
+    } else {
+      visibleOrders.forEach(order => renderOrderCard(listEl, order, todayISO, false));
+    }
+  }
 
-      if (order.menu_item_name === SECRET_PLACEHOLDER_NAME) {
-        const div = document.createElement('div');
-        div.className = 'card' + (isToday ? ' today' : '');
-        div.style.borderLeftColor = '#5A361B';
-        div.innerHTML = `
-          <div class="card-top">
-            <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#5A361B;">🔮 แก้วลับ — รอออกแบบ</span></span>
-            <div class="card-top-right">
-              <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
-              <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
-            </div>
-          </div>
-          <div class="card-menu">แก้ว Secret ของชุด Omakase นี้ — ยังไม่ได้ออกแบบ</div>
-          <button class="btn-done" style="background:#5A361B;color:#fff;">🔄 เลือกเมนูจริง →</button>
-        `;
-        div.querySelector('.btn-delete').addEventListener('click', async () => {
-          if (!confirm(`ลบออเดอร์ "${order.customer_name} - แก้วลับ" ใช่ไหม?`)) return;
-          const { error } = await sb.from('preorders').delete().eq('id', order.id);
-          if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
-          await sb.from('order_log').delete().eq('source_preorder_id', order.id);
-          div.style.opacity = '0';
-          setTimeout(() => loadToday(), 200);
-        });
-        div.querySelector('.btn-done').addEventListener('click', () => startSecretSwap(div, order));
-        listEl.appendChild(div);
-        return;
-      }
+  function renderOrderCard(container, order, todayISO, compact) {
+    const isToday = order.wanted_date === todayISO;
+    const compactClass = compact ? ' compact' : '';
 
-      if (order.menu_item_name === '🐱 แมวส้มเลือกหน่อย' && !order.surprise_actual_item_id) {
-        const div = document.createElement('div');
-        div.className = 'card' + (isToday ? ' today' : '');
-        div.style.borderLeftColor = '#E8863A';
-        div.innerHTML = `
-          <div class="card-top">
-            <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#E8863A;">🐱 แมวส้มเลือกหน่อย — รอเลือกเมนู</span></span>
-            <div class="card-top-right">
-              <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
-              <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
-            </div>
-          </div>
-          <div class="card-menu">ลูกค้าให้แมวส้มเลือกให้ (65-75฿) — เลือกเมนูจริงที่จะชง</div>
-          <button class="btn-done" style="background:#E8863A;color:#fff;">🐱 เลือกเมนูให้ลูกค้า →</button>
-        `;
-        div.querySelector('.btn-delete').addEventListener('click', async () => {
-          if (!confirm(`ลบออเดอร์ "${order.customer_name} - แมวส้มเลือกหน่อย" ใช่ไหม?`)) return;
-          const { error } = await sb.from('preorders').delete().eq('id', order.id);
-          if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
-          await sb.from('order_log').delete().eq('source_preorder_id', order.id);
-          div.style.opacity = '0';
-          setTimeout(() => loadToday(), 200);
-        });
-        div.querySelector('.btn-done').addEventListener('click', () => startSurprisePick(div, order));
-        listEl.appendChild(div);
-        return;
-      }
-
-      if (order.omakase_pending) {
-        const div = document.createElement('div');
-        div.className = 'card' + (isToday ? ' today' : '');
-        div.style.borderLeftColor = '#E8621A';
-        div.innerHTML = `
-          <div class="card-top">
-            <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#E8621A;">🎴 Omakase — รอเลือกเมนู</span></span>
-            <div class="card-top-right">
-              <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
-              <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
-            </div>
-          </div>
-          <div class="card-menu">ลูกค้าสั่ง Omakase ไว้แล้ว (${order.price}฿) — รอ Fah เลือก 3 เมนู</div>
-          <button class="btn-done" style="background:#E8621A;color:#fff;">🎴 เลือก 3 เมนู →</button>
-        `;
-        div.querySelector('.btn-delete').addEventListener('click', async () => {
-          if (!confirm(`ยกเลิกออเดอร์ Omakase ของ "${order.customer_name}" ใช่ไหม?`)) return;
-          const { error } = await sb.from('preorders').delete().eq('id', order.id);
-          if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
-          await sb.from('order_log').delete().eq('source_preorder_id', order.id);
-          div.style.opacity = '0';
-          setTimeout(() => loadToday(), 200);
-        });
-        div.querySelector('.btn-done').addEventListener('click', () => startOmakaseFulfillment(order));
-        listEl.appendChild(div);
-        return;
-      }
-
-      const typeBadge = order.order_type === 'staff' ? ' <span style="color:#A8876F;">☕ staff</span>'
-        : order.order_type === 'reward' ? ' <span style="color:#E8863A;">🎁 reward</span>'
-        : order.order_type === 'our_treat' ? ' <span style="color:#4A9B5C;">🎁 Our Treat</span>'
-        : '';
-      const omakaseBadge = order.omakase_set_id ? ' <span style="color:#E8621A;">🎴 Omakase</span>' : '';
-      const maxBadge = order.channel === 'liff-omakase-fullweek' ? ' <span style="color:#4A9B5C;">🎴 Max (รวมเก็บทีหลัง)</span>' : '';
+    if (order.menu_item_name === SECRET_PLACEHOLDER_NAME) {
       const div = document.createElement('div');
-      div.className = 'card' + (isToday ? ' today' : '');
+      div.className = 'card' + (isToday ? ' today' : '') + compactClass;
+      div.style.borderLeftColor = '#5A361B';
       div.innerHTML = `
         <div class="card-top">
-          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${typeBadge}${omakaseBadge}${maxBadge}</span>
+          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#5A361B;">🔮 แก้วลับ — รอออกแบบ</span></span>
           <div class="card-top-right">
             <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
             <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
           </div>
         </div>
-        <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}</div>
-        ${order.notes ? `<div style="font-size:11.5px;color:#A85A1E;background:#FFF3E8;border-radius:8px;padding:6px 10px;margin-bottom:8px;">📝 ${order.notes}</div>` : ''}
-        <div class="pkg-row">
-          <button type="button" class="pkg-btn" data-pkg="tumbler">♻️ กระติก</button>
-          <button type="button" class="pkg-btn selected" data-pkg="bag">🛍️ ถุง</button>
-          <button type="button" class="pkg-btn" data-pkg="cup_small">🥤 เล็ก</button>
-          <button type="button" class="pkg-btn" data-pkg="cup_large">🧋 ใหญ่</button>
-        </div>
-        <button class="btn-done" data-id="${order.id}">ชงแล้ว</button>
+        <div class="card-menu">แก้ว Secret ของชุด Omakase นี้ — ยังไม่ได้ออกแบบ</div>
+        <button class="btn-done" style="background:#5A361B;color:#fff;">🔄 เลือกเมนูจริง →</button>
       `;
-      div.dataset.selectedPkg = 'bag';
-      div.querySelectorAll('.pkg-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          div.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('selected'));
-          btn.classList.add('selected');
-          div.dataset.selectedPkg = btn.dataset.pkg;
-        });
-      });
       div.querySelector('.btn-delete').addEventListener('click', async () => {
-        if (!confirm(`ลบออเดอร์ "${order.customer_name} - ${order.menu_item_name}" ใช่ไหม?`)) return;
+        if (!confirm(`ลบออเดอร์ "${order.customer_name} - แก้วลับ" ใช่ไหม?`)) return;
         const { error } = await sb.from('preorders').delete().eq('id', order.id);
-        if (error) {
-          alert('ลบไม่สำเร็จ: ' + error.message);
-          return;
-        }
+        if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
         await sb.from('order_log').delete().eq('source_preorder_id', order.id);
         div.style.opacity = '0';
         setTimeout(() => loadToday(), 200);
       });
-      const doneBtn = div.querySelector('.btn-done');
-      doneBtn.addEventListener('click', async () => {
-        if (order.no_coffee) {
-          // ตั้งค่าไว้แล้วตอนสั่งว่าไม่ใช้กาแฟแก้วนี้ — ข้ามตัวเลือกเมล็ดไปเลย ไม่ตัดสต็อก ไม่บวกต้นทุนกาแฟ
-          doneBtn.textContent = 'กำลังบันทึก...';
-          doneBtn.disabled = true;
-          const ok = await markBrewed(order, div, null);
-          if (!ok) {
-            doneBtn.textContent = 'ชงแล้ว';
-            doneBtn.disabled = false;
-          }
-        } else if (needsBean(order.menu_item_name) || isSecretMenuName(order.menu_item_name)) {
-          await showBeanPicker(div, order, doneBtn);
-        } else {
-          doneBtn.textContent = 'กำลังบันทึก...';
-          doneBtn.disabled = true;
-          const ok = await markBrewed(order, div, null);
-          if (!ok) {
-            doneBtn.textContent = 'ชงแล้ว';
-            doneBtn.disabled = false;
-          }
-        }
+      div.querySelector('.btn-done').addEventListener('click', () => startSecretSwap(div, order));
+      container.appendChild(div);
+      return;
+    }
+
+    if (order.menu_item_name === '🐱 แมวส้มเลือกหน่อย' && !order.surprise_actual_item_id) {
+      const div = document.createElement('div');
+      div.className = 'card' + (isToday ? ' today' : '') + compactClass;
+      div.style.borderLeftColor = '#E8863A';
+      div.innerHTML = `
+        <div class="card-top">
+          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#E8863A;">🐱 แมวส้มเลือกหน่อย — รอเลือกเมนู</span></span>
+          <div class="card-top-right">
+            <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
+            <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
+          </div>
+        </div>
+        <div class="card-menu">ลูกค้าให้แมวส้มเลือกให้ (65-75฿) — เลือกเมนูจริงที่จะชง</div>
+        <button class="btn-done" style="background:#E8863A;color:#fff;">🐱 เลือกเมนูให้ลูกค้า →</button>
+      `;
+      div.querySelector('.btn-delete').addEventListener('click', async () => {
+        if (!confirm(`ลบออเดอร์ "${order.customer_name} - แมวส้มเลือกหน่อย" ใช่ไหม?`)) return;
+        const { error } = await sb.from('preorders').delete().eq('id', order.id);
+        if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+        await sb.from('order_log').delete().eq('source_preorder_id', order.id);
+        div.style.opacity = '0';
+        setTimeout(() => loadToday(), 200);
       });
-      listEl.appendChild(div);
+      div.querySelector('.btn-done').addEventListener('click', () => startSurprisePick(div, order));
+      container.appendChild(div);
+      return;
+    }
+
+    if (order.omakase_pending) {
+      const div = document.createElement('div');
+      div.className = 'card' + (isToday ? ' today' : '') + compactClass;
+      div.style.borderLeftColor = '#E8621A';
+      div.innerHTML = `
+        <div class="card-top">
+          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#E8621A;">🎴 Omakase — รอเลือกเมนู</span></span>
+          <div class="card-top-right">
+            <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
+            <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
+          </div>
+        </div>
+        <div class="card-menu">ลูกค้าสั่ง Omakase ไว้แล้ว (${order.price}฿) — รอ Fah เลือก 3 เมนู</div>
+        <button class="btn-done" style="background:#E8621A;color:#fff;">🎴 เลือก 3 เมนู →</button>
+      `;
+      div.querySelector('.btn-delete').addEventListener('click', async () => {
+        if (!confirm(`ยกเลิกออเดอร์ Omakase ของ "${order.customer_name}" ใช่ไหม?`)) return;
+        const { error } = await sb.from('preorders').delete().eq('id', order.id);
+        if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+        await sb.from('order_log').delete().eq('source_preorder_id', order.id);
+        div.style.opacity = '0';
+        setTimeout(() => loadToday(), 200);
+      });
+      div.querySelector('.btn-done').addEventListener('click', () => startOmakaseFulfillment(order));
+      container.appendChild(div);
+      return;
+    }
+
+    const typeBadge = order.order_type === 'staff' ? ' <span style="color:#A8876F;">☕ staff</span>'
+      : order.order_type === 'reward' ? ' <span style="color:#E8863A;">🎁 reward</span>'
+      : order.order_type === 'our_treat' ? ' <span style="color:#4A9B5C;">🎁 Our Treat</span>'
+      : '';
+    const omakaseBadge = order.omakase_set_id ? ' <span style="color:#E8621A;">🎴 Omakase</span>' : '';
+    const maxBadge = order.channel === 'liff-omakase-fullweek' ? ' <span style="color:#4A9B5C;">🎴 Max (รวมเก็บทีหลัง)</span>' : '';
+    const div = document.createElement('div');
+    div.className = 'card' + (isToday ? ' today' : '') + compactClass;
+    div.innerHTML = `
+      <div class="card-top">
+        <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${typeBadge}${omakaseBadge}${maxBadge}</span>
+        <div class="card-top-right">
+          <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
+          <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
+        </div>
+      </div>
+      <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}</div>
+      ${order.notes ? `<div style="font-size:11.5px;color:#A85A1E;background:#FFF3E8;border-radius:8px;padding:6px 10px;margin-bottom:8px;">📝 ${order.notes}</div>` : ''}
+      <div class="pkg-row">
+        <button type="button" class="pkg-btn" data-pkg="tumbler">♻️ กระติก</button>
+        <button type="button" class="pkg-btn selected" data-pkg="bag">🛍️ ถุง</button>
+        <button type="button" class="pkg-btn" data-pkg="cup_small">🥤 เล็ก</button>
+        <button type="button" class="pkg-btn" data-pkg="cup_large">🧋 ใหญ่</button>
+      </div>
+      <button class="btn-done" data-id="${order.id}">ชงแล้ว</button>
+    `;
+    div.dataset.selectedPkg = 'bag';
+    div.querySelectorAll('.pkg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        div.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        div.dataset.selectedPkg = btn.dataset.pkg;
+      });
     });
+    div.querySelector('.btn-delete').addEventListener('click', async () => {
+      if (!confirm(`ลบออเดอร์ "${order.customer_name} - ${order.menu_item_name}" ใช่ไหม?`)) return;
+      const { error } = await sb.from('preorders').delete().eq('id', order.id);
+      if (error) {
+        alert('ลบไม่สำเร็จ: ' + error.message);
+        return;
+      }
+      await sb.from('order_log').delete().eq('source_preorder_id', order.id);
+      div.style.opacity = '0';
+      setTimeout(() => loadToday(), 200);
+    });
+    const doneBtn = div.querySelector('.btn-done');
+    doneBtn.addEventListener('click', async () => {
+      if (order.no_coffee) {
+        // ตั้งค่าไว้แล้วตอนสั่งว่าไม่ใช้กาแฟแก้วนี้ — ข้ามตัวเลือกเมล็ดไปเลย ไม่ตัดสต็อก ไม่บวกต้นทุนกาแฟ
+        doneBtn.textContent = 'กำลังบันทึก...';
+        doneBtn.disabled = true;
+        const ok = await markBrewed(order, div, null);
+        if (!ok) {
+          doneBtn.textContent = 'ชงแล้ว';
+          doneBtn.disabled = false;
+        }
+      } else if (needsBean(order.menu_item_name) || isSecretMenuName(order.menu_item_name)) {
+        await showBeanPicker(div, order, doneBtn);
+      } else {
+        doneBtn.textContent = 'กำลังบันทึก...';
+        doneBtn.disabled = true;
+        const ok = await markBrewed(order, div, null);
+        if (!ok) {
+          doneBtn.textContent = 'ชงแล้ว';
+          doneBtn.disabled = false;
+        }
+      }
+    });
+    container.appendChild(div);
   }
 
   function startOmakaseFulfillment(order) {
@@ -3767,13 +3860,47 @@
     banner.style.display = 'block';
   }
 
-  // ฟิลเตอร์คิวชง: ทั้งหมด / วันนี้ / สัปดาห์นี้ — ผูกครั้งเดียว เพราะแถบชิปคงที่ ไม่ถูก re-render
-  document.getElementById('dateFilterRow').addEventListener('click', (e) => {
+  // ปฏิทิน 7 วง: แตะเพื่อเลือก/ยกเลิกวัน (สะสมได้หลายวัน) — filter ฝั่ง client ล้วน ไม่ query DB ใหม่
+  document.getElementById('calDays').addEventListener('click', (e) => {
+    const btn = e.target.closest('.cal-day');
+    if (!btn) return;
+    const iso = btn.dataset.iso;
+    if (selectedDates.has(iso)) selectedDates.delete(iso); else selectedDates.add(iso);
+    renderCalendarRow();
+    renderTodayList();
+  });
+
+  // สไลด์ซ้าย-ขวาเปลี่ยนสัปดาห์ที่ปฏิทินโชว์ (ไม่กระทบวันที่เลือกไว้ เลือกข้ามสัปดาห์ได้)
+  (function setupCalSwipe() {
+    const zone = document.getElementById('calDays');
+    let startX = 0, tracking = false;
+    zone.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; tracking = true; }, { passive: true });
+    zone.addEventListener('touchend', (e) => {
+      if (!tracking) return;
+      tracking = false;
+      const dx = e.changedTouches[0].clientX - startX;
+      if (Math.abs(dx) < 40) return;
+      calendarWeekOffset += (dx < 0 ? 1 : -1);
+      renderCalendarRow();
+    }, { passive: true });
+  })();
+
+  document.getElementById('calPrev').addEventListener('click', () => { calendarWeekOffset--; renderCalendarRow(); });
+  document.getElementById('calNext').addEventListener('click', () => { calendarWeekOffset++; renderCalendarRow(); });
+  document.getElementById('calTodayLink').addEventListener('click', () => {
+    calendarWeekOffset = 0;
+    selectedDates = new Set([toISODate(new Date())]);
+    renderCalendarRow();
+    renderTodayList();
+  });
+
+  // สลับมุมมอง รายลูกค้า ↔ รายเมนู
+  document.getElementById('viewToggleRow').addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
     if (!chip) return;
-    todayFilter = chip.dataset.filter;
-    document.querySelectorAll('#dateFilterRow .chip').forEach(c => c.classList.toggle('selected', c === chip));
-    loadToday();
+    viewMode = chip.dataset.view;
+    document.querySelectorAll('#viewToggleRow .chip').forEach(c => c.classList.toggle('selected', c === chip));
+    renderTodayList();
   });
 
   // แตะที่ป้ายวันที่ (card-date) เพื่อแก้วันที่ต้องการรับของออเดอร์นั้นได้เลย —
