@@ -752,6 +752,7 @@
         order_type: order.order_type || 'customer',
         channel: order.channel,
         omakase_set_id: order.omakase_set_id,
+        is_secret_cup: true,
       }]).select('id').maybeSingle();
 
       if (insErr || !newOrder) {
@@ -933,6 +934,7 @@
         order_type: order.order_type || 'customer',
         channel: order.channel,
         omakase_set_id: order.omakase_set_id,
+        is_secret_cup: true,
       }]).select('id').maybeSingle();
       if (insErr || !newOrder) {
         statusEl.textContent = `สร้างเมนูสำเร็จ แต่บันทึกออเดอร์ใหม่ไม่สำเร็จ: ${insErr ? insErr.message : 'unknown error'}`;
@@ -3289,6 +3291,7 @@
         channel: 'walk-in',
         omakase_set_id: omakaseSetId,
         notes: orderNotes,
+        is_secret_cup: item.category === 'secret',
       }));
     } else {
       const isMaxCup = document.getElementById('isMaxCup').checked;
@@ -3559,7 +3562,8 @@
             label: `🎴 Omakase Set (${cupNames.join(' / ')})`,
             price: OMAKASE_WEEKLY_PRICE,
             ids: setCups.map(x => x.id),
-            cups: setCups.map(x => ({ id: x.id, name: x.menu_item_name, bean_name: x.bean_name, sweetness: x.sweetness })),
+            cups: setCups.map(x => ({ id: x.id, name: x.menu_item_name, bean_name: x.bean_name, sweetness: x.sweetness, price: Number(x.price), is_secret_cup: !!x.is_secret_cup })),
+            isOmakaseSet: true,
           });
         } else {
           lines.push({
@@ -3829,9 +3833,35 @@
       const errBox = div.querySelector('.bill-err');
       paidBtn.addEventListener('click', async (e) => {
         const originalText = paidBtn.textContent;
+        errBox.style.display = 'none';
+
+        // ก่อนเก็บเงิน: เซ็ต Omakase ที่มีแก้ว Secret ระบุไว้ (is_secret_cup) ต้องคำนวณราคาจริงของแก้ว Secret
+        // = ราคาแพ็กเกจ − ผลรวมราคาจริงของอีก 2 แก้ว แล้วอัปเดตแทน 0 เดิม เพื่อให้กำไร/ต้นทุนต่อแก้วถูกต้อง
+        for (const l of billingLines) {
+          if (!l.isOmakaseSet) continue;
+          const secretCup = l.cups.find(c => c.is_secret_cup);
+          if (!secretCup) continue; // เซ็ตเก่าก่อนมี flag นี้ — ข้าม ไม่ยุ่งราคาเดิม
+          const knownSum = l.cups.filter(c => !c.is_secret_cup).reduce((s, c) => s + c.price, 0);
+          const secretPrice = l.price - knownSum;
+          if (secretPrice < 0) {
+            const ok = confirm(
+              `⚠️ เซ็ต Omakase ของ ${name}: 2 แก้วที่รู้ราคารวมกัน ${knownSum}฿ เกินราคาแพ็กเกจ ${l.price}฿ ` +
+              `→ แก้ว Secret จะติดลบ ${Math.abs(secretPrice)}฿ (เซ็ตนี้ขาดทุน)\n\nยืนยันจะเก็บเงินต่อไหม?`
+            );
+            if (!ok) return;
+          }
+          if (secretPrice !== secretCup.price) {
+            const { error: priceErr } = await sb.from('preorders').update({ price: secretPrice }).eq('id', secretCup.id);
+            if (priceErr) {
+              errBox.textContent = `บันทึกราคาแก้ว Secret ไม่สำเร็จ: ${priceErr.message}`;
+              errBox.style.display = 'block';
+              return;
+            }
+          }
+        }
+
         paidBtn.textContent = 'กำลังบันทึก...';
         paidBtn.disabled = true;
-        errBox.style.display = 'none';
         const ids = orders.map(o => o.id);
         const { error, data: updated } = await sb
           .from('preorders')
