@@ -3397,8 +3397,8 @@
 
   // กระจายส่วนลดตามสัดส่วนราคาแต่ละแก้วในกลุ่ม ไม่ทำเป็นก้อนเดียว (ห้ามลง lump-sum ตามกฎเดิม)
   // แถวสุดท้ายรับเศษปัดเพื่อให้ยอดรวมหลังหักส่วนลดตรงเป๊ะ
-  async function applyProportionalDiscount(orderIds, discountAmount) {
-    const { data: rows, error } = await sb.from('preorders').select('id, price, discount_amount').in('id', orderIds);
+  async function applyProportionalDiscount(orderIds, discountAmount, reason) {
+    const { data: rows, error } = await sb.from('preorders').select('id, price, discount_amount, discount_reason').in('id', orderIds);
     if (error || !rows || rows.length === 0) return { error: error || new Error('ไม่พบออเดอร์') };
 
     const totalPrice = rows.reduce((s, r) => s + Number(r.price), 0);
@@ -3411,9 +3411,13 @@
       const isLast = i === rows.length - 1;
       const share = isLast ? remaining : Math.round(discountAmount * (Number(r.price) / totalPrice));
       remaining -= share;
+      const combinedReason = reason
+        ? (r.discount_reason ? `${r.discount_reason}; ${reason}` : reason)
+        : r.discount_reason;
       const { error: updErr } = await sb.from('preorders').update({
         price: Number(r.price) - share,
         discount_amount: Number(r.discount_amount || 0) + share,
+        discount_reason: combinedReason,
       }).eq('id', r.id);
       if (updErr) return { error: updErr };
     }
@@ -3496,9 +3500,12 @@
           <span>${l.label} — ${l.price}฿</span>
           <button class="btn-item-delete" data-ids="${l.ids.join(',')}" title="ลบรายการนี้">✕</button>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;padding:0 0 8px;">
+        <div style="display:flex;align-items:center;gap:6px;padding:0 0 6px;">
           <input type="number" min="0" step="1" placeholder="ส่วนลดแก้วนี้ (บาท)" class="line-discount-input" data-ids="${l.ids.join(',')}" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;">
           <button type="button" class="line-discount-btn" data-ids="${l.ids.join(',')}" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#FFF3E8;color:#E8863A;font-size:11px;font-weight:700;">ใช้ส่วนลด</button>
+        </div>
+        <div style="padding:0 0 8px;">
+          <input type="text" placeholder="เหตุผลที่ให้ส่วนลด (ไม่บังคับ) เช่น ไม่ใส่กาแฟ" class="line-discount-reason" data-ids="${l.ids.join(',')}" style="width:100%;padding:6px 8px;border-radius:8px;border:1.5px dashed #F0E4D8;background:transparent;font-size:11px;font-family:inherit;">
         </div>
         <div class="fb-check-row" style="display:flex;flex-direction:column;gap:6px;padding:2px 4px 8px;">
           ${l.cups.map(c => `
@@ -3543,9 +3550,12 @@
           <span class="bill-total">${total}฿</span>
         </div>
         <div class="bill-items">${itemsHtml}</div>
-        <div style="display:flex;align-items:center;gap:6px;background:#FFF3E8;border-radius:10px;padding:8px 10px;margin-bottom:10px;">
-          <input type="number" min="0" step="1" placeholder="ส่วนลดรวมทั้งบิลนี้ (บาท)" class="bill-discount-input" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;background:#fff;">
-          <button type="button" class="bill-discount-btn" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:11px;font-weight:700;">ใช้ส่วนลดทั้งบิล</button>
+        <div style="background:#FFF3E8;border-radius:10px;padding:8px 10px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <input type="number" min="0" step="1" placeholder="ส่วนลดรวมทั้งบิลนี้ (บาท)" class="bill-discount-input" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;background:#fff;">
+            <button type="button" class="bill-discount-btn" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:11px;font-weight:700;">ใช้ส่วนลดทั้งบิล</button>
+          </div>
+          <input type="text" placeholder="เหตุผลที่ให้ส่วนลด (ไม่บังคับ) เช่น ไม่ใส่กาแฟ" class="bill-discount-reason" style="width:100%;padding:6px 8px;border-radius:8px;border:1.5px dashed #F0E4D8;background:transparent;font-size:11px;font-family:inherit;">
         </div>
         ${requestSection}
         ${slipSection}
@@ -3638,12 +3648,14 @@
       div.querySelectorAll('.line-discount-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
           const input = div.querySelector(`.line-discount-input[data-ids="${btn.dataset.ids}"]`);
+          const reasonInput = div.querySelector(`.line-discount-reason[data-ids="${btn.dataset.ids}"]`);
           const amount = Number(input.value);
+          const reason = reasonInput.value.trim() || null;
           if (!amount || amount <= 0) { alert('ใส่จำนวนส่วนลดก่อนนะครับ'); return; }
           const ids = btn.dataset.ids.split(',');
           if (!confirm(`ลด ${amount}฿ ให้กับรายการนี้ของ ${name} ใช่ไหม?`)) return;
           btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-          const { error } = await applyProportionalDiscount(ids, amount);
+          const { error } = await applyProportionalDiscount(ids, amount, reason);
           if (error) { alert('ใช้ส่วนลดไม่สำเร็จ: ' + error.message); btn.disabled = false; btn.textContent = 'ใช้ส่วนลด'; return; }
           loadBills();
         });
@@ -3653,12 +3665,14 @@
       const billDiscountBtn = div.querySelector('.bill-discount-btn');
       billDiscountBtn.addEventListener('click', async () => {
         const input = div.querySelector('.bill-discount-input');
+        const reasonInput = div.querySelector('.bill-discount-reason');
         const amount = Number(input.value);
+        const reason = reasonInput.value.trim() || null;
         if (!amount || amount <= 0) { alert('ใส่จำนวนส่วนลดก่อนนะครับ'); return; }
         if (!confirm(`ลดทั้งบิลของ ${name} รวม ${amount}฿ ใช่ไหม? (ระบบจะกระจายตามสัดส่วนราคาแต่ละแก้วให้อัตโนมัติ)`)) return;
         billDiscountBtn.disabled = true; billDiscountBtn.textContent = 'กำลังบันทึก...';
         const ids = orders.map(o => o.id);
-        const { error } = await applyProportionalDiscount(ids, amount);
+        const { error } = await applyProportionalDiscount(ids, amount, reason);
         if (error) { alert('ใช้ส่วนลดไม่สำเร็จ: ' + error.message); billDiscountBtn.disabled = false; billDiscountBtn.textContent = 'ใช้ส่วนลดทั้งบิล'; return; }
         loadBills();
       });
