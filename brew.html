@@ -208,6 +208,13 @@
   <div class="field-label" style="margin-top:28px;">+ เพิ่มเมนูใหม่</div>
   <div class="field-hint">ต้องกรอกครบ: ชื่อ, ราคา, หมวดหมู่, ต้องเลือกเมล็ดไหม, และสูตร (หรือติ๊ก "ไม่มีสูตร")</div>
   <div id="genericCreateBlock"></div>
+
+  <div class="field-label" style="margin-top:28px;">🗂️ จัดการหมวดหมู่เมนู</div>
+  <div class="field-hint">เพิ่ม/แก้ไข/ย้ายหมวดหมู่เองได้เลย ไม่ต้องรอ Claude แก้โค้ด — หมวดใหม่ที่อยู่ใต้ Comfort / Playful Comfort / Paw-tein Twist จะโผล่ในเมนูลูกค้าทันทีที่มีเมนู status=Live อยู่ในหมวดนั้น (การเพิ่ม "แท็บใหญ่" ใหม่ทั้งอันยังต้องให้ Claude ช่วยแก้โค้ดอยู่)</div>
+  <div id="categoryAdminBlock"></div>
+
+  <div class="field-label" style="margin-top:28px;">+ สร้างเมนูลับใหม่ (แบบเร็ว)</div>
+  <div id="secretCreateBlock"></div>
 </div>
 
 <div class="nav">
@@ -246,28 +253,27 @@
 
   let MENU = [];
   const CATEGORY_ICON = {
-    espresso: "☕", dirty: "🤤", matcha: "🍵", cocoa: "🍫", thai_tea: "🧋", signature: "🍊", yogurt: "🥤", special_of_month: "🌟", surprise: "🐱"
+    espresso: "☕", dirty: "🤤", matcha: "🍵", cocoa: "🍫", thai_tea: "🧋", signature_item: "🍊", yogurt: "🥤",
+    special_of_month: "🌟", surprise: "🐱", playful_comfort: "🎭", pawtein: "🍓", secret: "🔮",
   };
   const CATEGORY_LABEL_TH = {
     surprise: '🐱 แมวส้มเลือกหน่อย', espresso: '☕ กลุ่มกาแฟ', dirty: '🤤 Dirty', matcha: '🍵 มัทฉะ',
-    cocoa: '🍫 โกโก้', thai_tea: '🧋 ชาไทย', yogurt: '🥤 โยเกิร์ต', signature_item: '🍊 Signature (ขายจริง)',
-    special_of_month: '🌟 Special of the Month', secret: '🔮 Secret', signature_draft: '📝 Signature Draft',
-    on_hold: '⏸️ พักการขาย',
+    cocoa: '🍫 โกโก้', thai_tea: '🧋 ชาไทย', yogurt: '🥤 โยเกิร์ต', signature_item: '🍊 Signature',
+    special_of_month: '🌟 Special of the Month', secret: '🔮 Secret',
+    playful_comfort: '🎭 Playful Comfort', pawtein: '🍓💪 Paw-tein Twist',
   };
-  const CATEGORY_SELECT_OPTIONS = [
-    { value: 'surprise', label: 'แมวส้มเลือกหน่อย' },
-    { value: 'espresso', label: 'กลุ่มกาแฟ' },
-    { value: 'dirty', label: 'Dirty' },
-    { value: 'matcha', label: 'มัทฉะ' },
-    { value: 'cocoa', label: 'โกโก้' },
-    { value: 'thai_tea', label: 'ชาไทย' },
-    { value: 'yogurt', label: 'โยเกิร์ต' },
-    { value: 'signature_item', label: 'Signature (ขายจริง)' },
-    { value: 'special_of_month', label: 'Special of the Month' },
-    { value: 'signature_draft', label: 'Signature Draft (ยังไม่ขาย)' },
-    { value: 'secret', label: 'Secret (ยังไม่ขายทั่วไป)' },
-    { value: 'on_hold', label: '⏸️ พักการขาย (On Hold)' },
-  ];
+  // ตัวเลือกหมวดหมู่ในฟอร์ม ดึงจาก menu_categories สด — เพิ่มหมวดใหม่ผ่าน "จัดการหมวดหมู่" แล้วโผล่ในนี้เองทันที ไม่ต้องแก้โค้ด
+  let CATEGORY_SELECT_OPTIONS = [];
+  function setCategorySelectOptionsFromCatMap(catMapRows) {
+    CATEGORY_SELECT_OPTIONS = (catMapRows || [])
+      .slice()
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+      .map(c => ({ value: c.category, label: c.label_th || c.category }));
+  }
+  function categoryLabelFor(category) {
+    const found = CATEGORY_SELECT_OPTIONS.find(c => c.value === category);
+    return (found && found.label) || CATEGORY_LABEL_TH[category] || category;
+  }
   function categoryOptionsHtml(selectedValue, includeEmpty) {
     const empty = includeEmpty ? '<option value="">— เลือกหมวดหมู่ —</option>' : '';
     return empty + CATEGORY_SELECT_OPTIONS.map(c =>
@@ -291,7 +297,7 @@
   async function loadMenuItems() {
     const { data, error } = await sb
       .from('menu_items')
-      .select('id, name, price, category, needs_bean, image_url, uses_misc_cost_estimate, show_in_add_order, coffee_flexible')
+      .select('id, name, price, category, status, needs_bean, image_url, uses_misc_cost_estimate, show_in_add_order, coffee_flexible')
       .eq('is_omakase_placeholder', false);
     if (error || !data) {
       alert('โหลดเมนูไม่สำเร็จ: ' + (error ? error.message : 'unknown error'));
@@ -311,6 +317,7 @@
       image_url: m.image_url,
       bean: m.needs_bean,
       category: m.category,
+      status: m.status,
       usesMiscCost: !!m.uses_misc_cost_estimate,
       showInAddOrder: !!m.show_in_add_order,
       coffeeFlexible: !!m.coffee_flexible,
@@ -620,17 +627,17 @@
     render();
   }
 
-  const COMFORT_REAL_CATS = ['espresso', 'dirty', 'signature', 'matcha', 'cocoa', 'thai_tea', 'yogurt'];
-
   // 🐱 แมวส้มเลือกหน่อย: บาริสต้าเลือกเมนูคอมฟอร์ตจริงให้ลูกค้า แล้ว "แปลง" ออเดอร์นี้ให้เป็นเมนูจริงนั้นทันที
   // (menu_item_name/price เปลี่ยนเป็นของจริง, surprise_actual_item_id เก็บไว้เป็น audit trail)
   // จากนั้น flow ที่เหลือ (bean picker/markBrewed/collection card/รายงานยอดขาย) ทำงานเหมือนออเดอร์ปกติทุกอย่าง ไม่ต้องมี logic แยก
   async function startSurprisePick(cardEl, order) {
     cardEl.innerHTML = '<div class="loading">กำลังโหลดเมนู...</div>';
+    // เมนูที่ให้สุ่ม: ต้อง status=live เสมอ (ไม่งั้นจะไม่มีขายจริง) และไม่ใช่กลไกภายใน (secret/omakase) หรือ Signature (ราคา/positioning ต่างกัน)
     const { data: items, error } = await sb
       .from('menu_items')
       .select('id, name, price, category, needs_bean')
-      .in('category', COMFORT_REAL_CATS)
+      .eq('status', 'live')
+      .not('category', 'in', '(secret,omakase,signature_item)')
       .order('category', { ascending: true })
       .order('name', { ascending: true });
 
@@ -1497,11 +1504,11 @@
   function renderMenuGrid() {
     const grid = document.getElementById('menuGrid');
     grid.innerHTML = '';
-    // โหมดสั่งปกติ: ซ่อนเฉพาะเมนูลับ/draft ที่ยังไม่เปิดให้บาริสต้าเลือก (show_in_add_order=false ในแท็บ "เมนู") และเมนูที่พักการขายอยู่ (on_hold)
-    // ส่วนเมนูลับที่ตั้งชื่อจริงแล้วและเปิดใช้ ยังเลือกได้ตามปกติ — โหมด Omakase เห็นครบเสมอเพราะต้องใช้เลือก 3 แก้ว
+    // โหมดสั่งปกติ: ซ่อนเมนู on_hold เสมอ, ซ่อน draft/pending เว้นแต่เปิด show_in_add_order ไว้ (เช่น secret ที่ตั้งชื่อจริงแล้วแต่ยังไม่ประกาศ)
+    // โหมด Omakase เห็นครบเสมอ (ยกเว้น on_hold) เพราะต้องใช้เลือก 3 แก้วรวมของทดลอง
     const visibleMenu = orderMode === 'omakase'
-      ? MENU.filter(item => item.category !== 'on_hold')
-      : MENU.filter(item => item.category !== 'on_hold' && ((item.category !== 'secret' && item.category !== 'signature_draft') || item.showInAddOrder));
+      ? MENU.filter(item => item.status !== 'on_hold')
+      : MENU.filter(item => item.status !== 'on_hold' && (item.status === 'live' || item.showInAddOrder));
     visibleMenu.forEach(item => {
       const div = document.createElement('div');
       div.className = 'menu-card';
@@ -2006,41 +2013,60 @@
   let programsCache = [];
 
   // ===================== แท็บ "ลับ" — จัดการเมนู secret/draft แยกออกมาต่างหาก ไม่ปนกับเมนูขายจริง =====================
-  // TAB_GROUP labels/order ใช้ร่วมกันทั้งแท็บ "เมนู" และ "สูตร" — อ่านจาก menu_categories ตารางเดียวกับที่ order.html ใช้จริง
-  const TAB_GROUP_LABEL = {
-    coffee: '☕ กลุ่มกาแฟ (ลูกค้าเห็นใน Comfort)',
-    matcha: '🍵 กลุ่มชาเขียว (ลูกค้าเห็นใน Comfort)',
-    other: '🥤 อื่นๆ (ลูกค้าเห็นใน Comfort)',
-    signature: '🍊 Signature (ขายจริง)',
-    surprise: '🎲 แมวส้มเลือกหน่อย',
-    hidden: '🔒 ไม่แสดงลูกค้า (Secret / Draft / พักการขาย)',
-  };
-  const TAB_GROUP_ORDER = ['coffee', 'matcha', 'other', 'signature', 'surprise', 'hidden'];
-
-  function groupByTabGroup(data, tabGroupByCategory) {
-    const grouped = {};
+  // Label/ลำดับกลุ่ม ดึงจาก menu_categories สด (label_th, sort_order) ไม่ hardcode แล้ว — เพิ่มหมวดใหม่ผ่าน "จัดการหมวดหมู่" ก็โผล่ตรงนี้เองทันที
+  function groupByTabGroup(data, catMapRows) {
+    const metaByCategory = Object.fromEntries((catMapRows || []).map(c => [c.category, c]));
+    const grouped = {}; // tab_group -> { label, sort_order, items }
     data.forEach(item => {
-      const grp = tabGroupByCategory[item.category] || 'hidden';
-      (grouped[grp] = grouped[grp] || []).push(item);
+      const meta = metaByCategory[item.category];
+      const grp = meta ? meta.tab_group : 'hidden';
+      if (!grouped[grp]) grouped[grp] = { label: (meta && meta.label_th) || grp, sort_order: (meta && meta.sort_order) || 999, items: [] };
+      grouped[grp].items.push(item);
     });
-    return [
-      ...TAB_GROUP_ORDER.filter(g => grouped[g]),
-      ...Object.keys(grouped).filter(g => !TAB_GROUP_ORDER.includes(g)),
-    ].map(grp => ({ grp, items: grouped[grp] }));
+    return Object.entries(grouped)
+      .sort((a, b) => a[1].sort_order - b[1].sort_order)
+      .map(([grp, g]) => ({ grp, label: g.label, items: g.items }));
   }
 
   // ===================== แท็บ "เมนู" — ชื่อ/ราคา/รูป/Story ทุกหมวด (เบา ไม่ query สูตร) =====================
+  const STATUS_LABEL = { draft: '📝 Draft', pending: '⏳ Pending', live: '✅ Live', on_hold: '⏸️ On Hold' };
+  const STATUS_COLOR = { draft: '#A8876F', pending: '#C9A44A', live: '#4A9B5C', on_hold: '#D64545' };
+
+  function statusBadgeHtml(item) {
+    return `
+      <select class="status-select" data-id="${item.id}" style="font-size:10.5px;font-weight:700;border-radius:8px;border:1px solid ${STATUS_COLOR[item.status] || '#A8876F'};color:${STATUS_COLOR[item.status] || '#A8876F'};background:#fff;padding:3px 6px;">
+        ${Object.entries(STATUS_LABEL).map(([val, label]) => `<option value="${val}" ${item.status === val ? 'selected' : ''}>${label}</option>`).join('')}
+      </select>
+    `;
+  }
+  function wireStatusSelects(container) {
+    container.querySelectorAll('.status-select').forEach(sel => {
+      sel.addEventListener('click', (e) => e.stopPropagation());
+      sel.addEventListener('change', async (e) => {
+        e.stopPropagation();
+        const id = sel.dataset.id;
+        const newStatus = sel.value;
+        sel.disabled = true;
+        const { error } = await sb.from('menu_items').update({ status: newStatus }).eq('id', id);
+        sel.disabled = false;
+        if (error) { alert('เปลี่ยนสถานะไม่สำเร็จ: ' + error.message); return; }
+        sel.style.borderColor = STATUS_COLOR[newStatus];
+        sel.style.color = STATUS_COLOR[newStatus];
+      });
+    });
+  }
+
   async function loadMenuContentList() {
     const listEl = document.getElementById('allMenuList');
     listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
     const [{ data, error }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date')
+        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
-      sb.from('menu_categories').select('category, tab_group'),
+      sb.from('menu_categories').select('category, tab_group, label_th, sort_order'),
     ]);
 
     if (error || !data) {
@@ -2052,13 +2078,13 @@
       return;
     }
 
-    const tabGroupByCategory = Object.fromEntries((catMapRows || []).map(c => [c.category, c.tab_group]));
+    setCategorySelectOptionsFromCatMap(catMapRows);
     listEl.innerHTML = '';
-    groupByTabGroup(data, tabGroupByCategory).forEach(({ grp, items }) => {
+    groupByTabGroup(data, catMapRows).forEach(({ grp, label, items }) => {
       const groupLabel = document.createElement('div');
       groupLabel.className = 'week-label';
       groupLabel.style.cssText = 'margin:14px 0 6px;';
-      groupLabel.textContent = TAB_GROUP_LABEL[grp] || grp;
+      groupLabel.textContent = label;
       listEl.appendChild(groupLabel);
 
       items.forEach(item => {
@@ -2070,8 +2096,12 @@
             ${item.image_url ? `<img src="${item.image_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span style="font-size:24px;flex-shrink:0;">${CATEGORY_ICON[item.category] || '☕'}</span>`}
             <span class="card-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
           </div>
-          <span style="color:#E8863A;font-weight:700;flex-shrink:0;">${item.price > 0 ? item.price + '฿' : 'ยังไม่ตั้งราคา'} ▾</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            ${statusBadgeHtml(item)}
+            <span style="color:#E8863A;font-weight:700;">${item.price > 0 ? item.price + '฿' : 'ยังไม่ตั้งราคา'} ▾</span>
+          </div>
         `;
+        wireStatusSelects(row);
         row.addEventListener('click', async () => {
           const fullCard = renderContentCard(item);
           row.replaceWith(fullCard);
@@ -2089,28 +2119,31 @@
 
     const [{ data, error }, { data: allRecipeRows }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date')
+        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
       sb.from('menu_recipes').select('menu_item_id, quantity, ingredients(cost_per_base_unit)'),
-      sb.from('menu_categories').select('category, tab_group'),
+      sb.from('menu_categories').select('category, tab_group, label_th, sort_order'),
     ]);
 
     if (error || !data) {
       listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + (error ? error.message : 'unknown') + '</div>';
       renderGenericCreateBlock();
+      renderSecretCreateBlock();
+      renderCategoryAdmin();
       return;
     }
     if (data.length === 0) {
       listEl.innerHTML = '<div class="empty-state">ยังไม่มีเมนูในระบบ</div>';
       renderGenericCreateBlock();
+      renderSecretCreateBlock();
+      renderCategoryAdmin();
       return;
     }
 
-    const tabGroupByCategory = Object.fromEntries((catMapRows || []).map(c => [c.category, c.tab_group]));
-
     // รวมต้นทุนวัตถุดิบต่อเมนู (ไม่รวม flat กาแฟ/misc — บวกทีหลังตอนคำนวณต่อรายการ)
+    setCategorySelectOptionsFromCatMap(catMapRows);
     const ingredientCostByItem = {};
     const hasRecipeByItem = {};
     (allRecipeRows || []).forEach(r => {
@@ -2132,11 +2165,11 @@
     }
 
     listEl.innerHTML = '';
-    groupByTabGroup(data, tabGroupByCategory).forEach(({ grp, items }) => {
+    groupByTabGroup(data, catMapRows).forEach(({ grp, label, items }) => {
       const groupLabel = document.createElement('div');
       groupLabel.className = 'week-label';
       groupLabel.style.cssText = 'margin:14px 0 6px;';
-      groupLabel.textContent = TAB_GROUP_LABEL[grp] || grp;
+      groupLabel.textContent = label;
       listEl.appendChild(groupLabel);
 
       items.forEach(item => {
@@ -2149,10 +2182,12 @@
             <span class="card-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;">
+            ${statusBadgeHtml(item)}
             <span style="color:#E8863A;font-weight:700;">${item.price}฿ ▾</span>
             ${profitBadgeHtml(item)}
           </div>
         `;
+        wireStatusSelects(row);
         row.addEventListener('click', async () => {
           const fullCard = await renderRecipeCard(item);
           row.replaceWith(fullCard);
@@ -2162,6 +2197,127 @@
     });
 
     renderGenericCreateBlock();
+    renderSecretCreateBlock();
+    renderCategoryAdmin();
+  }
+
+  // ===================== 🗂️ จัดการหมวดหมู่เมนู — self-service, ไม่ต้องพึ่ง Claude แก้โค้ดทุกครั้ง =====================
+  // หมายเหตุ: tab_key ที่เลือกได้จำกัดเฉพาะ tab ที่มี container ใน order.html อยู่แล้ว (comfort/playful_comfort/pawtein_twist ใช้ renderer กลาง, signature/hidden มี logic เฉพาะ)
+  // การเพิ่ม "แท็บใหญ่" ใหม่ทั้งอัน (เช่นแท็บที่ 6) ยังต้องแก้โค้ด order.html เพิ่ม nav pill + tabpanel เอง — ไม่ใช่สิ่งที่ตารางนี้ทำให้อัตโนมัติ
+  const ADMIN_TAB_KEY_OPTIONS = ['comfort', 'playful_comfort', 'pawtein_twist', 'signature', 'hidden'];
+
+  async function renderCategoryAdmin() {
+    const block = document.getElementById('categoryAdminBlock');
+    if (!block) return;
+    block.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+
+    const [{ data: tabs }, { data: cats }] = await Promise.all([
+      sb.from('menu_tabs').select('key, label, tagline, sort_order, is_active').order('sort_order', { ascending: true }),
+      sb.from('menu_categories').select('category, tab_key, tab_group, label_th, sort_order').order('sort_order', { ascending: true }),
+    ]);
+
+    block.innerHTML = `
+      <div class="field-label" style="margin-top:0;font-size:12px;">แท็บหลัก (ชื่อ/tagline)</div>
+      <div id="tabAdminList"></div>
+
+      <div class="field-label" style="margin-top:18px;font-size:12px;">หมวดหมู่ทั้งหมด</div>
+      <div id="catAdminList"></div>
+
+      <div class="field-label" style="margin-top:18px;font-size:12px;">+ เพิ่มหมวดใหม่</div>
+      <input type="text" id="newCatSlug" placeholder="รหัสหมวด ภาษาอังกฤษ ไม่มีเว้นวรรค เช่น herbal" style="margin-bottom:8px;">
+      <input type="text" id="newCatLabel" placeholder="ชื่อที่โชว์ เช่น 🌿 สมุนไพร" style="margin-bottom:8px;">
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <select id="newCatTab" style="flex:1;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:14px;font-family:inherit;background:#fff;color:#4A3428;">
+          ${ADMIN_TAB_KEY_OPTIONS.map(k => `<option value="${k}">${k}</option>`).join('')}
+        </select>
+        <input type="number" id="newCatSort" placeholder="ลำดับ (เช่น 35)" style="flex:1;">
+      </div>
+      <div class="field-hint">อยู่ใต้ Comfort/Playful Comfort/Paw-tein Twist → หมวดนี้จะเป็น section ใหม่แยกหัวข้อของตัวเองทันที (ใส่รหัสหมวดเดียวกับ tab_group)</div>
+      <button type="button" class="submit-btn" id="addCatBtn" style="margin-top:8px;">+ เพิ่มหมวดหมู่</button>
+      <div class="status-msg" id="catAdminStatus"></div>
+    `;
+
+    const tabListEl = document.getElementById('tabAdminList');
+    (tabs || []).forEach(t => {
+      const row = document.createElement('div');
+      row.style.cssText = 'background:#fff;border:2px solid #F0E4D8;border-radius:10px;padding:10px 12px;margin-bottom:8px;';
+      row.innerHTML = `
+        <div style="font-size:12px;font-weight:700;color:#4A3428;margin-bottom:6px;">${t.key}</div>
+        <input type="text" class="tab-label-input" value="${(t.label || '').replace(/"/g,'&quot;')}" placeholder="ชื่อแท็บ" style="margin-bottom:6px;">
+        <textarea class="tab-tagline-input" rows="2" placeholder="Tagline (ไม่บังคับ)" style="width:100%;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;margin-bottom:6px;">${t.tagline || ''}</textarea>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" class="tab-sort-input" value="${t.sort_order}" style="width:80px;">
+          <button type="button" class="btn-request tab-save-btn" style="flex:1;margin-bottom:0;padding:8px;font-size:12px;">บันทึก</button>
+        </div>
+      `;
+      row.querySelector('.tab-save-btn').addEventListener('click', async () => {
+        const label = row.querySelector('.tab-label-input').value.trim();
+        const tagline = row.querySelector('.tab-tagline-input').value.trim() || null;
+        const sortOrder = Number(row.querySelector('.tab-sort-input').value) || 0;
+        const { error } = await sb.from('menu_tabs').update({ label, tagline, sort_order: sortOrder }).eq('key', t.key);
+        if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+        alert('✅ บันทึกแล้ว');
+      });
+      tabListEl.appendChild(row);
+    });
+
+    const catListEl = document.getElementById('catAdminList');
+    (cats || []).forEach(c => {
+      const row = document.createElement('div');
+      row.style.cssText = 'background:#fff;border:2px solid #F0E4D8;border-radius:10px;padding:10px 12px;margin-bottom:8px;';
+      row.innerHTML = `
+        <div style="font-size:11px;color:#A8876F;margin-bottom:6px;">รหัส: ${c.category}</div>
+        <input type="text" class="cat-label-input" value="${(c.label_th || '').replace(/"/g,'&quot;')}" placeholder="ชื่อที่โชว์" style="margin-bottom:6px;">
+        <div style="display:flex;gap:8px;margin-bottom:6px;">
+          <select class="cat-tab-input" style="flex:1;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;background:#fff;color:#4A3428;">
+            ${ADMIN_TAB_KEY_OPTIONS.map(k => `<option value="${k}" ${c.tab_key === k ? 'selected' : ''}>${k}</option>`).join('')}
+          </select>
+          <input type="text" class="cat-group-input" value="${(c.tab_group || '').replace(/"/g,'&quot;')}" placeholder="tab_group (sub-section)" style="flex:1;">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" class="cat-sort-input" value="${c.sort_order || 0}" style="width:80px;">
+          <button type="button" class="btn-request cat-save-btn" style="flex:1;margin-bottom:0;padding:8px;font-size:12px;">บันทึก</button>
+        </div>
+      `;
+      row.querySelector('.cat-save-btn').addEventListener('click', async () => {
+        const labelTh = row.querySelector('.cat-label-input').value.trim();
+        const tabKey = row.querySelector('.cat-tab-input').value;
+        const tabGroup = row.querySelector('.cat-group-input').value.trim();
+        const sortOrder = Number(row.querySelector('.cat-sort-input').value) || 0;
+        if (!tabGroup) { alert('ใส่ tab_group ด้วย (รหัส sub-section)'); return; }
+        const { error } = await sb.from('menu_categories').update({
+          label_th: labelTh, tab_key: tabKey, tab_group: tabGroup, sort_order: sortOrder,
+        }).eq('category', c.category);
+        if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+        alert('✅ บันทึกแล้ว — เมนูในหมวดนี้จะย้ายไปโผล่ที่ใหม่ทันที');
+        loadMenuRecipeList();
+      });
+      catListEl.appendChild(row);
+    });
+
+    document.getElementById('addCatBtn').addEventListener('click', async () => {
+      const statusEl = document.getElementById('catAdminStatus');
+      const slug = document.getElementById('newCatSlug').value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      const label = document.getElementById('newCatLabel').value.trim();
+      const tabKey = document.getElementById('newCatTab').value;
+      const sortOrder = Number(document.getElementById('newCatSort').value) || 50;
+      if (!slug || !label) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'ใส่รหัสหมวดกับชื่อที่โชว์ให้ครบก่อน';
+        return;
+      }
+      const { error } = await sb.from('menu_categories').insert([{
+        category: slug, tab_key: tabKey, tab_group: slug, label_th: label, sort_order: sortOrder,
+      }]);
+      if (error) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'เพิ่มไม่สำเร็จ: ' + error.message;
+        return;
+      }
+      statusEl.className = 'status-msg success';
+      statusEl.textContent = `✅ เพิ่มหมวด "${label}" แล้ว — เลือกได้ในฟอร์มเพิ่มเมนูด้านบนเลย`;
+      renderCategoryAdmin();
+    });
   }
 
   function renderGenericCreateBlock() {
@@ -2172,6 +2328,13 @@
       <div class="field-label" style="margin-top:0;">หมวดหมู่</div>
       <select id="genCategory" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;margin-bottom:8px;background:#fff;color:#4A3428;">
         ${categoryOptionsHtml('', true)}
+      </select>
+      <div class="field-label" style="margin-top:0;">สถานะเริ่มต้น</div>
+      <select id="genStatus" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;margin-bottom:8px;background:#fff;color:#4A3428;">
+        <option value="draft" selected>📝 Draft (ยังไม่คิดราคา/สูตรเสร็จ)</option>
+        <option value="pending">⏳ Pending (พร้อมเกือบหมด รอประกาศ)</option>
+        <option value="live">✅ Live (ขายจริงทันที)</option>
+        <option value="on_hold">⏸️ On Hold (พักการขาย)</option>
       </select>
       <div class="field-label" style="margin-top:0;">ต้องเลือกเมล็ดกาแฟไหม?</div>
       <div class="sweetness-row" id="genNeedsBeanRow">
@@ -2187,9 +2350,6 @@
       </div>
       <div class="chip-row" id="genRecipeChips"></div>
       <div id="genRecipeQtyBlock"></div>
-      <div class="field-label" style="margin-top:12px;">ต้นทุนอื่นๆ (บาท)</div>
-      <div class="field-hint">ของนอกสต็อกที่ไม่ได้อยู่ในสูตรด้านบน — ตั้งครั้งเดียว ครั้งต่อไปที่ชงจะขึ้นให้อัตโนมัติ</div>
-      <input type="number" id="genMiscCost" placeholder="เช่น 10" style="margin-bottom:8px;">
       <div id="genCostSummary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;"></div>
       <button type="button" class="submit-btn" id="genCreateBtn" style="margin-top:12px;" disabled>เพิ่มเมนูใหม่</button>
       <div class="status-msg" id="genCreateStatus"></div>
@@ -2247,14 +2407,13 @@
       const summaryEl = document.getElementById('genCostSummary');
       const noRecipe = document.getElementById('genNoRecipe').checked;
       const list = Object.values(sels).filter(s => s.qty && s.qty > 0);
-      const miscCost = Number(document.getElementById('genMiscCost').value) || 0;
-      if ((noRecipe || list.length === 0) && miscCost === 0) {
+      if (noRecipe || list.length === 0) {
         summaryEl.innerHTML = '';
         return;
       }
       const ingredientCost = list.reduce((sum, s) => sum + (s.qty * (s.ingredient.cost_per_base_unit || 0)), 0);
       const needsBean = needsBeanChoice === 'yes';
-      const totalCost = ingredientCost + (needsBean ? FLAT_COFFEE_COST : 0) + miscCost;
+      const totalCost = ingredientCost + (needsBean ? FLAT_COFFEE_COST : 0);
       const price = Number(document.getElementById('genPrice').value) || 0;
       const profit = price - totalCost;
       const gp = price ? (profit / price * 100) : 0;
@@ -2290,7 +2449,6 @@
     document.getElementById('genPrice').addEventListener('input', updateState);
     document.getElementById('genCategory').addEventListener('change', updateState);
     document.getElementById('genNoRecipe').addEventListener('change', () => { renderChips(); renderQtyBlock(); updateState(); });
-    document.getElementById('genMiscCost').addEventListener('input', updateCostPreview);
     document.querySelectorAll('#genNeedsBeanRow [data-needs-bean]').forEach(btn => {
       btn.addEventListener('click', () => {
         needsBeanChoice = btn.dataset.needsBean;
@@ -2306,9 +2464,9 @@
       const name = document.getElementById('genName').value.trim();
       const price = Number(document.getElementById('genPrice').value) || 0;
       const category = document.getElementById('genCategory').value;
+      const status = document.getElementById('genStatus').value;
       const imageUrl = document.getElementById('genImage').value.trim() || null;
       const needsBean = needsBeanChoice === 'yes';
-      const miscCostVal = document.getElementById('genMiscCost').value;
       const list = Object.values(sels);
       btn.disabled = true;
       btn.textContent = 'กำลังบันทึก...';
@@ -2322,8 +2480,7 @@
       }
 
       const { data: newItem, error: insErr } = await sb.from('menu_items').insert([{
-        name, price, category, needs_bean: needsBean, image_url: imageUrl,
-        default_misc_cost: miscCostVal ? Number(miscCostVal) : null,
+        name, price, category, status, needs_bean: needsBean, image_url: imageUrl,
       }]).select('id').maybeSingle();
 
       if (insErr || !newItem) {
@@ -2356,8 +2513,8 @@
   function renderContentCard(item) {
     const card = document.createElement('div');
     card.className = 'card';
-    const isDraftCat = item.category === 'secret' || item.category === 'signature_draft';
-    const catLabel = CATEGORY_LABEL_TH[item.category] || item.category;
+    const isDraftLike = item.status === 'draft' || item.status === 'pending';
+    const catLabel = categoryLabelFor(item.category);
     const menuUrl = item.category === 'signature_item'
       ? `https://liff.line.me/2010600301-WA7nM057?tab=signature&item=${encodeURIComponent(item.name)}`
       : null;
@@ -2365,6 +2522,11 @@
       <div class="card-top">
         <span class="card-name">${catLabel}</span>
         <button type="button" class="btn-delete" data-del-menu="${item.id}">✕</button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span style="font-size:12px;color:#4A3428;font-weight:600;">สถานะ:</span>
+        ${statusBadgeHtml(item)}
       </div>
 
       <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
@@ -2409,12 +2571,12 @@
       <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;">บันทึกการแก้ไข</button>
       ${menuUrl ? `<a href="${menuUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;background:#FFF3E8;color:#E8863A;border-radius:10px;padding:10px;font-size:13px;font-weight:700;margin-top:8px;">🔗 ดูหน้าเมนู</a>` : ''}
 
-      <div class="field-hint" style="margin-top:14px;">${isDraftCat ? '👇 พร้อมขึ้นจริงเมื่อไหร่ เลือกหมวดขายจริงแล้วกด "Push ขึ้นเมนูจริง" — Story ที่บันทึกไว้ด้านบนจะโชว์ในหน้าลูกค้าทันที (สูตร/ต้นทุนแก้ที่แท็บ "สูตร")' : '👇 ย้ายหมวดหมู่เมนูนี้ได้ที่นี่ (เช่น ย้ายจากกาแฟไปมัทฉะ)'}</div>
+      <div class="field-hint" style="margin-top:14px;">${isDraftLike ? '👇 พร้อมขึ้นจริงเมื่อไหร่ เปลี่ยนสถานะด้านบนเป็น "Live" ได้เลย — ย้ายหมวดหมู่ที่นี่ถ้าจำเป็นด้วย' : '👇 ย้ายหมวดหมู่เมนูนี้ได้ที่นี่ (เช่น ย้ายจากกาแฟไปมัทฉะ)'}</div>
       <div style="display:flex;gap:8px;margin-top:8px;">
         <select class="sm-category-select" style="flex:1;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;background:#fff;color:#4A3428;">
           ${categoryOptionsHtml(item.category, false)}
         </select>
-        <button type="button" class="btn-request sm-promote-btn" style="flex:1;margin-bottom:0;">${isDraftCat ? '🚀 Push ขึ้นเมนูจริง' : '💾 ย้ายหมวดหมู่'}</button>
+        <button type="button" class="btn-request sm-promote-btn" style="flex:1;margin-bottom:0;">💾 ย้ายหมวดหมู่</button>
       </div>
 
       <button type="button" class="btn-request sm-line-btn" style="width:100%;margin-top:8px;">📣 Push to LINE</button>
@@ -2426,6 +2588,8 @@
       </div>
       <div class="status-msg sm-status"></div>
     `;
+
+    wireStatusSelects(card);
 
     card.querySelector('.sm-save-btn').addEventListener('click', async () => {
       const statusEl = card.querySelector('.sm-status');
@@ -2484,8 +2648,8 @@
 
     card.querySelector('.sm-promote-btn').addEventListener('click', async () => {
       const newCat = card.querySelector('.sm-category-select').value;
-      const isRealCat = newCat !== 'secret' && newCat !== 'signature_draft';
-      if (!confirm(`ย้าย "${item.name}" ไปหมวด "${newCat}" ใช่ไหม? ถ้าย้ายไปหมวดขายจริง เมนูนี้จะโผล่ในหน้าลูกค้า/บาริสต้าทันที`)) return;
+      const isRealCat = newCat !== 'secret' && newCat !== 'omakase';
+      if (!confirm(`ย้าย "${item.name}" ไปหมวด "${newCat}" ใช่ไหม? (การขึ้นเมนูจริงให้ลูกค้าเห็น คุมด้วยสถานะ "Live" แยกต่างหาก ไม่ใช่แค่ย้ายหมวด)`)) return;
       const { error: catErr } = await sb.from('menu_items').update({
         category: newCat,
         omakase_only: !isRealCat,
@@ -2614,7 +2778,7 @@
 
     const card = document.createElement('div');
     card.className = 'card';
-    const catLabel = CATEGORY_LABEL_TH[item.category] || item.category;
+    const catLabel = categoryLabelFor(item.category);
     card.innerHTML = `
       <div class="card-top">
         <span class="card-name">${catLabel} · ${item.name}</span>
@@ -2819,6 +2983,107 @@
     return card;
   }
 
+  function renderSecretCreateBlock() {
+    const block = document.getElementById('secretCreateBlock');
+    block.innerHTML = `
+      <input type="text" id="newSecretName" placeholder="ชื่อเมนูลับใหม่" style="margin-bottom:8px;">
+      <div class="field-label" style="margin-top:0;">ส่วนผสม</div>
+      <div class="chip-row" id="newSecretChips"></div>
+      <div id="newSecretQtyBlock"></div>
+      <div class="field-label">ต้นทุนอื่นๆ (บาท ไม่บังคับ)</div>
+      <input type="number" id="newSecretMisc" placeholder="เช่น 10" style="margin-bottom:8px;">
+      <button type="button" class="submit-btn" id="newSecretSaveBtn" style="margin-top:0;" disabled>สร้างเมนูลับ</button>
+      <div class="status-msg" id="newSecretStatus"></div>
+    `;
+
+    const sels = {};
+    function renderChips() {
+      const row = document.getElementById('newSecretChips');
+      row.innerHTML = '';
+      allIngredientsCache.forEach(ing => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip' + (sels[ing.id] ? ' selected' : '');
+        chip.textContent = ing.name;
+        chip.addEventListener('click', () => {
+          if (sels[ing.id]) delete sels[ing.id];
+          else sels[ing.id] = { ingredient: ing, qty: null };
+          renderChips();
+          renderQtyBlock();
+          updateState();
+        });
+        row.appendChild(chip);
+      });
+    }
+    function renderQtyBlock() {
+      const qtyBlock = document.getElementById('newSecretQtyBlock');
+      qtyBlock.innerHTML = '';
+      Object.values(sels).forEach(sel => {
+        const costPerUnit = sel.ingredient.cost_per_base_unit || 0;
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;';
+        wrap.innerHTML = `
+          <span style="flex:1;min-width:80px;font-size:13px;">${sel.ingredient.name}</span>
+          <input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:110px;">
+          <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">฿${costPerUnit.toFixed(3)}/${sel.ingredient.base_unit}</span>
+          <span class="ns-line-cost" style="font-size:12.5px;font-weight:700;color:#4A3428;flex-shrink:0;">= ฿0.00</span>
+        `;
+        const input = wrap.querySelector('input');
+        const lineCostEl = wrap.querySelector('.ns-line-cost');
+        input.addEventListener('input', () => {
+          sel.qty = input.value ? Number(input.value) : null;
+          lineCostEl.textContent = `= ฿${((sel.qty || 0) * costPerUnit).toFixed(2)}`;
+          updateState();
+        });
+        qtyBlock.appendChild(wrap);
+      });
+    }
+    function updateState() {
+      const btn = document.getElementById('newSecretSaveBtn');
+      const name = document.getElementById('newSecretName').value.trim();
+      const list = Object.values(sels);
+      btn.disabled = !(name && list.length > 0 && list.every(s => s.qty && s.qty > 0));
+    }
+    document.getElementById('newSecretName').addEventListener('input', updateState);
+    renderChips();
+
+    document.getElementById('newSecretSaveBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('newSecretSaveBtn');
+      const statusEl = document.getElementById('newSecretStatus');
+      const name = document.getElementById('newSecretName').value.trim();
+      const list = Object.values(sels);
+      const miscVal = document.getElementById('newSecretMisc').value;
+      btn.disabled = true;
+      btn.textContent = 'กำลังบันทึก...';
+
+      const { data: dup } = await sb.from('menu_items').select('id').eq('name', name).limit(1);
+      if (dup && dup.length) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = `ชื่อ "${name}" มีอยู่แล้วในระบบ`;
+        btn.disabled = false; btn.textContent = 'สร้างเมนูลับ';
+        return;
+      }
+
+      const needsBean = list.some(s => s.ingredient.category === 'coffee_bean');
+      const { data: newItem, error: insErr } = await sb.from('menu_items').insert([{
+        name, price: 0, category: 'secret', needs_bean: needsBean,
+        image_url: OMAKASE_SECRET_IMAGE_URL, omakase_only: true,
+        default_misc_cost: miscVal ? Number(miscVal) : null,
+      }]).select('id').maybeSingle();
+
+      if (insErr || !newItem) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + (insErr ? insErr.message : 'unknown');
+        btn.disabled = false; btn.textContent = 'สร้างเมนูลับ';
+        return;
+      }
+
+      const recipeRows = list.map(s => ({ menu_item_id: newItem.id, ingredient_id: s.ingredient.id, quantity: s.qty }));
+      await sb.from('menu_recipes').insert(recipeRows);
+
+      loadMenuRecipeList();
+    });
+  }
 
   async function loadPrograms() {
     const { data, error } = await sb
@@ -3397,8 +3662,8 @@
 
   // กระจายส่วนลดตามสัดส่วนราคาแต่ละแก้วในกลุ่ม ไม่ทำเป็นก้อนเดียว (ห้ามลง lump-sum ตามกฎเดิม)
   // แถวสุดท้ายรับเศษปัดเพื่อให้ยอดรวมหลังหักส่วนลดตรงเป๊ะ
-  async function applyProportionalDiscount(orderIds, discountAmount, reason) {
-    const { data: rows, error } = await sb.from('preorders').select('id, price, discount_amount, discount_reason').in('id', orderIds);
+  async function applyProportionalDiscount(orderIds, discountAmount) {
+    const { data: rows, error } = await sb.from('preorders').select('id, price, discount_amount').in('id', orderIds);
     if (error || !rows || rows.length === 0) return { error: error || new Error('ไม่พบออเดอร์') };
 
     const totalPrice = rows.reduce((s, r) => s + Number(r.price), 0);
@@ -3411,13 +3676,9 @@
       const isLast = i === rows.length - 1;
       const share = isLast ? remaining : Math.round(discountAmount * (Number(r.price) / totalPrice));
       remaining -= share;
-      const combinedReason = reason
-        ? (r.discount_reason ? `${r.discount_reason}; ${reason}` : reason)
-        : r.discount_reason;
       const { error: updErr } = await sb.from('preorders').update({
         price: Number(r.price) - share,
         discount_amount: Number(r.discount_amount || 0) + share,
-        discount_reason: combinedReason,
       }).eq('id', r.id);
       if (updErr) return { error: updErr };
     }
@@ -3500,12 +3761,9 @@
           <span>${l.label} — ${l.price}฿</span>
           <button class="btn-item-delete" data-ids="${l.ids.join(',')}" title="ลบรายการนี้">✕</button>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;padding:0 0 6px;">
+        <div style="display:flex;align-items:center;gap:6px;padding:0 0 8px;">
           <input type="number" min="0" step="1" placeholder="ส่วนลดแก้วนี้ (บาท)" class="line-discount-input" data-ids="${l.ids.join(',')}" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;">
           <button type="button" class="line-discount-btn" data-ids="${l.ids.join(',')}" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#FFF3E8;color:#E8863A;font-size:11px;font-weight:700;">ใช้ส่วนลด</button>
-        </div>
-        <div style="padding:0 0 8px;">
-          <input type="text" placeholder="เหตุผลที่ให้ส่วนลด (ไม่บังคับ) เช่น ไม่ใส่กาแฟ" class="line-discount-reason" data-ids="${l.ids.join(',')}" style="width:100%;padding:6px 8px;border-radius:8px;border:1.5px dashed #F0E4D8;background:transparent;font-size:11px;font-family:inherit;">
         </div>
         <div class="fb-check-row" style="display:flex;flex-direction:column;gap:6px;padding:2px 4px 8px;">
           ${l.cups.map(c => `
@@ -3550,12 +3808,9 @@
           <span class="bill-total">${total}฿</span>
         </div>
         <div class="bill-items">${itemsHtml}</div>
-        <div style="background:#FFF3E8;border-radius:10px;padding:8px 10px;margin-bottom:10px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <input type="number" min="0" step="1" placeholder="ส่วนลดรวมทั้งบิลนี้ (บาท)" class="bill-discount-input" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;background:#fff;">
-            <button type="button" class="bill-discount-btn" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:11px;font-weight:700;">ใช้ส่วนลดทั้งบิล</button>
-          </div>
-          <input type="text" placeholder="เหตุผลที่ให้ส่วนลด (ไม่บังคับ) เช่น ไม่ใส่กาแฟ" class="bill-discount-reason" style="width:100%;padding:6px 8px;border-radius:8px;border:1.5px dashed #F0E4D8;background:transparent;font-size:11px;font-family:inherit;">
+        <div style="display:flex;align-items:center;gap:6px;background:#FFF3E8;border-radius:10px;padding:8px 10px;margin-bottom:10px;">
+          <input type="number" min="0" step="1" placeholder="ส่วนลดรวมทั้งบิลนี้ (บาท)" class="bill-discount-input" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;background:#fff;">
+          <button type="button" class="bill-discount-btn" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:11px;font-weight:700;">ใช้ส่วนลดทั้งบิล</button>
         </div>
         ${requestSection}
         ${slipSection}
@@ -3648,14 +3903,12 @@
       div.querySelectorAll('.line-discount-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
           const input = div.querySelector(`.line-discount-input[data-ids="${btn.dataset.ids}"]`);
-          const reasonInput = div.querySelector(`.line-discount-reason[data-ids="${btn.dataset.ids}"]`);
           const amount = Number(input.value);
-          const reason = reasonInput.value.trim() || null;
           if (!amount || amount <= 0) { alert('ใส่จำนวนส่วนลดก่อนนะครับ'); return; }
           const ids = btn.dataset.ids.split(',');
           if (!confirm(`ลด ${amount}฿ ให้กับรายการนี้ของ ${name} ใช่ไหม?`)) return;
           btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-          const { error } = await applyProportionalDiscount(ids, amount, reason);
+          const { error } = await applyProportionalDiscount(ids, amount);
           if (error) { alert('ใช้ส่วนลดไม่สำเร็จ: ' + error.message); btn.disabled = false; btn.textContent = 'ใช้ส่วนลด'; return; }
           loadBills();
         });
@@ -3665,14 +3918,12 @@
       const billDiscountBtn = div.querySelector('.bill-discount-btn');
       billDiscountBtn.addEventListener('click', async () => {
         const input = div.querySelector('.bill-discount-input');
-        const reasonInput = div.querySelector('.bill-discount-reason');
         const amount = Number(input.value);
-        const reason = reasonInput.value.trim() || null;
         if (!amount || amount <= 0) { alert('ใส่จำนวนส่วนลดก่อนนะครับ'); return; }
         if (!confirm(`ลดทั้งบิลของ ${name} รวม ${amount}฿ ใช่ไหม? (ระบบจะกระจายตามสัดส่วนราคาแต่ละแก้วให้อัตโนมัติ)`)) return;
         billDiscountBtn.disabled = true; billDiscountBtn.textContent = 'กำลังบันทึก...';
         const ids = orders.map(o => o.id);
-        const { error } = await applyProportionalDiscount(ids, amount, reason);
+        const { error } = await applyProportionalDiscount(ids, amount);
         if (error) { alert('ใช้ส่วนลดไม่สำเร็จ: ' + error.message); billDiscountBtn.disabled = false; billDiscountBtn.textContent = 'ใช้ส่วนลดทั้งบิล'; return; }
         loadBills();
       });
