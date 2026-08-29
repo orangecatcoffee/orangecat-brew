@@ -2971,8 +2971,12 @@
     const catLabel = categoryLabelFor(item.category);
     card.innerHTML = `
       <div class="card-top">
-        <span class="card-name">${catLabel} · ${item.name}</span>
+        <span class="card-name">${catLabel}</span>
+        <button type="button" class="btn-delete" data-del-menu="${item.id}">✕</button>
       </div>
+
+      <div class="field-label" style="margin-top:0;">ชื่อเมนู</div>
+      <input type="text" class="sm-name" value="${item.name.replace(/"/g,'&quot;')}" style="margin-bottom:14px;">
 
       <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
         <input type="checkbox" class="sm-needs-bean" ${item.needs_bean ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
@@ -3013,6 +3017,14 @@
       <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;margin-top:12px;">บันทึกการแก้ไข</button>
       <div class="status-msg sm-status"></div>
     `;
+
+    card.querySelector('[data-del-menu]').addEventListener('click', async () => {
+      if (!confirm(`ลบเมนู "${item.name}" ทิ้งเลยไหม? (ลบสูตรที่ผูกไว้ด้วย ย้อนกลับไม่ได้)`)) return;
+      await sb.from('menu_recipes').delete().eq('menu_item_id', item.id);
+      const { error: delErr } = await sb.from('menu_items').delete().eq('id', item.id);
+      if (delErr) { alert('ลบไม่สำเร็จ: ' + delErr.message); return; }
+      loadMenuRecipeList();
+    });
 
     function updateCostSummary() {
       let existingCost = 0;
@@ -3121,11 +3133,13 @@
 
     card.querySelector('.sm-save-btn').addEventListener('click', async () => {
       const statusEl = card.querySelector('.sm-status');
+      const name = card.querySelector('.sm-name').value.trim();
       const miscVal = card.querySelector('.sm-misc').value;
       const needsBean = card.querySelector('.sm-needs-bean').checked;
       const coffeeFlexible = card.querySelector('.sm-coffee-flexible').checked;
 
       const { error: updErr } = await sb.from('menu_items').update({
+        name,
         needs_bean: needsBean,
         coffee_flexible: coffeeFlexible,
         default_misc_cost: miscVal ? Number(miscVal) : null,
