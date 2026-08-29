@@ -2302,8 +2302,8 @@
   }
 
   // ===================== แท็บ "เมนู" — ชื่อ/ราคา/รูป/Story ทุกหมวด (เบา ไม่ query สูตร) =====================
-  const STATUS_LABEL = { draft: '📝 Draft', pending: '⏳ Pending', live: '✅ Live', on_hold: '⏸️ On Hold' };
-  const STATUS_COLOR = { draft: '#A8876F', pending: '#C9A44A', live: '#4A9B5C', on_hold: '#D64545' };
+  const STATUS_LABEL = { draft: '📝 Draft', pending: '⏳ Pending', live: '✅ Live', on_hold: '⏸️ On Hold', resting: '🔁 Resting' };
+  const STATUS_COLOR = { draft: '#A8876F', pending: '#C9A44A', live: '#4A9B5C', on_hold: '#D64545', resting: '#6B4E8A' };
 
   function statusBadgeHtml(item) {
     return `
@@ -2607,7 +2607,8 @@
         <option value="draft" selected>📝 Draft (ยังไม่คิดราคา/สูตรเสร็จ)</option>
         <option value="pending">⏳ Pending (พร้อมเกือบหมด รอประกาศ)</option>
         <option value="live">✅ Live (ขายจริงทันที)</option>
-        <option value="on_hold">⏸️ On Hold (พักการขาย)</option>
+        <option value="resting">🔁 Resting (Signature — เคยขาย ลูกค้ายังเห็นแต่สั่งไม่ได้ "รอรอบต่อไป")</option>
+        <option value="on_hold">⏸️ On Hold (พักการขาย ซ่อนจากลูกค้าเลย)</option>
       </select>
       <div class="field-label" style="margin-top:0;">ต้องเลือกเมล็ดกาแฟไหม?</div>
       <div class="sweetness-row" id="genNeedsBeanRow">
