@@ -137,6 +137,12 @@
   <div id="blendGramsBlock"></div>
   <input type="hidden" id="beanName">
 
+  <div id="milkRow" style="display:none;">
+    <div class="field-label">🥛 เปลี่ยนนม (ไม่บังคับ)</div>
+    <div class="field-hint">เมนูนี้มีนมสดในสูตร — เปลี่ยนเป็นนมทางเลือกได้ ราคาจะบวก upcharge ให้อัตโนมัติ</div>
+    <select id="milkSelect" style="width:100%;margin-bottom:8px;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;"></select>
+  </div>
+
   <div class="field-label">ความหวาน</div>
   <div class="sweetness-row" id="sweetnessRow">
     <button type="button" class="sweetness-btn selected" data-sweet="ไม่หวาน">ไม่หวาน</button>
@@ -359,6 +365,9 @@
       });
       allergyIngredientNameById = {};
       (ingRows || []).forEach(i => { allergyIngredientNameById[i.id] = i.name; });
+      const dairyRow = (ingRows || []).find(i => i.name === 'Dairy milk');
+      dairyMilkIngredientId = dairyRow ? dairyRow.id : null;
+      updateMilkRow(selectedMenu); // เผื่อโหลดข้อมูลนี้เสร็จทีหลังตอนที่ผู้ใช้เลือกเมนูไปแล้ว
       // สรุปต่อลูกค้า — ใช้โชว์ไอคอนเตือนในหน้า "วันนี้" ด้วย
       allergySummaryByLineId = {};
       noCoffeeLineIdSet = new Set();
@@ -502,6 +511,8 @@
   let customerNoCoffee = false;
   let allergyIngredientNameById = {}; // โหลดครั้งเดียวตอน init
   let menuRecipeIngredientsByItemId = {}; // menu_item_id -> Set(ingredient_id) โหลดครั้งเดียวตอน init
+  let dairyMilkIngredientId = null; // ใช้เช็คว่าเมนูไหน "เปลี่ยนนมได้" (มี Dairy milk ในสูตรจริง)
+  let availableMilksBrew = []; // นมทางเลือกที่มีสต็อก + upcharge > 0
   // ⚠️ แพ้/ไม่กิน — สรุประดับ "แย่สุด" ต่อลูกค้า (line_user_id) ใช้โชว์ไอคอนเตือนในหน้า "วันนี้" ด้วย ไม่ใช่แค่ตอนเพิ่มออเดอร์
   let allergySummaryByLineId = {}; // line_user_id -> 'severe' | 'mild' | 'tolerate'
   let noCoffeeLineIdSet = new Set();
@@ -633,7 +644,51 @@
     return warnings;
   }
 
-  let packagingCostCache = null; // { bag: 1.44, cup_small: 3.91, cup_large: 4.25, tumbler: 0 }
+  async function loadMilksForAddOrder() {
+    const { data, error } = await sb
+      .from('ingredients')
+      .select('id, name, customer_bean_surcharge, stock_quantity')
+      .eq('category', 'milk')
+      .eq('active', true)
+      .gt('customer_bean_surcharge', 0)
+      .gt('stock_quantity', 0)
+      .order('customer_bean_surcharge');
+    availableMilksBrew = (!error && data) ? data : [];
+    updateMilkRow(selectedMenu);
+  }
+
+  function isMilkFlexible(item) {
+    if (!item || !dairyMilkIngredientId) return false;
+    const ids = menuRecipeIngredientsByItemId[item.id];
+    return !!(ids && ids.has(dairyMilkIngredientId));
+  }
+
+  function updateMilkRow(item) {
+    const row = document.getElementById('milkRow');
+    const sel = document.getElementById('milkSelect');
+    if (!row || !sel) return;
+    if (isMilkFlexible(item)) {
+      row.style.display = 'block';
+      const current = sel.value;
+      sel.innerHTML = '<option value="">นมสด (รวมในราคา)</option>' + availableMilksBrew.map(m => {
+        const sur = Number(m.customer_bean_surcharge) || 0;
+        return `<option value="${m.name}">${m.name} (+${sur}฿)</option>`;
+      }).join('');
+      sel.value = availableMilksBrew.some(m => m.name === current) ? current : '';
+    } else {
+      row.style.display = 'none';
+      sel.innerHTML = '';
+      sel.value = '';
+    }
+  }
+
+  function milkSurchargeBrew(milkName) {
+    if (!milkName) return 0;
+    const milk = availableMilksBrew.find(m => m.name === milkName);
+    return milk ? (Number(milk.customer_bean_surcharge) || 0) : 0;
+  }
+
+
   async function loadPackagingCosts() {
     if (packagingCostCache) return packagingCostCache;
     const { data } = await sb
@@ -1741,6 +1796,7 @@
           const noCoffeeRow = document.getElementById('noCoffeeRow');
           noCoffeeRow.style.display = item.coffeeFlexible ? 'flex' : 'none';
           if (!item.coffeeFlexible) document.getElementById('noCoffeeCheckbox').checked = false;
+          updateMilkRow(item);
         }
         updateSubmitState();
       });
@@ -3649,6 +3705,7 @@
     const noCoffeeRow = document.getElementById('noCoffeeRow');
     noCoffeeRow.style.display = selectedMenu.coffeeFlexible ? 'flex' : 'none';
     if (!selectedMenu.coffeeFlexible) document.getElementById('noCoffeeCheckbox').checked = false;
+    updateMilkRow(selectedMenu);
   }
 
   function setSweetnessValue(val) {
@@ -3785,13 +3842,17 @@
     } else {
       const isMaxCup = document.getElementById('isMaxCup').checked;
       const discount = isFree ? 0 : Math.min(discountInput, selectedMenu.price);
+      const milkName = (isMilkFlexible(selectedMenu) ? document.getElementById('milkSelect').value : '') || null;
+      const milkSur = isFree ? 0 : milkSurchargeBrew(milkName);
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
-        price: isMaxCup ? 0 : (isFree ? 0 : (selectedMenu.price - discount)),
+        price: isMaxCup ? 0 : (isFree ? 0 : (selectedMenu.price - discount + milkSur)),
         discount_amount: isMaxCup ? 0 : discount,
         wanted_date: selectedDate,
         bean_name: beanName,
+        milk_name: isMaxCup ? null : milkName,
+        milk_surcharge: isMaxCup ? 0 : milkSur,
         line_user_id: selectedMemberLineId,
         order_type: orderType,
         paid: isMaxCup ? false : isFree,
@@ -3881,6 +3942,8 @@
     updateLinkHint(); // เคลียร์ banner ⚠️ แพ้/ไม่กิน ของลูกค้าคนก่อนหน้าไปด้วย
     document.getElementById('noCoffeeRow').style.display = 'none';
     document.getElementById('noCoffeeCheckbox').checked = false;
+    document.getElementById('milkRow').style.display = 'none';
+    document.getElementById('milkSelect').value = '';
     document.getElementById('orderNotes').value = '';
     selectedToppings = {};
     renderToppingChips();
@@ -4540,6 +4603,7 @@
   async function init() {
     await loadMenuItems();
     loadAllergyReferenceData(); // ไม่ต้อง await — ไม่บล็อกการโหลดหน้าจอหลัก โหลดเสร็จแล้ว renderMenuGrid() รอบถัดไปจะได้ข้อมูล
+    loadMilksForAddOrder(); // ไม่ต้อง await เช่นกัน — ถ้าโหลดช้ากว่าที่ user เลือกเมนู updateMilkRow ยังโชว์ row แต่ dropdown จะว่างจนกว่าจะโหลดเสร็จ (ไม่ block)
     renderMenuGrid();
     renderDateRow();
     loadToday();
