@@ -2336,7 +2336,7 @@
 
     const [{ data, error }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date')
+        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date, available_from, available_until')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
@@ -2393,7 +2393,7 @@
 
     const [{ data, error }, { data: allRecipeRows }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date')
+        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date, available_from, available_until')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
@@ -2833,6 +2833,19 @@
       </div>
       ` : ''}
 
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <div style="flex:1;">
+          <div class="field-label" style="margin-top:0;">🗓️ เปิดขายวันที่</div>
+          <div class="field-hint">ปล่อยว่าง = เปิดขายตลอด ไม่มีวันเริ่ม</div>
+          <input type="date" class="sm-available-from" value="${item.available_from || ''}">
+        </div>
+        <div style="flex:1;">
+          <div class="field-label" style="margin-top:0;">🗓️ ปิดขายวันที่</div>
+          <div class="field-hint">ปล่อยว่าง = ไม่มีวันหมดอายุ (Signature ที่ปิดใช้ resting แทนวันที่นี้ก็ได้)</div>
+          <input type="date" class="sm-available-until" value="${item.available_until || ''}">
+        </div>
+      </div>
+
       <div class="field-label" style="margin-top:0;">🧡 Story — บรรทัดส่วนผสม (เช่น "Earl Grey · Marmalade · Citrus · Coffee")</div>
       <input type="text" class="sm-story-ing" value="${(item.story_ingredients || '').replace(/"/g,'&quot;')}" placeholder="ส่วนผสมหลัก คั่นด้วย ·" style="margin-bottom:8px;">
 
@@ -2880,6 +2893,10 @@
       const releaseDateInput = card.querySelector('.sm-release-date');
       const chapterNumber = chapterInput && chapterInput.value ? Number(chapterInput.value) : null;
       const releaseDate = releaseDateInput && releaseDateInput.value ? releaseDateInput.value : null;
+      const availableFromInput = card.querySelector('.sm-available-from');
+      const availableUntilInput = card.querySelector('.sm-available-until');
+      const availableFrom = availableFromInput && availableFromInput.value ? availableFromInput.value : null;
+      const availableUntil = availableUntilInput && availableUntilInput.value ? availableUntilInput.value : null;
 
       const oldPrice = Number(item.price);
       if (price !== oldPrice) {
@@ -2903,6 +2920,8 @@
         story_ingredients: storyIng,
         story_body: storyBody,
         made_from_scratch_images: mfsImages.length ? mfsImages : null,
+        available_from: availableFrom,
+        available_until: availableUntil,
       };
       if (item.category === 'signature_item') {
         updatePayload.chapter_number = chapterNumber;
