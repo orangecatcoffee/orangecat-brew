@@ -2150,6 +2150,24 @@
     return payload;
   }
 
+  // เมล็ดเดี่ยว: surcharge เต็มของเมล็ดนั้น | เฮ้าส์เบลนด์: ถ่วงน้ำหนักตามสัดส่วนกรัมจริงที่ใช้ (ไม่ใช่หารเท่ากัน)
+  function beanSurchargeForSelection(blendPayload) {
+    if (selectedBeanIds.length === 0) return 0;
+    if (selectedBeanIds.length === 1) {
+      const bean = beanOptionsCache.find(b => b.id === selectedBeanIds[0]);
+      return bean ? (Number(bean.customer_bean_surcharge) || 0) : 0;
+    }
+    if (!blendPayload || blendPayload.incomplete) return 0;
+    const totalGrams = blendPayload.reduce((sum, p) => sum + p.grams, 0);
+    if (!totalGrams) return 0;
+    const weighted = blendPayload.reduce((sum, p) => {
+      const bean = beanOptionsCache.find(b => b.id === p.ingredient_id);
+      const sur = bean ? (Number(bean.customer_bean_surcharge) || 0) : 0;
+      return sum + sur * (p.grams / totalGrams);
+    }, 0);
+    return Math.round(weighted * 100) / 100;
+  }
+
   async function loadBeanOptions() {
     const el = document.getElementById('recentBeans');
     el.innerHTML = '<span style="font-size:11px;color:#A8876F;">กำลังโหลด...</span>';
@@ -2158,7 +2176,7 @@
 
     const { data, error } = await sb
       .from('ingredients')
-      .select('id, name, stock_quantity')
+      .select('id, name, stock_quantity, customer_bean_surcharge')
       .eq('category', 'coffee_bean')
       .eq('active', true)
       .order('name', { ascending: true });
@@ -2178,10 +2196,11 @@
     data.forEach(bean => {
       const stock = Number(bean.stock_quantity);
       const low = stock < BEAN_DOSE_G;
+      const sur = Number(bean.customer_bean_surcharge) || 0;
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'chip';
-      chip.textContent = low ? `${bean.name} (หมด)` : `${bean.name} (${stock}g)`;
+      chip.textContent = low ? `${bean.name} (หมด)` : `${bean.name} (${stock}g)${sur > 0 ? ` +${sur}฿` : ''}`;
       chip.disabled = low;
       chip.addEventListener('click', () => {
         const idx = selectedBeanIds.indexOf(bean.id);
@@ -3844,13 +3863,16 @@
       const discount = isFree ? 0 : Math.min(discountInput, selectedMenu.price);
       const milkName = (isMilkFlexible(selectedMenu) ? document.getElementById('milkSelect').value : '') || null;
       const milkSur = isFree ? 0 : milkSurchargeBrew(milkName);
+      const noCoffeeChecked = selectedMenu.coffeeFlexible && document.getElementById('noCoffeeCheckbox').checked;
+      const beanSur = (isFree || noCoffeeChecked) ? 0 : beanSurchargeForSelection(blendPayload);
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
-        price: isMaxCup ? 0 : (isFree ? 0 : (selectedMenu.price - discount + milkSur)),
+        price: isMaxCup ? 0 : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)),
         discount_amount: isMaxCup ? 0 : discount,
         wanted_date: selectedDate,
         bean_name: beanName,
+        bean_surcharge: isMaxCup ? 0 : beanSur,
         milk_name: isMaxCup ? null : milkName,
         milk_surcharge: isMaxCup ? 0 : milkSur,
         line_user_id: selectedMemberLineId,
