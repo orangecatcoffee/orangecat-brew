@@ -151,6 +151,12 @@
   <div class="field-hint">เช่น ลูกค้าขอหวานน้อยมากๆ, แพ้นมวัว, ขอน้ำแข็งน้อย ฯลฯ</div>
   <textarea id="orderNotes" rows="2" placeholder="พิมพ์หมายเหตุที่ลูกค้าบอก..." style="margin-bottom:8px;width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;resize:vertical;"></textarea>
 
+  <div class="field-label">🍓 ท็อปปิ้ง (ไม่บังคับ — บาริสต้าเลือกเอง ลูกค้าไม่เห็น)</div>
+  <div class="field-hint">แตะเลือกท็อปปิ้งที่ใช้ ใส่ปริมาณ ระบบคำนวณต้นทุนให้อัตโนมัติ ไม่ต้องคิดสัดส่วนเอง</div>
+  <div class="chip-row" id="toppingChips"></div>
+  <div id="toppingQtyBlock"></div>
+  <div id="toppingCostPreview" style="display:none;font-size:12px;color:#4A9B5C;font-weight:700;background:#EAF6EC;border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
+
   <div class="field-label">ส่วนลด (ไม่บังคับ)</div>
   <div class="field-hint" id="discountHint">ใส่จำนวนบาทที่ลด — ราคาสุทธิจะหักให้อัตโนมัติตอนบันทึก</div>
   <input type="number" id="discountAmount" placeholder="เช่น 20" min="0" step="1" style="margin-bottom:8px;">
@@ -526,6 +532,8 @@
   const SECRET_PLACEHOLDER_NAME = "🔮 แก้วลับ (รอออกแบบ)"; // ต้องตรงกับชื่อใน menu_items เป๊ะ
   const OMAKASE_WEEKLY_PRICE = 270; // ราคาแพ็กเกจ Omakase Classic ที่เรียกเก็บลูกค้าจริง (ไม่ใช่ผลรวมราคาเมนูแต่ละแก้ว)
   let allIngredientsCache = [];
+  let toppingIngredientsCache = [];
+  let selectedToppings = {}; // { ingredient_id: { ingredient, qty } }
 
   // ปฏิทิน 7 วัน + สลับมุมมองรายลูกค้า/รายเมนู ในหน้า "วันนี้"
   // toISODate ถูกประกาศด้วย function declaration ด้านล่างไฟล์นี้ — hoisted ใช้ตรงนี้ได้เลย
@@ -544,7 +552,7 @@
     document.getElementById('screenTitle').textContent = TITLES[name];
     if (name === 'today') loadToday();
     if (name === 'bill') { loadBills(); loadOmakaseMaxBills(); }
-    if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); }
+    if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); loadToppingIngredients(); }
     if (name === 'members') { loadMembers(); loadPrograms(); }
     if (name === 'menu') loadMenuContentList();
     if (name === 'recipe') loadMenuRecipeList();
@@ -2131,6 +2139,81 @@
   }
 
   let omakaseAlwaysOnMap = {}; // line_user_id -> program short label (เฉพาะที่ Always On เปิดอยู่ตอนนี้)
+
+  // ===================== ท็อปปิ้ง (ไม่บังคับ) — บาริสต้าเลือกเอง ลูกค้าไม่เห็น =====================
+  async function loadToppingIngredients() {
+    selectedToppings = {};
+    document.getElementById('toppingQtyBlock').innerHTML = '';
+    document.getElementById('toppingCostPreview').style.display = 'none';
+
+    if (toppingIngredientsCache.length === 0) {
+      const { data } = await sb
+        .from('ingredients')
+        .select('id, name, base_unit, cost_per_base_unit')
+        .eq('category', 'topping')
+        .eq('active', true)
+        .order('name', { ascending: true });
+      toppingIngredientsCache = data || [];
+    }
+    renderToppingChips();
+  }
+
+  function renderToppingChips() {
+    const row = document.getElementById('toppingChips');
+    row.innerHTML = '';
+    if (toppingIngredientsCache.length === 0) {
+      row.innerHTML = '<span style="font-size:11px;color:#A8876F;">ยังไม่มีวัตถุดิบหมวดท็อปปิ้งในระบบ</span>';
+      return;
+    }
+    toppingIngredientsCache.forEach(ing => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (selectedToppings[ing.id] ? ' selected' : '');
+      chip.textContent = ing.name;
+      chip.addEventListener('click', () => {
+        if (selectedToppings[ing.id]) delete selectedToppings[ing.id];
+        else selectedToppings[ing.id] = { ingredient: ing, qty: null };
+        renderToppingChips();
+        renderToppingQtyBlock();
+        updateToppingCostPreview();
+      });
+      row.appendChild(chip);
+    });
+  }
+
+  function renderToppingQtyBlock() {
+    const block = document.getElementById('toppingQtyBlock');
+    block.innerHTML = '';
+    Object.values(selectedToppings).forEach(sel => {
+      const costPerUnit = sel.ingredient.cost_per_base_unit || 0;
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;';
+      wrap.innerHTML = `
+        <span style="flex:1;min-width:80px;font-size:12.5px;">${sel.ingredient.name}</span>
+        <input type="number" min="0" step="0.1" placeholder="ปริมาณ (${sel.ingredient.base_unit})" style="width:120px;">
+        <span style="font-size:10.5px;color:#A8876F;flex-shrink:0;">฿${costPerUnit.toFixed(3)}/${sel.ingredient.base_unit}</span>
+      `;
+      const input = wrap.querySelector('input');
+      if (sel.qty !== null) input.value = sel.qty;
+      input.addEventListener('input', () => {
+        sel.qty = input.value ? Number(input.value) : null;
+        updateToppingCostPreview();
+      });
+      block.appendChild(wrap);
+    });
+  }
+
+  function updateToppingCostPreview() {
+    const previewEl = document.getElementById('toppingCostPreview');
+    const list = Object.values(selectedToppings).filter(s => s.qty && s.qty > 0);
+    if (list.length === 0) {
+      previewEl.style.display = 'none';
+      return;
+    }
+    const total = list.reduce((sum, s) => sum + (s.qty * (s.ingredient.cost_per_base_unit || 0)), 0);
+    previewEl.style.display = 'block';
+    previewEl.textContent = `💰 ต้นทุนท็อปปิ้งรวม ฿${total.toFixed(2)}`;
+  }
 
   async function loadMembers() {
     const { data, error } = await sb
@@ -3722,6 +3805,28 @@
       }
     }
 
+    // บันทึกท็อปปิ้งที่บาริสต้าเลือก (ถ้ามี) — ผูกกับแก้วแรกของออเดอร์นี้เท่านั้น (โหมด Omakase ยังไม่รองรับท็อปปิ้งตอนนี้)
+    const selectedToppingList = Object.values(selectedToppings).filter(s => s.qty && s.qty > 0);
+    if (selectedToppingList.length && inserted && inserted[0]) {
+      const toppingRows = selectedToppingList.map(s => ({
+        preorder_id: inserted[0].id,
+        ingredient_id: s.ingredient.id,
+        quantity: s.qty,
+        cost: Math.round(s.qty * (s.ingredient.cost_per_base_unit || 0) * 100) / 100,
+      }));
+      const totalToppingCost = toppingRows.reduce((sum, r) => sum + r.cost, 0);
+      const { error: toppingErr } = await sb.from('preorder_toppings').insert(toppingRows);
+      if (!toppingErr) {
+        await sb.from('preorders').update({ topping_cost: totalToppingCost }).eq('id', inserted[0].id);
+      } else {
+        statusEl.textContent = `บันทึกออเดอร์แล้ว แต่บันทึกท็อปปิ้งไม่สำเร็จ: ${toppingErr.message}`;
+        statusEl.className = 'status-msg error';
+        btn.disabled = false;
+        btn.textContent = 'บันทึกออเดอร์';
+        return;
+      }
+    }
+
     if (pendingReplaceOrderId) {
       await sb.from('preorders').delete().eq('id', pendingReplaceOrderId);
       await sb.from('order_log').delete().eq('source_preorder_id', pendingReplaceOrderId);
@@ -3747,6 +3852,10 @@
     document.getElementById('noCoffeeRow').style.display = 'none';
     document.getElementById('noCoffeeCheckbox').checked = false;
     document.getElementById('orderNotes').value = '';
+    selectedToppings = {};
+    renderToppingChips();
+    document.getElementById('toppingQtyBlock').innerHTML = '';
+    document.getElementById('toppingCostPreview').style.display = 'none';
     orderMode = 'normal';
     omakaseSlots = [null, null, null];
     omakaseDates = [null, null, null];
