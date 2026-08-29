@@ -891,7 +891,7 @@
     const { data, error } = await sb
       .from('menu_items')
       .select('id, name, price, needs_bean, image_url, default_misc_cost')
-      .eq('category', 'secret')
+      .or('category.eq.secret,and(category.eq.signature_item,status.eq.draft)')
       .neq('name', SECRET_PLACEHOLDER_NAME)
       .order('name', { ascending: true });
     const items = data || [];
