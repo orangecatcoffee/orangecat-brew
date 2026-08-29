@@ -330,9 +330,10 @@
   // ⚠️ แพ้/ไม่กิน — โหลดครั้งเดียวตอน init: สูตรเมนู (menu_item_id -> ingredient_id ทั้งหมด) + ชื่อส่วนผสมทั้งหมด
   async function loadAllergyReferenceData() {
     try {
-      const [{ data: recipeRows }, { data: ingRows }] = await Promise.all([
+      const [{ data: recipeRows }, { data: ingRows }, { data: allAllergyRows }] = await Promise.all([
         sb.from('menu_recipes').select('menu_item_id, ingredient_id'),
         sb.from('ingredients').select('id, name'),
+        sb.from('customer_allergies').select('line_user_id, kind, severity'),
       ]);
       menuRecipeIngredientsByItemId = {};
       (recipeRows || []).forEach(r => {
@@ -341,6 +342,19 @@
       });
       allergyIngredientNameById = {};
       (ingRows || []).forEach(i => { allergyIngredientNameById[i.id] = i.name; });
+      // สรุปต่อลูกค้า — ใช้โชว์ไอคอนเตือนในหน้า "วันนี้" ด้วย
+      allergySummaryByLineId = {};
+      noCoffeeLineIdSet = new Set();
+      const rank = { severe: 3, mild: 2, tolerate: 1 };
+      const sevToLevel = { 'แพ้': 'severe', 'ไม่ชอบ': 'mild', 'ทานได้น้อย': 'tolerate' };
+      (allAllergyRows || []).forEach(a => {
+        if (a.kind === 'no_coffee') { noCoffeeLineIdSet.add(a.line_user_id); return; }
+        const lvl = sevToLevel[a.severity];
+        if (!lvl) return;
+        const existing = allergySummaryByLineId[a.line_user_id];
+        if (!existing || rank[lvl] > rank[existing]) allergySummaryByLineId[a.line_user_id] = lvl;
+      });
+      renderTodayList(); // รีเฟรชหน้า "วันนี้" ให้ไอคอนโผล่ทันทีถ้าโหลดเสร็จทีหลัง
     } catch (e) { /* ไม่ critical ถ้าโหลดไม่สำเร็จ ระบบเตือนแค่จะไม่ทำงาน */ }
   }
 
@@ -423,6 +437,19 @@
   let customerNoCoffee = false;
   let allergyIngredientNameById = {}; // โหลดครั้งเดียวตอน init
   let menuRecipeIngredientsByItemId = {}; // menu_item_id -> Set(ingredient_id) โหลดครั้งเดียวตอน init
+  // ⚠️ แพ้/ไม่กิน — สรุประดับ "แย่สุด" ต่อลูกค้า (line_user_id) ใช้โชว์ไอคอนเตือนในหน้า "วันนี้" ด้วย ไม่ใช่แค่ตอนเพิ่มออเดอร์
+  let allergySummaryByLineId = {}; // line_user_id -> 'severe' | 'mild' | 'tolerate'
+  let noCoffeeLineIdSet = new Set();
+
+  function allergyBadgeFor(lineUserId) {
+    if (!lineUserId) return '';
+    if (noCoffeeLineIdSet.has(lineUserId)) return ' <span title="ลูกค้าไม่กินกาแฟเลย">🚫</span>';
+    const lvl = allergySummaryByLineId[lineUserId];
+    if (lvl === 'severe') return ' <span title="ลูกค้ามีรายการแพ้ — เช็คก่อนชง">🔴</span>';
+    if (lvl === 'mild') return ' <span title="ลูกค้ามีของไม่ชอบ — เช็คก่อนชง">🟠</span>';
+    if (lvl === 'tolerate') return ' <span title="ลูกค้าทานได้น้อย — เช็คก่อนชง">ℹ️</span>';
+    return '';
+  }
   let customerName = '';
   let customerType = 'member';
   let orderType = 'customer';
@@ -1402,7 +1429,7 @@
       div.style.borderLeftColor = '#5A361B';
       div.innerHTML = `
         <div class="card-top">
-          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#5A361B;">🔮 แก้วลับ — รอออกแบบ</span></span>
+          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)} <span style="color:#5A361B;">🔮 แก้วลับ — รอออกแบบ</span></span>
           <div class="card-top-right">
             <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
             <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
@@ -1430,7 +1457,7 @@
       div.style.borderLeftColor = '#E8863A';
       div.innerHTML = `
         <div class="card-top">
-          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#E8863A;">🐱 แมวส้มเลือกหน่อย — รอเลือกเมนู</span></span>
+          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)} <span style="color:#E8863A;">🐱 แมวส้มเลือกหน่อย — รอเลือกเมนู</span></span>
           <div class="card-top-right">
             <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
             <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
@@ -1458,7 +1485,7 @@
       div.style.borderLeftColor = '#E8621A';
       div.innerHTML = `
         <div class="card-top">
-          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''} <span style="color:#E8621A;">🎴 Omakase — รอเลือกเมนู</span></span>
+          <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)} <span style="color:#E8621A;">🎴 Omakase — รอเลือกเมนู</span></span>
           <div class="card-top-right">
             <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
             <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
@@ -1492,7 +1519,7 @@
     const isCoffeeFlexible = !!(menuDef && menuDef.coffeeFlexible);
     div.innerHTML = `
       <div class="card-top">
-        <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${typeBadge}${omakaseBadge}${maxBadge}</span>
+        <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)}${typeBadge}${omakaseBadge}${maxBadge}</span>
         <div class="card-top-right">
           <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
           <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
