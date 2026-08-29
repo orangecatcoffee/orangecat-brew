@@ -1931,6 +1931,7 @@
       .select('id, name, category, base_unit, stock_quantity, cost_per_base_unit')
       .eq('active', true)
       .eq('is_packaging', false) // อุปกรณ์บรรจุภัณฑ์ (แก้ว/ฝา/ถุง/กระดาษ/ถุงกรอง/หลอด) ไม่ใช่วัตถุดิบในสูตร คิดต้นทุนแยกผ่าน packaging_type_items แล้ว
+      .neq('category', 'coffee_bean') // เมล็ดกาแฟแยกจัดการผ่าน checkbox "ต้องเลือกเมล็ดกาแฟ" + FLAT_COFFEE_COST ต่างหาก ไม่ต้องมาปนในตัวเลือกส่วนผสม (ลดจำนวนชิปเหลือแต่ที่จำเป็น โหลดเร็วขึ้น)
       .order('category', { ascending: true })
       .order('name', { ascending: true });
     if (!error && data) allIngredientsCache = data;
