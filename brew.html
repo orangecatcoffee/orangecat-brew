@@ -605,7 +605,7 @@
     if (!recipeRows) return warnings;
 
     for (const row of recipeRows) {
-      const ing = row.ingredients;
+      let ing = row.ingredients;
       if (!ing || ing.category === 'coffee_bean') continue;
 
       let deductQty = Number(row.quantity);
@@ -614,6 +614,15 @@
         deductQty = rule[order.sweetness];
       }
       if (deductQty === 0) continue;
+
+      // ลูกค้าเลือกนมทางเลือกแทนนมสด → ตัดสต็อกจากนมที่เลือกจริง (จำนวนเท่าเดิมตามสูตร) แทน Dairy milk
+      if (ing.name === 'Dairy milk' && order.milk_name && order.milk_name !== 'Dairy milk') {
+        const { data: subIng } = await sb.from('ingredients')
+          .select('id, name, category, stock_quantity, base_unit')
+          .eq('name', order.milk_name).maybeSingle();
+        if (subIng) ing = subIng;
+        else warnings.push(`ไม่พบวัตถุดิบ "${order.milk_name}" ในระบบ — ตัดสต็อก Dairy milk แทนไปก่อน`);
+      }
 
       const newStock = Number(ing.stock_quantity) - deductQty;
       await sb.from('ingredients')
@@ -1592,7 +1601,7 @@
           <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
         </div>
       </div>
-      <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')} <button type="button" class="btn-recipe-quick" data-menu-name="${order.menu_item_name.replace(/"/g,'&quot;')}" style="background:#F0E4D8;border:none;border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:700;color:#8a6a4a;font-family:inherit;vertical-align:middle;">📋 สูตร</button></div>
+      <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}${order.milk_name ? ` <span style="color:#7B4F9E;font-weight:700;">🥛 ${order.milk_name}</span>` : ''} <button type="button" class="btn-recipe-quick" data-menu-name="${order.menu_item_name.replace(/"/g,'&quot;')}" style="background:#F0E4D8;border:none;border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:700;color:#8a6a4a;font-family:inherit;vertical-align:middle;">📋 สูตร</button></div>
       ${order.notes ? `<div style="font-size:11.5px;color:#A85A1E;background:#FFF3E8;border-radius:8px;padding:6px 10px;margin-bottom:8px;">📝 ${order.notes}</div>` : ''}
       ${isCoffeeFlexible ? `<button type="button" class="coffee-toggle-btn${order.no_coffee ? ' no-coffee-active' : ''}" data-id="${order.id}">${order.no_coffee ? '☕🚫 ไม่ใช้กาแฟแก้วนี้ — แตะเพื่อกลับมาใช้กาแฟ' : '☕ ใช้กาแฟแก้วนี้ — แตะถ้าจะไม่ใช้กาแฟ'}</button>` : ''}
       <div class="pkg-row">
