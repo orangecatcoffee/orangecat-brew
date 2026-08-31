@@ -615,32 +615,38 @@
       .eq('menu_item_id', menuItem.id);
     if (!recipeRows) return warnings;
 
-    for (const row of recipeRows) {
-      let ing = row.ingredients;
-      if (!ing || ing.category === 'coffee_bean') continue;
+    // ตัดสต็อกทุกวัตถุดิบพร้อมกัน (ไม่ใช่ทีละตัว) — เร็วขึ้นมากตอนสูตรมีหลายวัตถุดิบ (เช่น Ruby Kisses 6 ตัว)
+    // แต่ละตัวห่อ try/catch เอง กันวัตถุดิบตัวหนึ่งพังแล้วลากทั้งก้อนค้าง "กำลังบันทึก..." ตลอดไป
+    await Promise.all(recipeRows.map(async (row) => {
+      try {
+        let ing = row.ingredients;
+        if (!ing || ing.category === 'coffee_bean') return;
 
-      let deductQty = Number(row.quantity);
-      const rule = SWEETNESS_RULES[ing.name];
-      if (rule && rule[order.sweetness] !== undefined) {
-        deductQty = rule[order.sweetness];
+        let deductQty = Number(row.quantity);
+        const rule = SWEETNESS_RULES[ing.name];
+        if (rule && rule[order.sweetness] !== undefined) {
+          deductQty = rule[order.sweetness];
+        }
+        if (deductQty === 0) return;
+
+        // ลูกค้าเลือกนมทางเลือกแทนนมสด → ตัดสต็อกจากนมที่เลือกจริง (จำนวนเท่าเดิมตามสูตร) แทน Dairy milk
+        if (ing.name === 'Dairy milk' && order.milk_name && order.milk_name !== 'Dairy milk') {
+          const { data: subIng } = await sb.from('ingredients')
+            .select('id, name, category, stock_quantity, base_unit')
+            .eq('name', order.milk_name).maybeSingle();
+          if (subIng) ing = subIng;
+          else warnings.push(`ไม่พบวัตถุดิบ "${order.milk_name}" ในระบบ — ตัดสต็อก Dairy milk แทนไปก่อน`);
+        }
+
+        const newStock = Number(ing.stock_quantity) - deductQty;
+        await sb.from('ingredients')
+          .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
+          .eq('id', ing.id);
+        if (newStock < 0) warnings.push(`${ing.name} เหลือ ${newStock}${ing.base_unit} (ติดลบ — เช็คสต็อกจริง)`);
+      } catch (err) {
+        warnings.push(`ตัดสต็อก ${row.ingredients?.name || '(ไม่ทราบชื่อ)'} ไม่สำเร็จ: ${err.message || err} — เช็คสต็อกมือด้วย`);
       }
-      if (deductQty === 0) continue;
-
-      // ลูกค้าเลือกนมทางเลือกแทนนมสด → ตัดสต็อกจากนมที่เลือกจริง (จำนวนเท่าเดิมตามสูตร) แทน Dairy milk
-      if (ing.name === 'Dairy milk' && order.milk_name && order.milk_name !== 'Dairy milk') {
-        const { data: subIng } = await sb.from('ingredients')
-          .select('id, name, category, stock_quantity, base_unit')
-          .eq('name', order.milk_name).maybeSingle();
-        if (subIng) ing = subIng;
-        else warnings.push(`ไม่พบวัตถุดิบ "${order.milk_name}" ในระบบ — ตัดสต็อก Dairy milk แทนไปก่อน`);
-      }
-
-      const newStock = Number(ing.stock_quantity) - deductQty;
-      await sb.from('ingredients')
-        .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
-        .eq('id', ing.id);
-      if (newStock < 0) warnings.push(`${ing.name} เหลือ ${newStock}${ing.base_unit} (ติดลบ — เช็คสต็อกจริง)`);
-    }
+    }));
     return warnings;
   }
 
@@ -703,38 +709,43 @@
   }
 
   async function markBrewed(order, cardEl, beanIngredient, noCoffee) {
-    const packagingType = cardEl.dataset.selectedPkg || 'bag';
-    const packagingCosts = await loadPackagingCosts();
-    const packagingCost = Math.round((packagingCosts[packagingType] || 0) * 100) / 100;
-    const updates = { brewed: true, brewed_at: new Date().toISOString(), packaging_type: packagingType, packaging_cost: packagingCost };
-    if (beanIngredient) updates.bean_name = beanIngredient.name;
-    if (noCoffee) updates.no_coffee = true;
+    try {
+      const packagingType = cardEl.dataset.selectedPkg || 'bag';
+      const packagingCosts = await loadPackagingCosts();
+      const packagingCost = Math.round((packagingCosts[packagingType] || 0) * 100) / 100;
+      const updates = { brewed: true, brewed_at: new Date().toISOString(), packaging_type: packagingType, packaging_cost: packagingCost };
+      if (beanIngredient) updates.bean_name = beanIngredient.name;
+      if (noCoffee) updates.no_coffee = true;
 
-    if (beanIngredient) {
-      const newStock = Number(beanIngredient.stock_quantity) - BEAN_DOSE_G;
-      const { error: stockErr } = await sb.from('ingredients')
-        .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
-        .eq('id', beanIngredient.id);
-      if (stockErr) {
-        alert('ตัดสต็อกไม่สำเร็จ: ' + stockErr.message);
+      if (beanIngredient) {
+        const newStock = Number(beanIngredient.stock_quantity) - BEAN_DOSE_G;
+        const { error: stockErr } = await sb.from('ingredients')
+          .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
+          .eq('id', beanIngredient.id);
+        if (stockErr) {
+          alert('ตัดสต็อกไม่สำเร็จ: ' + stockErr.message);
+          return false;
+        }
+      }
+
+      const warnings = await deductRecipeIngredients(order);
+
+      const { error } = await sb.from('preorders').update(updates).eq('id', order.id);
+      if (error) {
+        alert('บันทึกไม่สำเร็จ: ' + error.message);
         return false;
       }
-    }
 
-    const warnings = await deductRecipeIngredients(order);
-
-    const { error } = await sb.from('preorders').update(updates).eq('id', order.id);
-    if (error) {
-      alert('บันทึกไม่สำเร็จ: ' + error.message);
+      // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
+      // ไม่จำเป็นสำหรับร้านที่ลูกค้ามารับหน้าร้าน/รอสดอยู่แล้ว ถ้าจะเปิดใช้อีกครั้งค่อย uncomment กลับ
+      if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
+      cardEl.style.opacity = '0';
+      setTimeout(() => loadToday(), 200);
+      return true;
+    } catch (err) {
+      alert('บันทึกไม่สำเร็จ (ระบบขัดข้อง): ' + (err.message || err) + '\nลองกดใหม่อีกครั้ง');
       return false;
     }
-
-    // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
-    // ไม่จำเป็นสำหรับร้านที่ลูกค้ามารับหน้าร้าน/รอสดอยู่แล้ว ถ้าจะเปิดใช้อีกครั้งค่อย uncomment กลับ
-    if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
-    cardEl.style.opacity = '0';
-    setTimeout(() => loadToday(), 200);
-    return true;
   }
 
   function formatBlendName(blendRows) {
@@ -753,41 +764,46 @@
 
   async function markBrewedWithBlend(order, cardEl, blendRows, opts) {
     opts = opts || {};
-    const packagingType = cardEl.dataset.selectedPkg || 'bag';
-    const packagingCosts = await loadPackagingCosts();
-    const packagingCost = Math.round((packagingCosts[packagingType] || 0) * 100) / 100;
-    const updates = { brewed: true, brewed_at: new Date().toISOString(), packaging_type: packagingType, packaging_cost: packagingCost };
-    if (opts.updateBeanName && blendRows && blendRows.length) {
-      updates.bean_name = formatBlendName(blendRows);
-    }
-    if (opts.mixerName !== undefined && opts.mixerName !== null) updates.mixer_name = opts.mixerName || null;
-    if (opts.miscCost !== undefined && opts.miscCost !== null) updates.misc_cost_estimate = opts.miscCost;
+    try {
+      const packagingType = cardEl.dataset.selectedPkg || 'bag';
+      const packagingCosts = await loadPackagingCosts();
+      const packagingCost = Math.round((packagingCosts[packagingType] || 0) * 100) / 100;
+      const updates = { brewed: true, brewed_at: new Date().toISOString(), packaging_type: packagingType, packaging_cost: packagingCost };
+      if (opts.updateBeanName && blendRows && blendRows.length) {
+        updates.bean_name = formatBlendName(blendRows);
+      }
+      if (opts.mixerName !== undefined && opts.mixerName !== null) updates.mixer_name = opts.mixerName || null;
+      if (opts.miscCost !== undefined && opts.miscCost !== null) updates.misc_cost_estimate = opts.miscCost;
 
-    if (blendRows && blendRows.length) {
-      await deductBlendStock(blendRows);
-    }
+      if (blendRows && blendRows.length) {
+        await deductBlendStock(blendRows);
+      }
 
-    const warnings = await deductRecipeIngredients(order);
+      const warnings = await deductRecipeIngredients(order);
 
-    const { error } = await sb.from('preorders').update(updates).eq('id', order.id);
-    if (error) {
-      alert('บันทึกไม่สำเร็จ: ' + error.message);
+      const { error } = await sb.from('preorders').update(updates).eq('id', order.id);
+      if (error) {
+        alert('บันทึกไม่สำเร็จ: ' + error.message);
+        return false;
+      }
+
+      if (opts.replaceBlendRows) {
+        await sb.from('preorder_bean_blend').delete().eq('preorder_id', order.id);
+        if (blendRows && blendRows.length >= 2) {
+          const rows = blendRows.map(b => ({ preorder_id: order.id, ingredient_id: b.id, grams: b.grams }));
+          await sb.from('preorder_bean_blend').insert(rows);
+        }
+      }
+
+      // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
+      if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
+      cardEl.style.opacity = '0';
+      setTimeout(() => loadToday(), 200);
+      return true;
+    } catch (err) {
+      alert('บันทึกไม่สำเร็จ (ระบบขัดข้อง): ' + (err.message || err) + '\nลองกดใหม่อีกครั้ง');
       return false;
     }
-
-    if (opts.replaceBlendRows) {
-      await sb.from('preorder_bean_blend').delete().eq('preorder_id', order.id);
-      if (blendRows && blendRows.length >= 2) {
-        const rows = blendRows.map(b => ({ preorder_id: order.id, ingredient_id: b.id, grams: b.grams }));
-        await sb.from('preorder_bean_blend').insert(rows);
-      }
-    }
-
-    // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
-    if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
-    cardEl.style.opacity = '0';
-    setTimeout(() => loadToday(), 200);
-    return true;
   }
 
   function renderBlendEditor(wrap, cardEl, order, beans, prefill, mixerHelpers) {
@@ -859,7 +875,8 @@
       if (noCoffeeBtn) {
         noCoffeeBtn.addEventListener('click', async () => {
           noCoffeeBtn.disabled = true; noCoffeeBtn.textContent = 'กำลังบันทึก...';
-          await markBrewed(order, cardEl, null, true);
+          const ok = await markBrewed(order, cardEl, null, true);
+          if (!ok) { const b = wrap.querySelector('.btn-no-coffee') || cardEl.querySelector('.btn-no-coffee'); if (b) { b.disabled = false; b.textContent = '☕🚫 ไม่ใช้กาแฟแก้วนี้ (ไม่ตัดสต็อก)'; } }
         });
       }
       wrap.querySelector('.btn-bean-confirm').addEventListener('click', async () => {
@@ -872,7 +889,8 @@
         btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
         const mixerName = mh.getSelectedMixer ? mh.getSelectedMixer(wrap) : null;
         const miscCost = mh.getMiscCost ? mh.getMiscCost(wrap) : null;
-        await markBrewedWithBlend(order, cardEl, chosen, { updateBeanName: true, replaceBlendRows: true, mixerName, miscCost });
+        const ok = await markBrewedWithBlend(order, cardEl, chosen, { updateBeanName: true, replaceBlendRows: true, mixerName, miscCost });
+        if (!ok) { btn.disabled = false; btn.textContent = 'ยืนยันชง'; }
       });
       updateConfirmState();
     }
@@ -1350,7 +1368,8 @@
       wrap.querySelector('.btn-bean-confirm').addEventListener('click', async () => {
         const btn = wrap.querySelector('.btn-bean-confirm');
         btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-        await markBrewedWithBlend(order, cardEl, currentBeans, { updateBeanName: false, replaceBlendRows: false, mixerName: getSelectedMixer(wrap), miscCost: getMiscCost(wrap) });
+        const ok = await markBrewedWithBlend(order, cardEl, currentBeans, { updateBeanName: false, replaceBlendRows: false, mixerName: getSelectedMixer(wrap), miscCost: getMiscCost(wrap) });
+        if (!ok) { btn.disabled = false; btn.textContent = 'ยืนยันชง'; }
       });
       wrap.querySelector('.btn-bean-change').addEventListener('click', () => {
         renderBlendEditor(wrap, cardEl, order, beans, currentBeans, { mixerChipsHtml, wireMixerChips, getSelectedMixer, getMiscCost, allowZeroBeans, coffeeFlexible });
@@ -1359,7 +1378,8 @@
       if (noCoffeeBtn) {
         noCoffeeBtn.addEventListener('click', async () => {
           noCoffeeBtn.disabled = true; noCoffeeBtn.textContent = 'กำลังบันทึก...';
-          await markBrewed(order, cardEl, null, true);
+          const ok = await markBrewed(order, cardEl, null, true);
+          if (!ok) { const b = wrap.querySelector('.btn-no-coffee') || cardEl.querySelector('.btn-no-coffee'); if (b) { b.disabled = false; b.textContent = '☕🚫 ไม่ใช้กาแฟแก้วนี้ (ไม่ตัดสต็อก)'; } }
         });
       }
     } else {
@@ -1659,6 +1679,12 @@
       <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}${order.milk_name ? ` <span style="color:#7B4F9E;font-weight:700;">🥛 ${order.milk_name}</span>` : ''} <button type="button" class="btn-recipe-quick" data-menu-name="${order.menu_item_name.replace(/"/g,'&quot;')}" style="background:#F0E4D8;border:none;border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:700;color:#8a6a4a;font-family:inherit;vertical-align:middle;">📋 สูตร</button></div>
       ${order.notes ? `<div style="font-size:11.5px;color:#A85A1E;background:#FFF3E8;border-radius:8px;padding:6px 10px;margin-bottom:8px;">📝 ${order.notes}</div>` : ''}
       ${isCoffeeFlexible ? `<button type="button" class="coffee-toggle-btn${order.no_coffee ? ' no-coffee-active' : ''}" data-id="${order.id}">${order.no_coffee ? '☕🚫 ไม่ใช้กาแฟแก้วนี้ — แตะเพื่อกลับมาใช้กาแฟ' : '☕ ใช้กาแฟแก้วนี้ — แตะถ้าจะไม่ใช้กาแฟ'}</button>` : ''}
+      ${isMilkFlexible(menuDef) ? `
+        <select class="card-milk-select" data-id="${order.id}" style="width:100%;margin-bottom:8px;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;color:#4A3428;">
+          <option value="">🥛 นมสด (ค่าเริ่มต้น)</option>
+          ${availableMilksBrew.map(m => `<option value="${m.name}" ${order.milk_name === m.name ? 'selected' : ''}>🥛 ${m.name} (+${Number(m.customer_bean_surcharge) || 0}฿)</option>`).join('')}
+        </select>
+      ` : ''}
       <div class="pkg-row">
         <button type="button" class="pkg-btn" data-pkg="tumbler">♻️ กระติก</button>
         <button type="button" class="pkg-btn selected" data-pkg="bag">🛍️ ถุง</button>
@@ -1687,6 +1713,22 @@
           return;
         }
         order.no_coffee = newVal; // อัปเดตในหน่วยความจำเลย ไม่ต้อง refetch จาก DB
+        renderTodayList();
+      });
+    }
+    const milkSelectEl = div.querySelector('.card-milk-select');
+    if (milkSelectEl) {
+      milkSelectEl.addEventListener('change', async () => {
+        milkSelectEl.disabled = true;
+        const newVal = milkSelectEl.value || null;
+        // ไม่แตะ price/milk_surcharge — Omakase คิดราคาแบบแพ็ค ไม่ใช่ต่อแก้ว (ตามที่ตกลงไว้)
+        const { error } = await sb.from('preorders').update({ milk_name: newVal }).eq('id', order.id);
+        milkSelectEl.disabled = false;
+        if (error) {
+          alert('บันทึกนมไม่สำเร็จ: ' + error.message);
+          return;
+        }
+        order.milk_name = newVal; // อัปเดตในหน่วยความจำ ให้ deductRecipeIngredients ตอนกด "ชงแล้ว" เห็นค่าล่าสุดทันที
         renderTodayList();
       });
     }
