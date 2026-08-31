@@ -650,6 +650,8 @@
     return warnings;
   }
 
+  let packagingCostCache = null; // { bag: 1.44, cup_small: 3.91, cup_large: 4.25, tumbler: 0 }
+
   async function loadMilksForAddOrder() {
     const { data, error } = await sb
       .from('ingredients')
