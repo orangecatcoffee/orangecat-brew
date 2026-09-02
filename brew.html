@@ -4306,13 +4306,13 @@
 
       const existingSlip = orders.find(o => o.slip_url)?.slip_url || null;
       const slipSection = existingSlip
-        ? `<div class="slip-box">
-             <img src="${existingSlip}" alt="สลิปโอนเงิน" class="slip-thumb" data-full="${existingSlip}">
-             <span class="slip-label">✅ แนบสลิปแล้ว — แตะรูปเพื่อดูเต็ม</span>
+        ? `<div class="slip-box" style="flex:1;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;border:1px solid #CDE9D2;background:#F0FAF3;">
+             <img src="${existingSlip}" alt="สลิปโอนเงิน" class="slip-thumb" data-full="${existingSlip}" style="width:34px;height:34px;flex-shrink:0;">
+             <span class="slip-label" style="font-size:10.5px;line-height:1.3;">✅ แนบสลิปแล้ว<br><span style="font-weight:400;color:#8a6a4a;">แตะรูปเพื่อดูเต็ม</span></span>
            </div>`
-        : `<div class="slip-box">
-             <label class="btn-slip">
-               📎 แนบสลิปโอนเงิน
+        : `<div class="slip-box" style="flex:1;">
+             <label class="btn-slip" style="padding:9px 6px;">
+               📎 แนบสลิป
                <input type="file" accept="image/*" class="slip-input" style="display:none;">
              </label>
            </div>`;
@@ -4331,8 +4331,10 @@
           <button type="button" class="bill-discount-btn" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:11px;font-weight:700;">ใช้ส่วนลดทั้งบิล</button>
         </div>
         ${requestSection}
-        ${slipSection}
-        <button class="btn-paid">เก็บเงินแล้ว</button>
+        <div style="display:flex;align-items:stretch;gap:8px;">
+          ${slipSection}
+          <button class="btn-paid" style="flex:1;width:auto;">เก็บเงินแล้ว</button>
+        </div>
         <div class="stamp-note" style="display:none;"></div>
         <div class="bill-err" style="display:none;"></div>
       `;
