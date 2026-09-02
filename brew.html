@@ -2269,6 +2269,7 @@
   }
 
   let omakaseAlwaysOnMap = {}; // line_user_id -> program short label (เฉพาะที่ Always On เปิดอยู่ตอนนี้)
+  let rewardEligibleMap = {}; // line_user_id -> จำนวนแต้มคงเหลือ (เฉพาะคนที่ >= 10 แล้ว) ระบบสะสมแต้ม 10 แก้ว custom
 
   // ===================== ท็อปปิ้ง (ไม่บังคับ) — บาริสต้าเลือกเอง ลูกค้าไม่เห็น =====================
   async function loadToppingIngredients() {
@@ -2374,6 +2375,24 @@
       return a.display_name.localeCompare(b.display_name, 'th');
     });
 
+    // ระบบสะสมแต้ม 10 แก้ว (custom ไม่พึ่ง LINE Reward) — นับสดจาก preorders ทุกครั้ง ไม่ใช้ตัวนับสะสม
+    rewardEligibleMap = {};
+    if (membersCache.length > 0) {
+      const lineUserIds = membersCache.map(m => m.line_user_id).filter(Boolean);
+      const [{ data: cupRows }, { data: redemptionRows }] = await Promise.all([
+        sb.from('preorders').select('line_user_id').eq('order_type', 'customer').not('channel', 'like', 'liff-omakase%').in('line_user_id', lineUserIds),
+        sb.from('customer_reward_redemptions').select('line_user_id').in('line_user_id', lineUserIds),
+      ]);
+      const cupCounts = {};
+      (cupRows || []).forEach(r => { cupCounts[r.line_user_id] = (cupCounts[r.line_user_id] || 0) + 1; });
+      const redeemCounts = {};
+      (redemptionRows || []).forEach(r => { redeemCounts[r.line_user_id] = (redeemCounts[r.line_user_id] || 0) + 1; });
+      lineUserIds.forEach(id => {
+        const progress = (cupCounts[id] || 0) - (redeemCounts[id] || 0) * 10;
+        if (progress >= 10) rewardEligibleMap[id] = progress;
+      });
+    }
+
     renderMemberChips();
   }
 
@@ -2408,7 +2427,40 @@
         updateLinkHint();
         updateSubmitState();
       });
-      el.appendChild(chip);
+
+      const rewardProgress = rewardEligibleMap[m.line_user_id];
+      if (rewardProgress) {
+        const wrap = document.createElement('span');
+        wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
+        wrap.appendChild(chip);
+        const giftBtn = document.createElement('button');
+        giftBtn.type = 'button';
+        giftBtn.textContent = `🎁 ครบ ${Math.floor(rewardProgress / 10) * 10} แก้ว — กดเมื่อแถมแล้ว`;
+        giftBtn.title = `${m.display_name} สะสมครบ ${rewardProgress} แก้ว — กดเมื่อชงแก้วฟรีให้แล้ว`;
+        giftBtn.style.cssText = 'padding:8px 12px;border-radius:999px;border:2px solid #E8863A;background:#FFF3E8;color:#E8863A;font-size:12px;font-weight:700;font-family:inherit;white-space:nowrap;';
+        giftBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm(`บันทึกว่าชงแก้วฟรีให้ ${m.display_name} แล้วใช่ไหม? (จะเริ่มนับรอบใหม่จาก 0)`)) return;
+          giftBtn.disabled = true;
+          giftBtn.textContent = 'กำลังบันทึก...';
+          const { error } = await sb.from('customer_reward_redemptions').insert([{
+            line_user_id: m.line_user_id,
+            cups_at_redemption: rewardProgress,
+          }]);
+          if (error) {
+            alert('บันทึกไม่สำเร็จ: ' + error.message);
+            giftBtn.disabled = false;
+            giftBtn.textContent = `🎁 ครบ ${Math.floor(rewardProgress / 10) * 10} แก้ว — กดเมื่อแถมแล้ว`;
+            return;
+          }
+          delete rewardEligibleMap[m.line_user_id];
+          wrap.replaceWith(chip);
+        });
+        wrap.appendChild(giftBtn);
+        el.appendChild(wrap);
+      } else {
+        el.appendChild(chip);
+      }
     });
   }
 
