@@ -1680,6 +1680,7 @@
       </div>
       <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}${order.milk_name ? ` <span style="color:#7B4F9E;font-weight:700;">🥛 ${order.milk_name}</span>` : ''} <button type="button" class="btn-recipe-quick" data-menu-name="${order.menu_item_name.replace(/"/g,'&quot;')}" style="background:#F0E4D8;border:none;border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:700;color:#8a6a4a;font-family:inherit;vertical-align:middle;">📋 สูตร</button></div>
       ${order.notes ? `<div style="font-size:11.5px;color:#A85A1E;background:#FFF3E8;border-radius:8px;padding:6px 10px;margin-bottom:8px;">📝 ${order.notes}</div>` : ''}
+      ${order.mood_note ? `<div style="font-size:11.5px;color:#7B4F9E;background:#F3ECFB;border-radius:8px;padding:6px 10px;margin-bottom:8px;">🎨 Freestyle mood: “${order.mood_note}” — ตีโจทย์แล้วชงได้เลย ไม่มีสูตรตายตัว</div>` : ''}
       ${isCoffeeFlexible ? `<button type="button" class="coffee-toggle-btn${order.no_coffee ? ' no-coffee-active' : ''}" data-id="${order.id}">${order.no_coffee ? '☕🚫 ไม่ใช้กาแฟแก้วนี้ — แตะเพื่อกลับมาใช้กาแฟ' : '☕ ใช้กาแฟแก้วนี้ — แตะถ้าจะไม่ใช้กาแฟ'}</button>` : ''}
       ${isMilkFlexible(menuDef) ? `
         <select class="card-milk-select" data-id="${order.id}" style="width:100%;margin-bottom:8px;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;color:#4A3428;">
@@ -4241,6 +4242,7 @@
           <span>${l.label} — ${l.price}฿</span>
           <button class="btn-item-delete" data-ids="${l.ids.join(',')}" title="ลบรายการนี้">✕</button>
         </div>
+        <button type="button" class="btn-item-paid" data-ids="${l.ids.join(',')}" data-label="${l.label.replace(/"/g,'&quot;')}" data-price="${l.price}" style="width:100%;padding:7px;margin-bottom:8px;border-radius:8px;border:1px solid #4A9B5C;background:#F0FAF3;color:#4A9B5C;font-size:11.5px;font-weight:700;font-family:inherit;">✅ เคลียร์บิลรายการนี้ (${l.price}฿)</button>
         <div style="display:flex;align-items:center;gap:6px;padding:0 0 8px;">
           <input type="number" min="0" step="1" placeholder="ส่วนลดแก้วนี้ (บาท)" class="line-discount-input" data-ids="${l.ids.join(',')}" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;">
           <button type="button" class="line-discount-btn" data-ids="${l.ids.join(',')}" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#FFF3E8;color:#E8863A;font-size:11px;font-weight:700;">ใช้ส่วนลด</button>
@@ -4375,6 +4377,48 @@
             return;
           }
           await sb.from('order_log').delete().in('source_preorder_id', ids);
+          loadBills();
+        });
+      });
+
+      // เคลียร์บิลเฉพาะรายการเดียว (paid=true) — ไม่กระทบรายการอื่นของลูกค้าคนเดียวกันที่ยังค้างอยู่
+      div.querySelectorAll('.btn-item-paid').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const ids = btn.dataset.ids.split(',');
+          const line = billingLines.find(l => l.ids.join(',') === btn.dataset.ids);
+          if (!confirm(`เคลียร์บิล "${btn.dataset.label} — ${btn.dataset.price}฿" ของ ${name} ว่าจ่ายแล้วใช่ไหม? (รายการอื่นของลูกค้าคนนี้จะยังค้างอยู่เหมือนเดิม)`)) return;
+          btn.disabled = true;
+          btn.textContent = 'กำลังบันทึก...';
+
+          // ถ้าเป็นเซ็ต Omakase ที่มีแก้ว Secret — คำนวณราคาจริงก่อนเคลียร์ เหมือนปุ่ม "เก็บเงินแล้ว" ทั้งบิล
+          if (line && line.isOmakaseSet) {
+            const secretCup = line.cups.find(c => c.is_secret_cup);
+            if (secretCup) {
+              const knownSum = line.cups.filter(c => !c.is_secret_cup).reduce((s, c) => s + c.price, 0);
+              const secretPrice = line.price - knownSum;
+              if (secretPrice < 0) {
+                const ok = confirm(`⚠️ เซ็ต Omakase นี้: 2 แก้วที่รู้ราคารวมกัน ${knownSum}฿ เกินราคาแพ็กเกจ ${line.price}฿ → แก้ว Secret จะติดลบ ${Math.abs(secretPrice)}฿ (เซ็ตนี้ขาดทุน)\n\nยืนยันจะเคลียร์บิลต่อไหม?`);
+                if (!ok) { btn.disabled = false; btn.textContent = `✅ เคลียร์บิลรายการนี้ (${btn.dataset.price}฿)`; return; }
+              }
+              if (secretPrice !== secretCup.price) {
+                const { error: priceErr } = await sb.from('preorders').update({ price: secretPrice }).eq('id', secretCup.id);
+                if (priceErr) {
+                  alert(`บันทึกราคาแก้ว Secret ไม่สำเร็จ: ${priceErr.message}`);
+                  btn.disabled = false;
+                  btn.textContent = `✅ เคลียร์บิลรายการนี้ (${btn.dataset.price}฿)`;
+                  return;
+                }
+              }
+            }
+          }
+
+          const { error } = await sb.from('preorders').update({ paid: true }).in('id', ids);
+          if (error) {
+            alert('เคลียร์บิลไม่สำเร็จ: ' + error.message);
+            btn.disabled = false;
+            btn.textContent = `✅ เคลียร์บิลรายการนี้ (${btn.dataset.price}฿)`;
+            return;
+          }
           loadBills();
         });
       });
