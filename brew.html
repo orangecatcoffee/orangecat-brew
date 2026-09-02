@@ -4269,7 +4269,7 @@
           <span>
             ${l.isOmakaseSet ? '<span style="display:inline-block;font-size:9.5px;font-weight:700;color:#fff;background:#4A3428;border-radius:5px;padding:1px 6px;margin-right:5px;vertical-align:middle;">OMAKASE SET</span><br>' : ''}
             ${l.isOmakaseSet
-              ? l.cups.map(c => `<span style="${c.brewed ? 'color:#4A3428;' : 'color:#C4B39E;font-style:italic;'}">${c.brewed ? '●' : '○'} ${c.is_secret_cup ? '🐱 แก้วลับ' : c.name}</span>`).join('<span style="color:#D8C4B0;"> · </span>')
+              ? [...l.cups].sort((a, b) => (a.wanted_date || '').localeCompare(b.wanted_date || '')).map(c => `<span style="${c.brewed ? 'color:#4A3428;' : 'color:#C4B39E;font-style:italic;'}">${c.brewed ? '●' : '○'} ${c.is_secret_cup ? '🐱 แก้วลับ' : c.name}</span>`).join('<span style="color:#D8C4B0;"> · </span>')
               : l.label}
             — ${l.price}฿
           </span>
@@ -4280,28 +4280,35 @@
           <input type="number" min="0" step="1" placeholder="ส่วนลดแก้วนี้ (บาท)" class="line-discount-input" data-ids="${l.ids.join(',')}" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;">
           <button type="button" class="line-discount-btn" data-ids="${l.ids.join(',')}" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#FFF3E8;color:#E8863A;font-size:11px;font-weight:700;">ใช้ส่วนลด</button>
         </div>
-        <div class="fb-check-row" style="display:flex;flex-direction:column;gap:6px;padding:2px 4px 8px;">
-          ${l.cups.map(c => `
-            <div class="fb-cup-row" data-cup-id="${c.id}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#A8876F;">
-                <input type="checkbox" class="fb-check" data-preorder-id="${c.id}" data-menu="${c.name}" data-bean="${c.bean_name || ''}" data-sweet="${c.sweetness || ''}">
-                🐱 อยากรู้ผล: ${c.name}
-              </label>
-              <button type="button" class="fb-send-now" data-preorder-id="${c.id}" data-menu="${c.name}" data-bean="${c.bean_name || ''}" data-sweet="${c.sweetness || ''}"
-                style="font-size:10.5px;padding:4px 9px;border-radius:999px;border:1px solid rgba(232,98,26,0.4);background:rgba(232,98,26,0.1);color:#E8621A;font-family:'Mitr',sans-serif;white-space:nowrap;">ส่งเลย</button>
-            </div>
-          `).join('')}
+        <div class="fb-widget" data-line-ids="${l.ids.join(',')}" style="padding:2px 4px 8px;">
+          ${(() => {
+            const brewedCups = l.isOmakaseSet ? l.cups.filter(c => c.brewed) : l.cups;
+            if (brewedCups.length === 0) return '';
+            return `
+              <button type="button" class="fb-toggle-chip" style="font-size:11px;padding:5px 12px;border-radius:999px;border:1px solid #E8863A;background:#FFF3E8;color:#E8863A;font-family:inherit;">🐱 อยากรู้ผลชิม</button>
+              <div class="fb-picker" style="display:none;flex-direction:column;gap:7px;margin-top:8px;">
+                ${brewedCups.map(c => `
+                  <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#6B5445;">
+                    <input type="checkbox" class="fb-check" data-preorder-id="${c.id}" data-menu="${c.is_secret_cup ? '🐱 แก้วลับ' : (c.name || c.menu_item_name)}" data-bean="${c.bean_name || ''}" data-sweet="${c.sweetness || ''}">
+                    ${c.is_secret_cup ? '🐱 แก้วลับ' : (c.name || c.menu_item_name)}
+                  </label>
+                `).join('')}
+                <button type="button" class="fb-send-picked" style="align-self:flex-start;font-size:10.5px;padding:5px 12px;border-radius:999px;border:none;background:#E8863A;color:#fff;font-family:inherit;font-weight:700;">ส่งที่เลือก</button>
+                <div class="fb-sent-note" style="display:none;font-size:10.5px;color:#4A9B5C;font-weight:600;"></div>
+              </div>
+            `;
+          })()}
         </div>
       `).join('');
 
-      let requestSection = '';
+      let requestBtnHtml = '';
+      let requestNote = '';
       if (groupLineId) {
-        requestSection = `
-          <button class="btn-request">🔔 ${alreadyRequested ? 'แจ้งเก็บเงินซ้ำ' : 'เรียกเก็บเงิน'} · ${total}฿</button>
-          <div class="request-note ${alreadyRequested ? 'sent' : ''}">${alreadyRequested ? `📨 แจ้งไปแล้วเมื่อ ${fmtDateTime(lastRequestedAt)}` : '🔗 ผูก LINE แล้ว — กดแล้วส่งข้อความยอดเงินไปหาลูกค้าทันที'}</div>
-        `;
+        requestBtnHtml = `<button class="btn-request" style="margin-bottom:0;flex:1;">🔔 ${alreadyRequested ? 'แจ้งซ้ำ' : 'เรียกเก็บเงิน'}</button>`;
+        requestNote = `<div class="request-note ${alreadyRequested ? 'sent' : ''}">${alreadyRequested ? `📨 แจ้งไปแล้วเมื่อ ${fmtDateTime(lastRequestedAt)}` : '🔗 ผูก LINE แล้ว — กดแล้วส่งข้อความยอดเงินไปหาลูกค้าทันที'}</div>`;
       } else {
-        requestSection = `<div class="request-note">ยังไม่ผูก LINE ของลูกค้าคนนี้ — ต้องแจ้งเก็บเงินเอง (ผูกได้ตอนเพิ่มออเดอร์ครั้งถัดไป ถ้าลูกค้าลงทะเบียนผ่าน register.html แล้ว)</div>`;
+        requestBtnHtml = `<button class="btn-request" disabled style="margin-bottom:0;flex:1;background:#D8C4B0;">🔔 เรียกเก็บเงิน</button>`;
+        requestNote = `<div class="request-note">ยังไม่ผูก LINE ของลูกค้าคนนี้ — ต้องแจ้งเก็บเงินเอง (ผูกได้ตอนเพิ่มออเดอร์ครั้งถัดไป ถ้าลูกค้าลงทะเบียนผ่าน register.html แล้ว)</div>`;
       }
 
       const existingSlip = orders.find(o => o.slip_url)?.slip_url || null;
@@ -4330,11 +4337,12 @@
           <input type="number" min="0" step="1" placeholder="ส่วนลดรวมทั้งบิลนี้ (บาท)" class="bill-discount-input" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;background:#fff;">
           <button type="button" class="bill-discount-btn" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:11px;font-weight:700;">ใช้ส่วนลดทั้งบิล</button>
         </div>
-        ${requestSection}
-        <div style="display:flex;align-items:stretch;gap:8px;">
+        <div style="display:flex;align-items:stretch;gap:6px;">
+          ${requestBtnHtml}
           ${slipSection}
           <button class="btn-paid" style="flex:1;width:auto;">เก็บเงินแล้ว</button>
         </div>
+        ${requestNote}
         <div class="stamp-note" style="display:none;"></div>
         <div class="bill-err" style="display:none;"></div>
       `;
@@ -4344,34 +4352,48 @@
         slipThumb.addEventListener('click', () => window.open(slipThumb.dataset.full, '_blank'));
       }
 
-      div.querySelectorAll('.fb-send-now').forEach(btn => {
+      div.querySelectorAll('.fb-toggle-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const picker = chip.nextElementSibling;
+          const showing = picker.style.display === 'flex';
+          picker.style.display = showing ? 'none' : 'flex';
+        });
+      });
+
+      div.querySelectorAll('.fb-send-picked').forEach(btn => {
         btn.addEventListener('click', async () => {
           if (!groupLineId) { alert('ลูกค้าคนนี้ยังไม่ผูก LINE — ส่งฟีดแบคอัตโนมัติไม่ได้'); return; }
+          const widget = btn.closest('.fb-widget');
+          const checked = Array.from(widget.querySelectorAll('.fb-check:checked'));
+          if (checked.length === 0) { alert('เลือกอย่างน้อย 1 แก้วก่อนนะครับ'); return; }
           btn.disabled = true;
           btn.textContent = 'กำลังส่ง...';
           try {
-            const { data: inserted, error: fbErr } = await sb.from('feedback_requests').insert([{
-              preorder_id: btn.dataset.preorderId,
+            const fbRows = checked.map(el => ({
+              preorder_id: el.dataset.preorderId,
               line_user_id: groupLineId,
-              menu_item_name: btn.dataset.menu,
-              bean_name: btn.dataset.bean || null,
-              sweetness: btn.dataset.sweet || null,
-            }]).select('id');
+              menu_item_name: el.dataset.menu,
+              bean_name: el.dataset.bean || null,
+              sweetness: el.dataset.sweet || null,
+            }));
+            const { data: inserted, error: fbErr } = await sb.from('feedback_requests').insert(fbRows).select('id');
             if (fbErr) throw fbErr;
-            const row = inserted && inserted[0];
-            if (row) {
+            for (const row of (inserted || [])) {
               fetch(REQUEST_FEEDBACK_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ line_user_id: groupLineId, feedback_request_id: row.id }),
               }).catch(err => console.error('request-feedback push failed:', err));
             }
-            const row_ = btn.closest('.fb-cup-row');
-            row_.innerHTML = `<span style="font-size:11px;color:#3A6B4A;">✓ ส่งฟีดแบคแล้ว: ${btn.dataset.menu}</span>`;
+            const noteEl = widget.querySelector('.fb-sent-note');
+            noteEl.textContent = `✓ ส่งฟีดแบคแล้ว ${checked.length} แก้ว`;
+            noteEl.style.display = 'block';
+            checked.forEach(el => { el.disabled = true; el.closest('label').style.opacity = '0.5'; });
+            btn.style.display = 'none';
           } catch (err) {
             alert('ส่งไม่สำเร็จ: ' + err.message);
             btn.disabled = false;
-            btn.textContent = 'ส่งเลย';
+            btn.textContent = 'ส่งที่เลือก';
           }
         });
       });
