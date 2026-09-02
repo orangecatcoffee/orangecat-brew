@@ -2269,7 +2269,7 @@
   }
 
   let omakaseAlwaysOnMap = {}; // line_user_id -> program short label (เฉพาะที่ Always On เปิดอยู่ตอนนี้)
-  let rewardEligibleMap = {}; // line_user_id -> จำนวนแต้มคงเหลือ (เฉพาะคนที่ >= 10 แล้ว) ระบบสะสมแต้ม 10 แก้ว custom
+  let rewardEligibleMap = {}; // line_user_id -> จำนวนแต้มคงเหลือ (เฉพาะคนที่ >= 10 แล้ว) ระบบสะสมแต้ม 10 แก้ว custom — นับทุกแก้ว รวม Omakase ด้วย (1 เซ็ต 3 แก้ว = 3 แต้ม)
 
   // ===================== ท็อปปิ้ง (ไม่บังคับ) — บาริสต้าเลือกเอง ลูกค้าไม่เห็น =====================
   async function loadToppingIngredients() {
@@ -2380,7 +2380,7 @@
     if (membersCache.length > 0) {
       const lineUserIds = membersCache.map(m => m.line_user_id).filter(Boolean);
       const [{ data: cupRows }, { data: redemptionRows }] = await Promise.all([
-        sb.from('preorders').select('line_user_id').eq('order_type', 'customer').not('channel', 'like', 'liff-omakase%').in('line_user_id', lineUserIds),
+        sb.from('preorders').select('line_user_id').eq('order_type', 'customer').in('line_user_id', lineUserIds),
         sb.from('customer_reward_redemptions').select('line_user_id').in('line_user_id', lineUserIds),
       ]);
       const cupCounts = {};
