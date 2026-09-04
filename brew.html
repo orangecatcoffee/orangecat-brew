@@ -4732,6 +4732,24 @@
             </span>
           </div>`).join('');
 
+        const groupLineId = (sorted.find(o => o.line_user_id) || {}).line_user_id || null;
+        const brewedInSet = sorted.filter(c => c.brewed);
+        const fbWidgetHtml = groupLineId && brewedInSet.length > 0 ? `
+          <div class="fb-widget" style="margin-top:10px;">
+            <button type="button" class="fb-toggle-chip" style="font-size:11px;padding:5px 12px;border-radius:999px;border:1px solid #E8863A;background:#FFF3E8;color:#E8863A;font-family:inherit;">🐱 อยากรู้ผลชิม</button>
+            <div class="fb-picker" style="display:none;flex-direction:column;gap:7px;margin-top:8px;">
+              ${brewedInSet.map(c => `
+                <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#6B5445;">
+                  <input type="checkbox" class="fb-check" data-preorder-id="${c.id}" data-menu="${c.is_secret_cup ? '🐱 แก้วลับ' : c.menu_item_name}" data-bean="${c.bean_name || ''}" data-sweet="${c.sweetness || ''}">
+                  ${c.is_secret_cup ? '🐱 แก้วลับ' : c.menu_item_name}
+                </label>
+              `).join('')}
+              <button type="button" class="fb-send-picked" style="align-self:flex-start;font-size:10.5px;padding:5px 12px;border-radius:999px;border:none;background:#E8863A;color:#fff;font-family:inherit;font-weight:700;">ส่งที่เลือก</button>
+              <div class="fb-sent-note" style="display:none;font-size:10.5px;color:#4A9B5C;font-weight:600;"></div>
+            </div>
+          </div>
+        ` : '';
+
         card.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
             <span style="font-size:15px;font-weight:700;color:#4A3428;">${customerName}</span>
@@ -4740,7 +4758,52 @@
           <div style="font-size:11px;color:#A8876F;margin-bottom:12px;">🎴 Omakase Set — รับแล้ว ${doneCount}/${sorted.length} แก้ว</div>
           <div style="display:flex;gap:5px;margin-bottom:12px;">${track}</div>
           <div>${checklist}</div>
+          ${fbWidgetHtml}
         `;
+
+        card.querySelectorAll('.fb-toggle-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            const picker = chip.nextElementSibling;
+            picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+          });
+        });
+        card.querySelectorAll('.fb-send-picked').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const widget = btn.closest('.fb-widget');
+            const checked = Array.from(widget.querySelectorAll('.fb-check:checked'));
+            if (checked.length === 0) { alert('เลือกอย่างน้อย 1 แก้วก่อนนะครับ'); return; }
+            btn.disabled = true;
+            btn.textContent = 'กำลังส่ง...';
+            try {
+              const fbRows = checked.map(el => ({
+                preorder_id: el.dataset.preorderId,
+                line_user_id: groupLineId,
+                menu_item_name: el.dataset.menu,
+                bean_name: el.dataset.bean || null,
+                sweetness: el.dataset.sweet || null,
+              }));
+              const { data: inserted, error: fbErr } = await sb.from('feedback_requests').insert(fbRows).select('id');
+              if (fbErr) throw fbErr;
+              for (const row of (inserted || [])) {
+                fetch(REQUEST_FEEDBACK_URL, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ line_user_id: groupLineId, feedback_request_id: row.id }),
+                }).catch(err => console.error('request-feedback push failed:', err));
+              }
+              const noteEl = widget.querySelector('.fb-sent-note');
+              noteEl.textContent = `✓ ส่งฟีดแบคแล้ว ${checked.length} แก้ว`;
+              noteEl.style.display = 'block';
+              checked.forEach(el => { el.disabled = true; el.closest('label').style.opacity = '0.5'; });
+              btn.style.display = 'none';
+            } catch (err) {
+              alert('ส่งไม่สำเร็จ: ' + err.message);
+              btn.disabled = false;
+              btn.textContent = 'ส่งที่เลือก';
+            }
+          });
+        });
+
         listEl.appendChild(card);
       });
     }
