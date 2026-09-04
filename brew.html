@@ -116,6 +116,7 @@
   </div>
 
   <div id="omakaseSlotBlock" style="display:none;">
+    <button type="button" id="omakaseQuickDefaultBtn" style="width:100%;padding:12px;margin-bottom:12px;border-radius:12px;border:2px solid #E8621A;background:#FFF3E8;color:#E8621A;font-size:13px;font-weight:700;font-family:inherit;">⚡ ค่าเริ่มต้น: แก้วลับวันแรก + แมวส้มเลือก 2 วันถัดไป</button>
     <div class="field-hint">แตะเลือกแก้วที่ 1/2/3 แล้วเลือกเมนูจากช่องด้านล่าง — จะให้แก้วไหนเป็น Secret ก็ได้ ไม่บังคับแก้วที่ 3 เสมอไป — เมนูทดลองรายสัปดาห์ (omakase_only) จะโผล่ในนี้ด้วย</div>
     <div class="chip-row" id="omakaseSlotChips"></div>
     <div id="omakaseSecretHint" style="display:none;"></div>
@@ -1881,6 +1882,28 @@
       grid.appendChild(div);
     });
   }
+
+  document.getElementById('omakaseQuickDefaultBtn').addEventListener('click', () => {
+    const secretItem = MENU.find(m => m.category === 'secret');
+    const surpriseItem = MENU.find(m => m.name === '🐱 แมวส้มเลือกหน่อย');
+    if (!secretItem || !surpriseItem) {
+      alert('หาเมนู "แก้วลับ" หรือ "แมวส้มเลือกหน่อย" ในระบบไม่เจอ — เช็คแท็บเมนูอีกทีนะครับ');
+      return;
+    }
+    const startISO = omakaseDates[0] || selectedDate || toISODate(new Date());
+    const startDate = new Date(startISO + 'T00:00:00');
+    const d1 = new Date(startDate); d1.setDate(startDate.getDate() + 1);
+    const d2 = new Date(startDate); d2.setDate(startDate.getDate() + 2);
+
+    omakaseSlots = [secretItem, surpriseItem, surpriseItem];
+    omakaseDates = [startISO, toISODate(d1), toISODate(d2)];
+    omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }];
+    omakaseActiveSlot = 0;
+    renderOmakaseSlotChips();
+    renderOmakaseCupDateRow();
+    renderOmakaseBeanPicker();
+    updateSubmitState();
+  });
 
   function renderOmakaseSlotChips() {
     const row = document.getElementById('omakaseSlotChips');
