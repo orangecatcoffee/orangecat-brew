@@ -205,6 +205,38 @@
   <input type="text" id="newProgramLine3" placeholder="บรรทัด 3 (เช่น อิโมจิ)" style="margin-bottom:8px;">
   <button type="button" class="submit-btn" id="addProgramBtn" style="margin-top:8px;">เพิ่มโปรแกรม</button>
   <div class="status-msg" id="programStatusMsg"></div>
+
+  <div class="field-label" style="margin-top:28px;">🔁 ออเดอร์ประจำ (สร้างอัตโนมัติทุกสัปดาห์)</div>
+  <div class="field-hint">ระบบจะสร้างแก้วนี้ให้อัตโนมัติทุกวันที่ตั้งไว้ (เช้าก่อนเปิดร้าน) ขึ้นในคิว "วันนี้" รอชงเลย — ใช้ได้กับสมาชิกทุกคน</div>
+  <div id="recurringOrdersList" style="margin-bottom:16px;"><div class="field-hint">กำลังโหลด...</div></div>
+
+  <div class="field-label" style="margin-top:20px;">+ เพิ่มออเดอร์ประจำใหม่</div>
+  <label style="font-size:12px;color:#8a6a4a;margin-top:6px;display:block;">สมาชิก</label>
+  <select id="ro-member"><option value="">— เลือกสมาชิก —</option></select>
+  <label style="font-size:12px;color:#8a6a4a;margin-top:10px;display:block;">วันในสัปดาห์</label>
+  <select id="ro-day">
+    <option value="1">จันทร์</option>
+    <option value="2">อังคาร</option>
+    <option value="3">พุธ</option>
+    <option value="4">พฤหัสบดี</option>
+    <option value="5" selected>ศุกร์</option>
+    <option value="6">เสาร์</option>
+    <option value="0">อาทิตย์</option>
+  </select>
+  <label style="font-size:12px;color:#8a6a4a;margin-top:10px;display:block;">เมนู</label>
+  <select id="ro-menu"><option value="">— เลือกเมนู —</option></select>
+  <label style="font-size:12px;color:#8a6a4a;margin-top:10px;display:block;">เมล็ด (ถ้ามี — พิมพ์ชื่อเมล็ด ไม่บังคับ)</label>
+  <input type="text" id="ro-bean" placeholder="ไม่บังคับ">
+  <label style="font-size:12px;color:#8a6a4a;margin-top:10px;display:block;">นม (ไม่บังคับ)</label>
+  <input type="text" id="ro-milk" placeholder="ไม่บังคับ — เว้นว่าง = นมสด">
+  <label style="font-size:12px;color:#8a6a4a;margin-top:10px;display:block;">ความหวาน</label>
+  <select id="ro-sweet">
+    <option value="ไม่หวาน">ไม่หวาน</option>
+    <option value="หวานน้อย">หวานน้อย</option>
+    <option value="หวานปกติ" selected>หวานปกติ</option>
+  </select>
+  <button type="button" class="submit-btn" id="addRecurringBtn" style="margin-top:12px;">+ เพิ่มออเดอร์ประจำ</button>
+  <div class="status-msg" id="recurringStatusMsg"></div>
 </div>
 
 <div class="screen" id="screen-menu">
@@ -564,7 +596,7 @@
     if (name === 'today') loadToday();
     if (name === 'bill') { loadBills(); loadOmakaseMaxBills(); }
     if (name === 'add') { loadRecentCustomers(); loadBeanOptions(); loadMembers(); loadToppingIngredients(); }
-    if (name === 'members') { loadMembers(); loadPrograms(); }
+    if (name === 'members') { loadMembers(); loadPrograms(); loadRecurringOrders(); }
     if (name === 'menu') loadMenuContentList();
     if (name === 'recipe') loadMenuRecipeList();
   }
@@ -1666,13 +1698,14 @@
       : '';
     const omakaseBadge = order.omakase_set_id ? ' <span style="color:#E8621A;">🎴 Omakase</span>' : '';
     const maxBadge = order.channel === 'liff-omakase-fullweek' ? ' <span style="color:#4A9B5C;">🎴 Max (รวมเก็บทีหลัง)</span>' : '';
+    const recurringBadge = order.channel === 'recurring-auto' ? ' <span style="color:#7B4F9E;">🔁 ออเดอร์ประจำ</span>' : '';
     const div = document.createElement('div');
     div.className = 'card' + (isToday ? ' today' : '') + compactClass;
     const menuDef = MENU.find(m => m.name === order.menu_item_name);
     const isCoffeeFlexible = !!(menuDef && menuDef.coffeeFlexible);
     div.innerHTML = `
       <div class="card-top">
-        <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)}${typeBadge}${omakaseBadge}${maxBadge}</span>
+        <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)}${typeBadge}${omakaseBadge}${maxBadge}${recurringBadge}</span>
         <div class="card-top-right">
           <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
           <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
@@ -2395,6 +2428,106 @@
 
     renderMemberChips();
   }
+
+  const DOW_LABEL = { 0: 'อาทิตย์', 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์' };
+
+  async function loadRecurringOrders() {
+    const listEl = document.getElementById('recurringOrdersList');
+    const memberSel = document.getElementById('ro-member');
+    const menuSel = document.getElementById('ro-menu');
+    listEl.innerHTML = '<div class="field-hint">กำลังโหลด...</div>';
+
+    try {
+      const [{ data: rows }, { data: members }, { data: menuItems }] = await Promise.all([
+        sb.from('recurring_orders').select('*').order('created_at', { ascending: false }),
+        sb.from('members').select('line_user_id, display_name').order('display_name'),
+        sb.from('menu_items').select('name').order('name'),
+      ]);
+
+      if (memberSel.options.length <= 1) {
+        memberSel.innerHTML = '<option value="">— เลือกสมาชิก —</option>' +
+          (members || []).map(m => `<option value="${m.line_user_id}">${m.display_name}</option>`).join('');
+      }
+      if (menuSel.options.length <= 1) {
+        menuSel.innerHTML = '<option value="">— เลือกเมนู —</option>' +
+          (menuItems || []).map(m => `<option value="${m.name.replace(/"/g,'&quot;')}">${m.name}</option>`).join('');
+      }
+
+      const memberNameMap = {};
+      (members || []).forEach(m => { memberNameMap[m.line_user_id] = m.display_name; });
+
+      if (!rows || rows.length === 0) {
+        listEl.innerHTML = '<div class="field-hint">ยังไม่มีออเดอร์ประจำ</div>';
+        return;
+      }
+      listEl.innerHTML = rows.map(r => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;background:${r.active ? '#F0FAF3' : '#F5F0E8'};border:1px solid ${r.active ? '#CDE9D2' : '#E4DCC8'};border-radius:12px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;color:#4A3428;">${memberNameMap[r.line_user_id] || r.line_user_id} — ทุกวัน${DOW_LABEL[r.day_of_week]}</div>
+            <div style="font-size:11.5px;color:#8a6a4a;margin-top:2px;">${r.menu_item_name}${r.bean_name ? ' · ' + r.bean_name : ''}${r.milk_name ? ' · ' + r.milk_name : ''}${r.sweetness ? ' · ' + r.sweetness : ''}</div>
+          </div>
+          <button type="button" class="ro-toggle" data-id="${r.id}" data-active="${r.active}" style="font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid ${r.active ? '#4A9B5C' : '#C4B39E'};background:#fff;color:${r.active ? '#4A9B5C' : '#A8876F'};font-family:inherit;white-space:nowrap;">${r.active ? '✓ เปิดอยู่' : 'ปิดอยู่'}</button>
+          <button type="button" class="ro-delete" data-id="${r.id}" style="font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid #D64545;background:#fff;color:#D64545;font-family:inherit;">ลบ</button>
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('.ro-toggle').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const newActive = btn.dataset.active !== 'true';
+          btn.disabled = true;
+          await sb.from('recurring_orders').update({ active: newActive }).eq('id', btn.dataset.id);
+          loadRecurringOrders();
+        });
+      });
+      listEl.querySelectorAll('.ro-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('ลบออเดอร์ประจำนี้เลยไหม? (ยกเลิกถาวร)')) return;
+          btn.disabled = true;
+          await sb.from('recurring_orders').delete().eq('id', btn.dataset.id);
+          loadRecurringOrders();
+        });
+      });
+    } catch (e) {
+      listEl.innerHTML = '<div class="field-hint">โหลดไม่สำเร็จ: ' + e.message + '</div>';
+    }
+  }
+
+  document.getElementById('addRecurringBtn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('recurringStatusMsg');
+    const lineUserId = document.getElementById('ro-member').value;
+    const dayOfWeek = document.getElementById('ro-day').value;
+    const menuName = document.getElementById('ro-menu').value;
+    const beanName = document.getElementById('ro-bean').value.trim() || null;
+    const milkName = document.getElementById('ro-milk').value.trim() || null;
+    const sweetness = document.getElementById('ro-sweet').value;
+
+    if (!lineUserId || !menuName) {
+      statusEl.textContent = 'เลือกสมาชิกและเมนูให้ครบก่อนนะ';
+      statusEl.className = 'status-msg err';
+      return;
+    }
+    const btn = document.getElementById('addRecurringBtn');
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก...';
+    try {
+      const { error } = await sb.from('recurring_orders').insert([{
+        line_user_id: lineUserId, day_of_week: Number(dayOfWeek),
+        menu_item_name: menuName, bean_name: beanName, milk_name: milkName, sweetness,
+      }]);
+      if (error) throw error;
+      statusEl.textContent = 'บันทึกแล้ว ✓ — จะเริ่มสร้างแก้วอัตโนมัติวัน' + DOW_LABEL[dayOfWeek] + 'ถัดไป';
+      statusEl.className = 'status-msg ok';
+      document.getElementById('ro-bean').value = '';
+      document.getElementById('ro-milk').value = '';
+      loadRecurringOrders();
+    } catch (e) {
+      statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + e.message;
+      statusEl.className = 'status-msg err';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '+ เพิ่มออเดอร์ประจำ';
+    }
+  });
 
   function renderMemberChips() {
     const el = document.getElementById('memberChips');
