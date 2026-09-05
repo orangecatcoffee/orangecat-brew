@@ -2673,7 +2673,7 @@
 
     const [{ data, error }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date, available_from, available_until')
+        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, omakase_reveal_week, release_date, available_from, available_until')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
@@ -2730,7 +2730,7 @@
 
     const [{ data, error }, { data: allRecipeRows }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
-        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, release_date, available_from, available_until')
+        .select('id, name, price, category, status, image_url, needs_bean, default_misc_cost, omakase_only, show_in_add_order, story_ingredients, story_body, made_from_scratch_images, coffee_flexible, chapter_number, omakase_reveal_week, release_date, available_from, available_until')
         .eq('is_omakase_placeholder', false)
         .order('category', { ascending: true })
         .order('name', { ascending: true }),
@@ -3429,6 +3429,14 @@
         <label style="font-size:12px;color:#4A3428;font-weight:600;">เมนูนี้ทำแบบไม่ใส่กาแฟได้ (เช่น Amber Velvet) — เปิดแล้วจะมี checkbox "ไม่ใช้กาแฟแก้วนี้" ให้เลือกตอนเพิ่มออเดอร์</label>
       </div>
 
+      <div class="field-label" style="margin-top:0;">🍊 เลข Chapter ในแท็บ Signature (ถ้ามี)</div>
+      <div class="field-hint">ใส่เลขถ้าอยากให้เมนูนี้โชว์เป็น Chapter ในแท็บ Signature — ปล่อยว่างถ้าไม่ใช่ Signature</div>
+      <input type="number" min="1" step="1" class="sm-chapter-number" value="${item.chapter_number !== null && item.chapter_number !== undefined ? item.chapter_number : ''}" placeholder="เช่น 3" style="margin-bottom:14px;">
+
+      <div class="field-label" style="margin-top:0;">🔮 สัปดาห์ที่เคยเป็นแก้วลับ Omakase (ถ้ามี)</div>
+      <div class="field-hint">คนละอันกับเลข Chapter ด้านบน — นี่คือประวัติจริงว่าแก้วนี้เคยถูกเปิดเผยเป็นแก้วลับสัปดาห์ที่เท่าไหร่ ใช้โชว์ในลิสต์ "Omakase Chapters" ที่แท็บ Omakase ไม่เกี่ยวกับหมวดหมู่ปัจจุบันของเมนู ปล่อยว่างถ้าไม่เคยเป็นแก้วลับ</div>
+      <input type="number" min="1" step="1" class="sm-omakase-reveal-week" value="${item.omakase_reveal_week !== null && item.omakase_reveal_week !== undefined ? item.omakase_reveal_week : ''}" placeholder="เช่น 5" style="margin-bottom:14px;">
+
       <div class="sm-cost-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"></div>
 
       <div class="field-label" style="margin-top:0;">ต้นทุนอื่นๆ (บาท)</div>
@@ -3578,12 +3586,16 @@
       const miscVal = card.querySelector('.sm-misc').value;
       const needsBean = card.querySelector('.sm-needs-bean').checked;
       const coffeeFlexible = card.querySelector('.sm-coffee-flexible').checked;
+      const chapterVal = card.querySelector('.sm-chapter-number').value;
+      const revealWeekVal = card.querySelector('.sm-omakase-reveal-week').value;
 
       const { error: updErr } = await sb.from('menu_items').update({
         name,
         needs_bean: needsBean,
         coffee_flexible: coffeeFlexible,
         default_misc_cost: miscVal ? Number(miscVal) : null,
+        chapter_number: chapterVal ? Number(chapterVal) : null,
+        omakase_reveal_week: revealWeekVal ? Number(revealWeekVal) : null,
       }).eq('id', item.id);
 
       const newRecipeRows = Object.values(localAdd)
