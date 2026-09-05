@@ -311,7 +311,7 @@
   let MENU = [];
   const CATEGORY_ICON = {
     espresso: "☕", dirty: "🤤", matcha: "🍵", cocoa: "🍫", thai_tea: "🧋", signature_item: "🍊", yogurt: "🥤",
-    special_of_month: "🌟", surprise: "🐱", playful_comfort: "🎭", pawtein: "🍓", secret: "🔮",
+    special_of_month: "🌟", surprise: "🐱", playful_comfort: "🎭", pawtein: "🍓", secret: "🔮", maewsom_picks: "🐱",
   };
   const CATEGORY_LABEL_TH = {
     surprise: '🐱 แมวส้มเลือกหน่อย', espresso: '☕ กลุ่มกาแฟ', dirty: '🤤 Dirty', matcha: '🍵 มัทฉะ',
@@ -2815,7 +2815,7 @@
   // ===================== 🗂️ จัดการหมวดหมู่เมนู — self-service, ไม่ต้องพึ่ง Claude แก้โค้ดทุกครั้ง =====================
   // หมายเหตุ: tab_key ที่เลือกได้จำกัดเฉพาะ tab ที่มี container ใน order.html อยู่แล้ว (comfort/playful_comfort/pawtein_twist ใช้ renderer กลาง, signature/hidden มี logic เฉพาะ)
   // การเพิ่ม "แท็บใหญ่" ใหม่ทั้งอัน (เช่นแท็บที่ 6) ยังต้องแก้โค้ด order.html เพิ่ม nav pill + tabpanel เอง — ไม่ใช่สิ่งที่ตารางนี้ทำให้อัตโนมัติ
-  const ADMIN_TAB_KEY_OPTIONS = ['comfort', 'playful_comfort', 'pawtein_twist', 'signature', 'hidden'];
+  const ADMIN_TAB_KEY_OPTIONS = ['comfort', 'playful_comfort', 'pawtein_twist', 'signature', 'maewsom_picks', 'hidden'];
 
   async function renderCategoryAdmin() {
     const block = document.getElementById('categoryAdminBlock');
