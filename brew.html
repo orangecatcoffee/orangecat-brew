@@ -3463,6 +3463,14 @@
       <div class="chip-row sm-add-chips" style="margin-top:8px;"></div>
       <div class="sm-add-qty-block"></div>
 
+      <div class="field-hint" style="margin-top:14px;">🗂️ ย้ายหมวดหมู่เมนูนี้ได้จากตรงนี้เลย (เช่น แก้วลับขายดี → ย้ายไป Signature)</div>
+      <div style="display:flex;gap:8px;margin-top:8px;margin-bottom:14px;">
+        <select class="sm-recipe-category-select" style="flex:1;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;background:#fff;color:#4A3428;">
+          ${categoryOptionsHtml(item.category, false)}
+        </select>
+        <button type="button" class="btn-request sm-recipe-promote-btn" style="flex:1;margin-bottom:0;">💾 ย้ายหมวดหมู่</button>
+      </div>
+
       <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;margin-top:12px;">บันทึกการแก้ไข</button>
       <div class="status-msg sm-status"></div>
     `;
@@ -3635,6 +3643,32 @@
         statusEl.textContent = '✅ บันทึกแล้ว';
         loadMenuRecipeList();
       }
+    });
+
+    card.querySelector('.sm-recipe-promote-btn').addEventListener('click', async () => {
+      const newCat = card.querySelector('.sm-recipe-category-select').value;
+      if (newCat === item.category) { alert('อยู่หมวดนี้อยู่แล้ว'); return; }
+
+      // ย้ายเข้า Signature โดยเฉพาะ — เตือนเช็คลิสต์ก่อน ไม่ใช่กฎบังคับ ตัดสินใจสุดท้ายคือฟ้าเสมอ
+      if (newCat === 'signature_item') {
+        const proceed = confirm(
+          `ก่อนย้าย "${item.name}" ไป Signature ลองเช็ค 3 อย่างนี้ก่อนนะ:\n\n` +
+          `1) ขายดีตอนเป็นแก้วลับจริงไหม (ไม่ใช่แค่ลองครั้งเดียว)\n` +
+          `2) ราคาที่เคยตั้งไว้ตอนเป็นแก้วลับ (มักคิดในกรอบ Omakase แบบ flat-rate) ยังคุ้มทุนไหมถ้าขายแยกราคาเต็ม\n` +
+          `3) เข้ากับตัวตนแบรนด์แมวส้มจริงไหม ไม่ใช่แค่ขายได้\n\n` +
+          `กด OK เพื่อย้ายต่อ หรือ Cancel เพื่อคิดอีกรอบ`
+        );
+        if (!proceed) return;
+      }
+
+      const isRealCat = newCat !== 'secret' && newCat !== 'omakase';
+      if (!confirm(`ยืนยันย้าย "${item.name}" ไปหมวด "${categoryLabelFor(newCat)}" เลยใช่ไหม?`)) return;
+      const { error: catErr } = await sb.from('menu_items').update({
+        category: newCat,
+        omakase_only: !isRealCat,
+      }).eq('id', item.id);
+      if (catErr) { alert('ย้ายไม่สำเร็จ: ' + catErr.message); return; }
+      loadMenuRecipeList();
     });
 
     return card;
