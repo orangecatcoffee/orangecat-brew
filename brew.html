@@ -112,6 +112,7 @@
   <div class="field-label">โหมดสั่ง</div>
   <div class="sweetness-row" id="orderModeRow">
     <button type="button" class="sweetness-btn selected" data-order-mode="normal">ปกติ (1 แก้ว)</button>
+    <button type="button" class="sweetness-btn" data-order-mode="omakase_solo">🔮 Secret (1 แก้ว)</button>
     <button type="button" class="sweetness-btn" data-order-mode="omakase">🎴 Omakase (3 แก้ว)</button>
   </div>
 
@@ -129,8 +130,12 @@
     <button type="button" class="submit-btn" id="omakaseUsePlaceholderBtn" style="margin-top:8px;background:#5A361B;">🔮 ใช้ "แก้วลับ (รอออกแบบ)" สำหรับแก้วที่กำลังเลือกอยู่ — ค่อยไปตั้งชื่อ/สูตรจริงทีหลังในแท็บ "สูตร"</button>
   </div>
 
-  <div class="field-label">เลือกเมนู</div>
-  <div class="menu-grid" id="menuGrid"></div>
+  <div id="normalMenuPickBlock">
+    <div class="field-label">เลือกเมนู</div>
+    <div class="menu-grid" id="menuGrid"></div>
+  </div>
+
+  <div id="omakaseSoloNote" style="display:none;background:#FFF3E8;border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:12.5px;color:#4A3428;font-weight:600;">🔮 ใช้เมนู Signature ที่กำลัง Live อยู่ตอนนี้อัตโนมัติ ไม่ต้องเลือกเมนูเอง</div>
 
   <div class="field-label">เมล็ดกาแฟ (ไม่บังคับ — ข้ามได้ถ้าเป็นเมนู Matcha)</div>
   <div class="field-hint">เลือกจากสต็อกจริง — ตัวที่ขึ้น "หมด" คือของเหลือไม่พอกับ 1 โดส (20g) เลือกไม่ได้ · เลือกได้มากกว่า 1 ตัวเพื่อทำเฮ้าส์เบลนด์ (สูงสุด 3 ตัว)</div>
@@ -176,11 +181,6 @@
   <div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
     <input type="checkbox" id="isMaxCup" style="width:20px;height:20px;flex-shrink:0;">
     <label for="isMaxCup" style="font-size:12.5px;color:#4A3428;font-weight:600;">🎴 นับเป็นแก้ว Omakase Max สัปดาห์นี้ (ไม่คิดเงินตอนนี้ ไปรวมเก็บทีหลัง)</label>
-  </div>
-
-  <div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
-    <input type="checkbox" id="isOmakaseSolo" style="width:20px;height:20px;flex-shrink:0;">
-    <label for="isOmakaseSolo" style="font-size:12.5px;color:#4A3428;font-weight:600;">🎴 Omakase Solo (1 แก้ว) — ใช้เมนู Signature ปัจจุบันอัตโนมัติ ไม่ต้องเลือกเมนูเอง</label>
   </div>
 
   <button class="submit-btn" id="submitBtn" disabled>บันทึกออเดอร์</button>
@@ -2085,6 +2085,8 @@
     btn.classList.add('selected');
     orderMode = btn.dataset.orderMode;
     document.getElementById('omakaseSlotBlock').style.display = orderMode === 'omakase' ? 'block' : 'none';
+    document.getElementById('normalMenuPickBlock').style.display = orderMode === 'omakase_solo' ? 'none' : 'block';
+    document.getElementById('omakaseSoloNote').style.display = orderMode === 'omakase_solo' ? 'block' : 'none';
     omakaseSlots = [null, null, null];
     omakaseDates = [selectedDate, selectedDate, selectedDate];
     omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }];
@@ -4136,10 +4138,9 @@
       const payload = getBlendGramsPayload();
       blendOk = payload && !payload.incomplete;
     }
-    const isOmakaseSoloChecked = document.getElementById('isOmakaseSolo').checked;
     const menuOk = orderMode === 'omakase'
       ? omakaseSlots.every(s => s !== null)
-      : (isOmakaseSoloChecked || !!selectedMenu);
+      : (orderMode === 'omakase_solo' || !!selectedMenu);
     btn.disabled = !(customerName && menuOk && selectedDate && blendOk);
   }
 
@@ -4159,7 +4160,7 @@
     const orderNotes = document.getElementById('orderNotes').value.trim() || null;
 
     let insertRows;
-    const isOmakaseSoloSubmit = orderMode !== 'omakase' && document.getElementById('isOmakaseSolo').checked;
+    const isOmakaseSoloSubmit = orderMode === 'omakase_solo';
     if (isOmakaseSoloSubmit) {
       // เหมือนกับตอนลูกค้ากด Omakase Solo ใน LIFF เป๊ะ — ใช้เมนู Signature ตัวที่กำลังขึ้น chapter อยู่ตอนนี้ ไม่ต้องเลือกเมนูเอง ไม่มีตัวเลือกนม/เมล็ด
       const { data: currentSig } = await sb.from('menu_items')
@@ -4324,6 +4325,8 @@
     omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }];
     omakaseActiveSlot = 0;
     document.getElementById('omakaseSlotBlock').style.display = 'none';
+    document.getElementById('normalMenuPickBlock').style.display = 'block';
+    document.getElementById('omakaseSoloNote').style.display = 'none';
     document.querySelectorAll('#orderModeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.orderMode === 'normal'));
     updateLinkHint();
     btn.textContent = 'บันทึกออเดอร์';
