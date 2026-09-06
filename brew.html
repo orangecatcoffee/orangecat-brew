@@ -131,11 +131,9 @@
   </div>
 
   <div id="normalMenuPickBlock">
-    <div class="field-label">เลือกเมนู</div>
+    <div class="field-label" id="normalMenuPickLabel">เลือกเมนู</div>
     <div class="menu-grid" id="menuGrid"></div>
   </div>
-
-  <div id="omakaseSoloNote" style="display:none;background:#FFF3E8;border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:12.5px;color:#4A3428;font-weight:600;">🔮 ใช้เมนู Signature ที่กำลัง Live อยู่ตอนนี้อัตโนมัติ ไม่ต้องเลือกเมนูเอง</div>
 
   <div class="field-label">เมล็ดกาแฟ (ไม่บังคับ — ข้ามได้ถ้าเป็นเมนู Matcha)</div>
   <div class="field-hint">เลือกจากสต็อกจริง — ตัวที่ขึ้น "หมด" คือของเหลือไม่พอกับ 1 โดส (20g) เลือกไม่ได้ · เลือกได้มากกว่า 1 ตัวเพื่อทำเฮ้าส์เบลนด์ (สูงสุด 3 ตัว)</div>
@@ -1850,8 +1848,11 @@
     grid.innerHTML = '';
     // โหมดสั่งปกติ: ซ่อนเมนู on_hold เสมอ, ซ่อน draft/pending เว้นแต่เปิด show_in_add_order ไว้ (เช่น secret ที่ตั้งชื่อจริงแล้วแต่ยังไม่ประกาศ)
     // โหมด Omakase เห็นครบเสมอ (ยกเว้น on_hold) เพราะต้องใช้เลือก 3 แก้วรวมของทดลอง
+    // โหมด Secret (1 แก้ว): เห็นเฉพาะเมนูที่เตรียมไว้ล่วงหน้าเป็นแก้วลับ (category=secret หรือ signature_item ที่ยัง draft อยู่) — ให้ฟ้าเลือกเองเสมอ ไม่ auto-pick
     const visibleMenu = orderMode === 'omakase'
       ? MENU.filter(item => item.status !== 'on_hold')
+      : orderMode === 'omakase_solo'
+      ? MENU.filter(item => item.category === 'secret' || (item.category === 'signature_item' && item.status === 'draft'))
       : MENU.filter(item => item.status !== 'on_hold' && (item.status === 'live' || item.showInAddOrder));
     visibleMenu.forEach(item => {
       const div = document.createElement('div');
@@ -2085,14 +2086,14 @@
     btn.classList.add('selected');
     orderMode = btn.dataset.orderMode;
     document.getElementById('omakaseSlotBlock').style.display = orderMode === 'omakase' ? 'block' : 'none';
-    document.getElementById('normalMenuPickBlock').style.display = orderMode === 'omakase_solo' ? 'none' : 'block';
-    document.getElementById('omakaseSoloNote').style.display = orderMode === 'omakase_solo' ? 'block' : 'none';
+    document.getElementById('normalMenuPickLabel').textContent = orderMode === 'omakase_solo' ? '🔮 เลือกแก้วลับที่เตรียมไว้' : 'เลือกเมนู';
     omakaseSlots = [null, null, null];
     omakaseDates = [selectedDate, selectedDate, selectedDate];
     omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }];
     omakaseActiveSlot = 0;
     selectedMenu = null;
     document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
+    renderMenuGrid();
     if (orderMode === 'omakase') { renderOmakaseSlotChips(); renderOmakaseCupDateRow(); renderOmakaseBeanPicker(); }
     updateSubmitState();
   });
@@ -4140,7 +4141,7 @@
     }
     const menuOk = orderMode === 'omakase'
       ? omakaseSlots.every(s => s !== null)
-      : (orderMode === 'omakase_solo' || !!selectedMenu);
+      : !!selectedMenu;
     btn.disabled = !(customerName && menuOk && selectedDate && blendOk);
   }
 
@@ -4162,25 +4163,11 @@
     let insertRows;
     const isOmakaseSoloSubmit = orderMode === 'omakase_solo';
     if (isOmakaseSoloSubmit) {
-      // เหมือนกับตอนลูกค้ากด Omakase Solo ใน LIFF เป๊ะ — ใช้เมนู Signature ตัวที่กำลังขึ้น chapter อยู่ตอนนี้ ไม่ต้องเลือกเมนูเอง ไม่มีตัวเลือกนม/เมล็ด
-      const { data: currentSig } = await sb.from('menu_items')
-        .select('name, price')
-        .eq('category', 'signature_item')
-        .eq('status', 'live')
-        .order('chapter_number', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (!currentSig) {
-        statusEl.textContent = 'ไม่พบเมนู Signature ที่ live อยู่ตอนนี้ — ตั้ง status เป็น Live ที่แท็บ "สูตร" ก่อน';
-        statusEl.className = 'status-msg error';
-        btn.disabled = false;
-        btn.textContent = 'บันทึกออเดอร์';
-        return;
-      }
+      // ฟ้าเลือกแก้วลับเองจาก list ที่เตรียมไว้ (ไม่ auto-pick current live signature อีกแล้ว) — เหมือน logic เดียวกับตอนเลือกแก้วลับใน Omakase 3 แก้ว
       insertRows = [{
         customer_name: name,
-        menu_item_name: currentSig.name,
-        price: isFree ? 0 : currentSig.price,
+        menu_item_name: selectedMenu.name,
+        price: isFree ? 0 : selectedMenu.price,
         wanted_date: selectedDate,
         line_user_id: selectedMemberLineId,
         order_type: orderType,
@@ -4325,8 +4312,8 @@
     omakaseBeanState = [{ ids: [], grams: {} }, { ids: [], grams: {} }, { ids: [], grams: {} }];
     omakaseActiveSlot = 0;
     document.getElementById('omakaseSlotBlock').style.display = 'none';
-    document.getElementById('normalMenuPickBlock').style.display = 'block';
-    document.getElementById('omakaseSoloNote').style.display = 'none';
+    document.getElementById('normalMenuPickLabel').textContent = 'เลือกเมนู';
+    renderMenuGrid();
     document.querySelectorAll('#orderModeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.orderMode === 'normal'));
     updateLinkHint();
     btn.textContent = 'บันทึกออเดอร์';
