@@ -2625,13 +2625,25 @@
 
   // ===================== แท็บ "ลับ" — จัดการเมนู secret/draft แยกออกมาต่างหาก ไม่ปนกับเมนูขายจริง =====================
   // Label/ลำดับกลุ่ม ดึงจาก menu_categories สด (label_th, sort_order) ไม่ hardcode แล้ว — เพิ่มหมวดใหม่ผ่าน "จัดการหมวดหมู่" ก็โผล่ตรงนี้เองทันที
+  // ชื่อหัวข้อกลุ่มที่โชว์จริงในหน้า "สูตร"/"เมนู" — ตายตัวต่อ tab_group เดียว ไม่ดึงจาก label_th ของ category
+  // (label_th ของแต่ละ category ใช้แค่ตอนเลือกหมวดหมู่ใน dropdown ซึ่งต้องแยกกันชัดเจน คนละเรื่องกับหัวข้อกลุ่มนี้)
+  const TAB_GROUP_DISPLAY_NAME = {
+    coffee: '☕ Comfort Coffee',
+    non_coffee: '🥤 Comfort Non-coffee',
+    signature: '🍊 Signature',
+    maewsom_picks: "🐱 Maewsom's Picks",
+    playful_comfort: '🎭 Playful Comfort',
+    pawtein_twist: '🍓💪 Paw-tein Twist',
+    surprise: '🐱 แมวส้มเลือกหน่อย',
+    hidden: '🔮 Secret',
+  };
   function groupByTabGroup(data, catMapRows) {
     const metaByCategory = Object.fromEntries((catMapRows || []).map(c => [c.category, c]));
     const grouped = {}; // tab_group -> { label, sort_order, items }
     data.forEach(item => {
       const meta = metaByCategory[item.category];
       const grp = meta ? meta.tab_group : 'hidden';
-      if (!grouped[grp]) grouped[grp] = { label: (meta && meta.label_th) || grp, sort_order: (meta && meta.sort_order) || 999, items: [] };
+      if (!grouped[grp]) grouped[grp] = { label: TAB_GROUP_DISPLAY_NAME[grp] || (meta && meta.label_th) || grp, sort_order: (meta && meta.sort_order) || 999, items: [] };
       grouped[grp].items.push(item);
     });
     return Object.entries(grouped)
