@@ -178,6 +178,11 @@
     <label for="isMaxCup" style="font-size:12.5px;color:#4A3428;font-weight:600;">🎴 นับเป็นแก้ว Omakase Max สัปดาห์นี้ (ไม่คิดเงินตอนนี้ ไปรวมเก็บทีหลัง)</label>
   </div>
 
+  <div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+    <input type="checkbox" id="isOmakaseSolo" style="width:20px;height:20px;flex-shrink:0;">
+    <label for="isOmakaseSolo" style="font-size:12.5px;color:#4A3428;font-weight:600;">🎴 Omakase Solo (1 แก้ว) — ใช้เมนู Signature ปัจจุบันอัตโนมัติ ไม่ต้องเลือกเมนูเอง</label>
+  </div>
+
   <button class="submit-btn" id="submitBtn" disabled>บันทึกออเดอร์</button>
   <div class="status-msg" id="addStatus"></div>
 </div>
@@ -4131,9 +4136,10 @@
       const payload = getBlendGramsPayload();
       blendOk = payload && !payload.incomplete;
     }
+    const isOmakaseSoloChecked = document.getElementById('isOmakaseSolo').checked;
     const menuOk = orderMode === 'omakase'
       ? omakaseSlots.every(s => s !== null)
-      : !!selectedMenu;
+      : (isOmakaseSoloChecked || !!selectedMenu);
     btn.disabled = !(customerName && menuOk && selectedDate && blendOk);
   }
 
@@ -4153,7 +4159,36 @@
     const orderNotes = document.getElementById('orderNotes').value.trim() || null;
 
     let insertRows;
-    if (orderMode === 'omakase') {
+    const isOmakaseSoloSubmit = orderMode !== 'omakase' && document.getElementById('isOmakaseSolo').checked;
+    if (isOmakaseSoloSubmit) {
+      // เหมือนกับตอนลูกค้ากด Omakase Solo ใน LIFF เป๊ะ — ใช้เมนู Signature ตัวที่กำลังขึ้น chapter อยู่ตอนนี้ ไม่ต้องเลือกเมนูเอง ไม่มีตัวเลือกนม/เมล็ด
+      const { data: currentSig } = await sb.from('menu_items')
+        .select('name, price')
+        .eq('category', 'signature_item')
+        .eq('status', 'live')
+        .order('chapter_number', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (!currentSig) {
+        statusEl.textContent = 'ไม่พบเมนู Signature ที่ live อยู่ตอนนี้ — ตั้ง status เป็น Live ที่แท็บ "สูตร" ก่อน';
+        statusEl.className = 'status-msg error';
+        btn.disabled = false;
+        btn.textContent = 'บันทึกออเดอร์';
+        return;
+      }
+      insertRows = [{
+        customer_name: name,
+        menu_item_name: currentSig.name,
+        price: isFree ? 0 : currentSig.price,
+        wanted_date: selectedDate,
+        line_user_id: selectedMemberLineId,
+        order_type: orderType,
+        paid: isFree,
+        sweetness: selectedSweetness,
+        channel: 'walk-in-omakase-solo',
+        notes: orderNotes,
+      }];
+    } else if (orderMode === 'omakase') {
       const omakaseSetId = crypto.randomUUID();
       insertRows = omakaseSlots.map((item, i) => ({
         customer_name: name,
