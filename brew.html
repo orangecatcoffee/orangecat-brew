@@ -5179,6 +5179,7 @@
   let calDragSuppressClick = false;
 
   // ปฏิทิน 7 วง: แตะครั้งเดียว = เลือกวันนั้นวันเดียวเสมอ (แทนที่การเลือกเดิม ไม่สะสม)
+  // หมายเหตุ: จัดการผ่าน touchend ด้านล่างเป็นหลัก (มือถือ) — click ที่นี่เป็น fallback สำหรับเมาส์/เดสก์ท็อปเท่านั้น
   document.getElementById('calDays').addEventListener('click', (e) => {
     if (calDragSuppressClick) { calDragSuppressClick = false; return; }
     const btn = e.target.closest('.cal-day');
@@ -5192,7 +5193,7 @@
   // (แทนที่การปัดซ้าย-ขวาเปลี่ยนสัปดาห์เดิม — เปลี่ยนสัปดาห์ใช้ปุ่มลูกศร ◀ ▶ แทน)
   (function setupCalDragSelect() {
     const zone = document.getElementById('calDays');
-    let holdTimer = null, dragging = false, startX = 0, startY = 0, anchorIso = null;
+    let holdTimer = null, dragging = false, startX = 0, startY = 0, anchorIso = null, moved = false;
 
     function isoFromPoint(x, y) {
       const el = document.elementFromPoint(x, y);
@@ -5205,9 +5206,10 @@
       startX = touch.clientX; startY = touch.clientY;
       const dayEl = e.target.closest('.cal-day');
       if (!dayEl) return;
-      e.preventDefault(); // กัน iOS โผล่เมนู Copy/Look Up/Translate ตอนกดค้าง
+      e.preventDefault(); // กัน iOS โผล่เมนู Copy/Look Up/Translate ตอนกดค้าง (การกด preventDefault นี้ทำให้ click event ตามหลังไม่ทำงานแน่นอนบางเบราว์เซอร์ — เลยจัดการแตะสั้นๆ ผ่าน touchend ด้านล่างแทน ไม่พึ่ง click)
       anchorIso = dayEl.dataset.iso;
       dragging = false;
+      moved = false;
       holdTimer = setTimeout(() => {
         dragging = true;
         calDragSuppressClick = true;
@@ -5220,7 +5222,7 @@
       const touch = e.touches[0];
       if (!dragging) {
         const dx = Math.abs(touch.clientX - startX), dy = Math.abs(touch.clientY - startY);
-        if (dx > 10 || dy > 10) clearTimeout(holdTimer); // ขยับก่อนครบเวลาถือ = ไม่ใช่การกดค้าง ยกเลิก
+        if (dx > 10 || dy > 10) { clearTimeout(holdTimer); moved = true; } // ขยับก่อนครบเวลาถือ = ไม่ใช่การกดค้าง ยกเลิก
         return;
       }
       const iso = isoFromPoint(touch.clientX, touch.clientY);
@@ -5232,12 +5234,18 @@
 
     zone.addEventListener('touchend', () => {
       clearTimeout(holdTimer);
+      calDragSuppressClick = true; // กัน click ตามหลังทำงานซ้ำเสมอ ไม่ว่าเคสไหน (จัดการจบที่นี่ทั้งหมด)
       if (dragging) {
         dragging = false;
         renderTodayList();
-        setTimeout(() => { calDragSuppressClick = false; }, 50);
+      } else if (!moved && anchorIso) {
+        // แตะสั้นๆ ไม่ได้ลาก ไม่ได้ค้างจนเข้าโหมดลาก = ถือเป็นแตะเลือกวันเดียวปกติ
+        selectedDates = new Set([anchorIso]);
+        renderCalendarRow();
+        renderTodayList();
       }
-    }, { passive: true });
+      anchorIso = null;
+    });
   })();
 
   document.getElementById('calPrev').addEventListener('click', () => { calendarWeekOffset--; renderCalendarRow(); });
