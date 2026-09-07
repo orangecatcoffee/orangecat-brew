@@ -5176,28 +5176,66 @@
     banner.style.display = 'block';
   }
 
-  // ปฏิทิน 7 วง: แตะเพื่อเลือก/ยกเลิกวัน (สะสมได้หลายวัน) — filter ฝั่ง client ล้วน ไม่ query DB ใหม่
+  let calDragSuppressClick = false;
+
+  // ปฏิทิน 7 วง: แตะครั้งเดียว = เลือกวันนั้นวันเดียวเสมอ (แทนที่การเลือกเดิม ไม่สะสม)
   document.getElementById('calDays').addEventListener('click', (e) => {
+    if (calDragSuppressClick) { calDragSuppressClick = false; return; }
     const btn = e.target.closest('.cal-day');
     if (!btn) return;
-    const iso = btn.dataset.iso;
-    if (selectedDates.has(iso)) selectedDates.delete(iso); else selectedDates.add(iso);
+    selectedDates = new Set([btn.dataset.iso]);
     renderCalendarRow();
     renderTodayList();
   });
 
-  // สไลด์ซ้าย-ขวาเปลี่ยนสัปดาห์ที่ปฏิทินโชว์ (ไม่กระทบวันที่เลือกไว้ เลือกข้ามสัปดาห์ได้)
-  (function setupCalSwipe() {
+  // กดค้างวันไหนสักครู่ (~0.35 วิ) แล้วลากนิ้วผ่านวันอื่น = เลือกได้หลายวันต่อเนื่อง
+  // (แทนที่การปัดซ้าย-ขวาเปลี่ยนสัปดาห์เดิม — เปลี่ยนสัปดาห์ใช้ปุ่มลูกศร ◀ ▶ แทน)
+  (function setupCalDragSelect() {
     const zone = document.getElementById('calDays');
-    let startX = 0, tracking = false;
-    zone.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; tracking = true; }, { passive: true });
-    zone.addEventListener('touchend', (e) => {
-      if (!tracking) return;
-      tracking = false;
-      const dx = e.changedTouches[0].clientX - startX;
-      if (Math.abs(dx) < 40) return;
-      calendarWeekOffset += (dx < 0 ? 1 : -1);
-      renderCalendarRow();
+    let holdTimer = null, dragging = false, startX = 0, startY = 0, anchorIso = null;
+
+    function isoFromPoint(x, y) {
+      const el = document.elementFromPoint(x, y);
+      const dayEl = el && el.closest('.cal-day');
+      return dayEl ? dayEl.dataset.iso : null;
+    }
+
+    zone.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      startX = touch.clientX; startY = touch.clientY;
+      const dayEl = e.target.closest('.cal-day');
+      if (!dayEl) return;
+      anchorIso = dayEl.dataset.iso;
+      dragging = false;
+      holdTimer = setTimeout(() => {
+        dragging = true;
+        calDragSuppressClick = true;
+        selectedDates = new Set([anchorIso]);
+        renderCalendarRow();
+      }, 350);
+    }, { passive: true });
+
+    zone.addEventListener('touchmove', (e) => {
+      const touch = e.touches[0];
+      if (!dragging) {
+        const dx = Math.abs(touch.clientX - startX), dy = Math.abs(touch.clientY - startY);
+        if (dx > 10 || dy > 10) clearTimeout(holdTimer); // ขยับก่อนครบเวลาถือ = ไม่ใช่การกดค้าง ยกเลิก
+        return;
+      }
+      const iso = isoFromPoint(touch.clientX, touch.clientY);
+      if (iso && !selectedDates.has(iso)) {
+        selectedDates.add(iso);
+        renderCalendarRow();
+      }
+    }, { passive: true });
+
+    zone.addEventListener('touchend', () => {
+      clearTimeout(holdTimer);
+      if (dragging) {
+        dragging = false;
+        renderTodayList();
+        setTimeout(() => { calDragSuppressClick = false; }, 50);
+      }
     }, { passive: true });
   })();
 
