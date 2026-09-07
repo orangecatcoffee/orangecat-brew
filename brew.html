@@ -266,6 +266,30 @@
   <div id="secretCreateBlock"></div>
 </div>
 
+<div class="screen" id="screen-lab">
+  <div class="field-label" style="margin-top:0;">🧪 แมวส้มแล็บ</div>
+  <div class="field-hint">บันทึกไอเดียเมนูใหม่วันละนิด แค่ชื่อก็พอ ใส่สูตร/โน้ตเพิ่มทีหลังได้ พร้อมชงเมื่อไหร่กด "☕ ชงจริง" เข้าคิววันนี้ได้เลย</div>
+
+  <input type="text" id="labNewName" placeholder="ชื่อไอเดีย เช่น ลิ้นจี่โซดาบัตเตอร์สกอตช์">
+  <textarea id="labNewNotes" placeholder="โน้ตสั้นๆ (ไม่บังคับ) — ส่วนผสม ไอเดีย แรงบันดาลใจ ฯลฯ" style="width:100%;margin-top:8px;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:14px;font-family:inherit;min-height:64px;resize:vertical;"></textarea>
+  <div class="chip-row" style="margin-top:8px;" id="labNewCategoryRow">
+    <button type="button" class="chip selected" data-cat="coffee">☕ Coffee</button>
+    <button type="button" class="chip" data-cat="non_coffee">🧋 Non-coffee</button>
+    <button type="button" class="chip" data-cat="special">✨ Special</button>
+  </div>
+  <button type="button" class="submit-btn" id="labAddBtn" style="margin-top:14px;">＋ บันทึกไอเดีย</button>
+  <div class="status-msg" id="labAddStatus"></div>
+
+  <div class="chip-row" style="margin-top:24px;" id="labStatusFilterRow">
+    <button type="button" class="chip selected" data-status="all">ทั้งหมด</button>
+    <button type="button" class="chip" data-status="idea">💡 ไอเดีย</button>
+    <button type="button" class="chip" data-status="testing">🧪 กำลังทดลอง</button>
+    <button type="button" class="chip" data-status="ready">✅ พร้อมขึ้นเมนู</button>
+    <button type="button" class="chip" data-status="archived">📦 พัก</button>
+  </div>
+  <div id="labTrialsList" style="margin-top:12px;"></div>
+</div>
+
 <!-- 📋 สูตร/สัดส่วน quick-view — เปิดจากปุ่มเล็กๆ บนการ์ดออเดอร์ตอนชง -->
 <div id="recipeQuickModal" style="display:none;position:fixed;inset:0;background:rgba(74,52,40,0.55);z-index:9000;align-items:flex-end;justify-content:center;">
   <div style="background:#FFF8F0;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:78vh;overflow-y:auto;padding:18px 18px 24px;">
@@ -295,6 +319,9 @@
   </button>
   <button class="nav-btn" data-screen="recipe" onclick="switchScreen('recipe')">
     <span class="nav-icon">🧾</span>สูตร
+  </button>
+  <button class="nav-btn" data-screen="lab" onclick="switchScreen('lab')">
+    <span class="nav-icon">🧪</span>แล็บ
   </button>
 </div>
 
@@ -537,7 +564,7 @@
     if (e.target.id === 'recipeQuickModal') e.target.style.display = 'none';
   });
 
-  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย", members: "จัดการสมาชิก", menu: "จัดการเมนู", recipe: "สูตร / ต้นทุน" };
+  const TITLES = { today: "วันนี้ต้องชงอะไร", add: "เพิ่มออเดอร์ใหม่", bill: "บิลค้างจ่าย", members: "จัดการสมาชิก", menu: "จัดการเมนู", recipe: "สูตร / ต้นทุน", lab: "แมวส้มแล็บ" };
   let selectedMenu = null;
   let selectedDate = null;
   let selectedMemberLineId = null;
@@ -603,6 +630,7 @@
     if (name === 'members') { loadMembers(); loadPrograms(); loadRecurringOrders(); }
     if (name === 'menu') loadMenuContentList();
     if (name === 'recipe') loadMenuRecipeList();
+    if (name === 'lab') loadLabTrials();
   }
 
   function fmtDate(d) {
@@ -2756,6 +2784,128 @@
   }
 
   // ===================== แท็บ "สูตร" — ส่วนผสม/ต้นทุน/กำไร ทุกหมวด (หนักกว่า — คำนวณกำไรสด) =====================
+  // ===== 🧪 แมวส้มแล็บ =====
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  let labSelectedCategory = 'coffee';
+  let labStatusFilter = 'all';
+  let labTrialsCache = [];
+  const LAB_STATUS_LABEL = { idea: '💡 ไอเดีย', testing: '🧪 กำลังทดลอง', ready: '✅ พร้อมขึ้นเมนู', archived: '📦 พัก' };
+  const LAB_CATEGORY_LABEL = { coffee: '☕', non_coffee: '🧋', special: '✨' };
+
+  document.querySelectorAll('#labNewCategoryRow .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#labNewCategoryRow .chip').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      labSelectedCategory = btn.dataset.cat;
+    });
+  });
+  document.querySelectorAll('#labStatusFilterRow .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#labStatusFilterRow .chip').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      labStatusFilter = btn.dataset.status;
+      renderLabTrials();
+    });
+  });
+
+  document.getElementById('labAddBtn').addEventListener('click', async () => {
+    const nameEl = document.getElementById('labNewName');
+    const notesEl = document.getElementById('labNewNotes');
+    const name = nameEl.value.trim();
+    const statusEl = document.getElementById('labAddStatus');
+    if (!name) { statusEl.textContent = 'ใส่ชื่อไอเดียก่อนนะ'; statusEl.className = 'status-msg error'; return; }
+    const btn = document.getElementById('labAddBtn');
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+    const { error } = await sb.from('lab_trials').insert({
+      name, notes: notesEl.value.trim() || null, category: labSelectedCategory, status: 'idea',
+    });
+    btn.disabled = false; btn.textContent = '＋ บันทึกไอเดีย';
+    if (error) {
+      statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + error.message;
+      statusEl.className = 'status-msg error';
+      return;
+    }
+    nameEl.value = ''; notesEl.value = '';
+    statusEl.textContent = 'บันทึกแล้ว 🧪';
+    statusEl.className = 'status-msg success';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    loadLabTrials();
+  });
+
+  document.getElementById('labTrialsList').addEventListener('click', (e) => {
+    const statusBtn = e.target.closest('[data-lab-status-btn]');
+    if (statusBtn) { setLabStatus(statusBtn.dataset.labStatusBtn, statusBtn.dataset.statusVal); return; }
+    const brewBtn = e.target.closest('[data-lab-brew-btn]');
+    if (brewBtn) {
+      const trial = labTrialsCache.find(t => t.id === brewBtn.dataset.labBrewBtn);
+      if (trial) brewLabTrial(trial);
+      return;
+    }
+    const delBtn = e.target.closest('[data-lab-delete-btn]');
+    if (delBtn) { deleteLabTrial(delBtn.dataset.labDeleteBtn); return; }
+  });
+
+  async function loadLabTrials() {
+    const listEl = document.getElementById('labTrialsList');
+    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+    const { data, error } = await sb.from('lab_trials').select('*').order('created_at', { ascending: false });
+    if (error) { listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + error.message + '</div>'; return; }
+    labTrialsCache = data || [];
+    renderLabTrials();
+  }
+
+  function renderLabTrials() {
+    const listEl = document.getElementById('labTrialsList');
+    let rows = labTrialsCache;
+    if (labStatusFilter !== 'all') rows = rows.filter(r => r.status === labStatusFilter);
+    if (rows.length === 0) { listEl.innerHTML = '<div class="empty-state">ยังไม่มีรายการในหมวดนี้</div>'; return; }
+    listEl.innerHTML = rows.map(r => `
+      <div class="card compact">
+        <div class="card-top">
+          <span class="card-name">${LAB_CATEGORY_LABEL[r.category] || '🧪'} ${escapeHtml(r.name)}</span>
+          <span style="font-size:11px;color:#A8876F;">${r.score != null ? '⭐' + r.score : ''}</span>
+        </div>
+        <div class="card-menu">${LAB_STATUS_LABEL[r.status] || r.status} · ${fmtDate(new Date(r.trial_date + 'T00:00:00'))}</div>
+        ${r.notes ? `<div style="font-size:12.5px;color:#6B5445;margin-bottom:8px;white-space:pre-wrap;">${escapeHtml(r.notes)}</div>` : ''}
+        <div class="chip-row" style="margin-bottom:8px;">
+          ${Object.entries(LAB_STATUS_LABEL).map(([val, label]) => `<button type="button" class="chip${r.status === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-status-btn="${r.id}" data-status-val="${val}">${label}</button>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn-bean-confirm" style="flex:1;" data-lab-brew-btn="${r.id}">☕ ชงจริง</button>
+          <button type="button" class="btn-delete" data-lab-delete-btn="${r.id}">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function setLabStatus(id, status) {
+    await sb.from('lab_trials').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+    loadLabTrials();
+  }
+
+  async function deleteLabTrial(id) {
+    if (!confirm('ลบไอเดียนี้เลยไหม?')) return;
+    await sb.from('lab_trials').delete().eq('id', id);
+    loadLabTrials();
+  }
+
+  async function brewLabTrial(trial) {
+    if (!confirm(`เพิ่ม "${trial.name}" เข้าคิวชงวันนี้เลยไหม?`)) return;
+    const todayISO = toISODate(new Date());
+    const { error } = await sb.from('preorders').insert({
+      customer_name: '🧪 แล็บทดลอง', menu_item_name: trial.name, price: 0, wanted_date: todayISO,
+      order_type: 'staff', channel: 'lab', lab_trial_id: trial.id, notes: trial.notes || null,
+    });
+    if (error) { alert('เพิ่มคิวไม่สำเร็จ: ' + error.message); return; }
+    if (trial.status === 'idea') {
+      await sb.from('lab_trials').update({ status: 'testing', updated_at: new Date().toISOString() }).eq('id', trial.id);
+    }
+    alert('เพิ่มเข้าคิว "วันนี้" แล้ว 🧪 ไปที่แท็บวันนี้เพื่อชงได้เลย');
+    loadLabTrials();
+  }
+
   async function loadMenuRecipeList() {
     const listEl = document.getElementById('recipeMenuList');
     listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
