@@ -278,6 +278,7 @@
     <button type="button" class="chip lab-chip-craft" data-source="crafting">🧪 Crafting</button>
     <button type="button" class="chip lab-chip-finish" data-source="finish_drink">✅ Finish Drink</button>
     <button type="button" class="chip lab-chip-material" data-source="raw_material">🌾 วัตถุดิบ</button>
+    <button type="button" class="chip" data-source="unset">❔ ไม่ระบุ</button>
   </div>
 
   <div class="lab-filter-label">ประเภทเครื่องดื่ม</div>
@@ -299,6 +300,7 @@
     <button type="button" class="chip" data-verdict="not_yet">🤔 อาจจะยังนะ</button>
     <button type="button" class="chip lab-chip-verdict-go" data-verdict="go">👍 อร่อย รอขึ้นเมนู</button>
     <button type="button" class="chip lab-chip-verdict-launched" data-verdict="launched">🎉 ขึ้นเป็นเมนูแล้ว</button>
+    <button type="button" class="chip" data-verdict="unset">❔ ยังไม่ตัดสิน</button>
   </div>
 
   <div id="labDetailPanel" class="lab-detail-panel" style="display:none;"></div>
@@ -2972,8 +2974,8 @@
     let trials = labTrialsCache;
     if (labCategoryFilter.size > 0) trials = trials.filter(t => labCategoryFilter.has(t.category));
     if (labStatusFilter.size > 0) trials = trials.filter(t => labStatusFilter.has(t.status));
-    if (labVerdictFilter.size > 0) trials = trials.filter(t => labVerdictFilter.has(t.verdict));
-    if (labSourceFilter.size > 0) trials = trials.filter(t => labSourceFilter.has(t.source_type));
+    if (labVerdictFilter.size > 0) trials = trials.filter(t => labVerdictFilter.has(t.verdict) || (labVerdictFilter.has('unset') && !t.verdict));
+    if (labSourceFilter.size > 0) trials = trials.filter(t => labSourceFilter.has(t.source_type) || (labSourceFilter.has('unset') && !t.source_type));
 
     if (trials.length === 0) { gridEl.innerHTML = '<div class="empty-state">ไม่มีรายการในตัวกรองนี้</div>'; return; }
 
