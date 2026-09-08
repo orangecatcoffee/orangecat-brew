@@ -2881,6 +2881,22 @@
     return toISODate(d);
   }
 
+  function isLabImageUrl(u) {
+    return /\.(jpe?g|png|gif|webp|avif)(\?.*)?$/i.test(u);
+  }
+
+  function renderLabRefLinks(text) {
+    if (!text) return '';
+    const urls = text.split('\n').map(u => u.trim()).filter(Boolean);
+    if (!urls.length) return '';
+    return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">${urls.map((u, i) => {
+      if (isLabImageUrl(u)) {
+        return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="display:block;"><img src="${escapeHtml(u)}" alt="ref" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:2px solid #F0E4D8;display:block;"></a>`;
+      }
+      return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" class="lab-ing-chip" style="text-decoration:none;">🔗 ลิงก์ ${i + 1}</a>`;
+    }).join('')}</div>`;
+  }
+
   // --- Filter toggle (collapsed by default) ---
   document.getElementById('labFilterToggleBtn').addEventListener('click', () => {
     const panel = document.getElementById('labFilterPanel');
@@ -3119,7 +3135,7 @@
       <div class="lab-field-autosaved" id="labNotesSaved">บันทึกแล้ว ✓</div>
 
       <div class="field-label">ลิงก์อ้างอิง</div>
-      ${trial.reference_url ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">${trial.reference_url.split('\n').map(u => u.trim()).filter(Boolean).map((u, i) => `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" class="lab-ing-chip" style="text-decoration:none;">🔗 ลิงก์ ${i + 1}</a>`).join('')}</div>` : ''}
+      ${renderLabRefLinks(trial.reference_url)}
       <textarea id="labEditRefUrl" placeholder="วางลิงก์ เช่น Pinterest — หลายลิงก์คั่นด้วยขึ้นบรรทัดใหม่" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;min-height:54px;resize:vertical;">${trial.reference_url ? escapeHtml(trial.reference_url) : ''}</textarea>
       <div class="lab-field-autosaved" id="labRefUrlSaved">บันทึกแล้ว ✓</div>
 
