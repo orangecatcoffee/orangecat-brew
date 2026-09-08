@@ -354,6 +354,10 @@
 
     <div class="field-label">ลิงก์อ้างอิง (ไม่บังคับ)</div>
     <textarea id="labNewRefUrl" placeholder="เช่น ลิงก์ Pinterest, รูปตัวอย่าง — วางได้หลายลิงก์ (ขึ้นบรรทัดใหม่)" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;min-height:50px;resize:vertical;"></textarea>
+    <label class="btn-slip" style="margin-top:6px;">
+      <span id="labNewRefUploadText">📷 แนบรูปจากเครื่อง</span>
+      <input type="file" accept="image/*" id="labNewRefUpload" style="display:none;">
+    </label>
 
     <button type="button" class="submit-btn" id="labAddBtn">บันทึกไอเดียใหม่</button>
     <div class="status-msg" id="labAddStatus"></div>
@@ -2898,6 +2902,39 @@
     }).join('')}</div>`;
   }
 
+  async function labUploadImageToRef(file, textareaEl) {
+    const filename = `${Date.now()}-${file.name}`.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/lab-references/${filename}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': file.type || 'image/jpeg',
+      },
+      body: file,
+    });
+    if (!uploadRes.ok) throw new Error(await uploadRes.text());
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/lab-references/${filename}`;
+    const existing = textareaEl.value.trim();
+    textareaEl.value = existing ? existing + '\n' + publicUrl : publicUrl;
+    return publicUrl;
+  }
+
+  document.getElementById('labNewRefUpload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const textEl = document.getElementById('labNewRefUploadText');
+    const originalText = textEl.textContent;
+    textEl.textContent = 'กำลังอัปโหลด...';
+    try {
+      await labUploadImageToRef(file, document.getElementById('labNewRefUrl'));
+    } catch (err) {
+      alert('แนบรูปไม่สำเร็จ: ' + err.message);
+    }
+    textEl.textContent = originalText;
+    e.target.value = '';
+  });
+
   // --- Filter toggle (collapsed by default) ---
   document.getElementById('labFilterToggleBtn').addEventListener('click', () => {
     const panel = document.getElementById('labFilterPanel');
@@ -3138,6 +3175,10 @@
       <div class="field-label">ลิงก์อ้างอิง</div>
       ${renderLabRefLinks(trial.reference_url)}
       <textarea id="labEditRefUrl" placeholder="วางลิงก์ เช่น Pinterest — หลายลิงก์คั่นด้วยขึ้นบรรทัดใหม่" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;min-height:54px;resize:vertical;">${trial.reference_url ? escapeHtml(trial.reference_url) : ''}</textarea>
+      <label class="btn-slip" style="margin-top:6px;">
+        <span id="labEditRefUploadText">📷 แนบรูปจากเครื่อง</span>
+        <input type="file" accept="image/*" id="labEditRefUpload" style="display:none;">
+      </label>
       <div class="lab-field-autosaved" id="labRefUrlSaved">บันทึกแล้ว ✓</div>
 
       <div class="field-label">ขั้นตอน</div>
@@ -3183,6 +3224,22 @@
     document.getElementById('labEditRefUrl').addEventListener('blur', (e) => {
       const val = e.target.value.trim() || null;
       if (val !== trial.reference_url) saveLabField(trial.id, 'reference_url', val, 'labRefUrlSaved');
+    });
+    document.getElementById('labEditRefUpload').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const textEl = document.getElementById('labEditRefUploadText');
+      const originalText = textEl.textContent;
+      textEl.textContent = 'กำลังอัปโหลด...';
+      const textareaEl = document.getElementById('labEditRefUrl');
+      try {
+        await labUploadImageToRef(file, textareaEl);
+        await saveLabField(trial.id, 'reference_url', textareaEl.value.trim() || null, 'labRefUrlSaved');
+      } catch (err) {
+        alert('แนบรูปไม่สำเร็จ: ' + err.message);
+      }
+      textEl.textContent = originalText;
+      e.target.value = '';
     });
   }
 
