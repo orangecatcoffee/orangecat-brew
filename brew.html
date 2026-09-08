@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Brew Tracker">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: #FFF8F0; color: #4A3428; padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, #FFF3E8, #FFE4CC); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: #A8876F; letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: #4A3428; } .header .date { font-size: 13px; color: #E8863A; font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: #4A3428; color: #FFF8F0; border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid #E0D2C2; } .card.today { border-left-color: #E8863A; } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: #A8876F; cursor: pointer; border-bottom: 1px dotted #A8876F; padding-bottom: 1px; } .card-item-name { cursor: pointer; border-bottom: 1px dotted #6B5445; padding-bottom: 1px; } .card-menu { font-size: 13px; color: #6B5445; margin-bottom: 10px; } .card-menu .price { color: #E8863A; font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #F0E4D8; color: #4A3428; font-size: 13px; font-weight: 600; } .btn-done.checked { background: #4A9B5C; color: #fff; } .pkg-row { display: flex; gap: 4px; margin-bottom: 8px; } .pkg-btn { flex: 1; padding: 6px 1px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; font-size: 9.5px; color: #4A3428; font-family: inherit; white-space: nowrap; } .pkg-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; margin-bottom: 6px; background: #fff; color: #4A3428; } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #E8863A; color: #fff; font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: #D8C4B0; } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #A8876F; font-size: 12px; } .bean-empty-note { font-size: 11px; color: #D64545; } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: #D64545; font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: #6B5445; border-bottom: 1px solid #F5EEE5; } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: #D64545; font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: #A8876F; font-size: 14px; } .field-label { font-size: 12px; color: #8a6a4a; margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: #A8876F; margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: #E8863A; border-color: #E8863A; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; } .chip.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 15px; font-family: inherit; } input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #E8863A; } .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .menu-card { position: relative; border: 2px solid #F0E4D8; border-radius: 10px; padding: 4px 4px 6px; text-align: center; cursor: pointer; transition: all 0.15s; overflow: hidden; background: #fff; } .menu-card.selected { border-color: #E8863A; background: #FFF3E8; } .menu-card.allergy-severe { border-color: #D64545; background: #FFF0F0; } .menu-card.allergy-severe.selected { border-color: #D64545; background: #FFE0E0; } .menu-card.allergy-mild { border-color: #E8863A; background: #FFF6EC; } .menu-card.allergy-tolerate { border-color: #4A86D6; background: #F0F6FF; } .allergy-warn-badge { position: absolute; top: 2px; right: 2px; font-size: 13px; line-height: 1; z-index: 2; filter: drop-shadow(0 0 1px #fff); } .menu-card .icon { margin: -4px -4px 4px; font-size: 24px; line-height: 1.4; } .cup-icon { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px 8px 0 0; display: block; } .menu-card .name { font-size: 9.5px; font-weight: 600; line-height: 1.25; margin-bottom: 2px; min-height: 23px; } .menu-card .price { font-size: 9.5px; color: #E8863A; font-weight: 700; } .date-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .date-btn { padding: 10px 4px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 12px; text-align: center; line-height: 1.3; } .date-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: #E8863A; color: #fff; font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: #D8C4B0; } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: #4A9B5C; } .status-msg.error { color: #D64545; } .link-hint { font-size: 11px; color: #A8876F; margin-top: 6px; } .link-hint.linked { color: #4A9B5C; font-weight: 600; } .bill-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: #E8863A; } .bill-detail { font-size: 12px; color: #A8876F; margin-bottom: 12px; } .btn-paid { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px solid #4A3428; background: #fff; color: #4A3428; font-size: 12.5px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #E8863A; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: #D8C4B0; } .request-note { font-size: 11.5px; color: #A8876F; text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: #4A9B5C; font-weight: 600; } .bill-err { color: #D64545; font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: #E8863A; font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed #F0E4D8; border-radius: 10px; font-size: 12.5px; color: #8a6a4a; cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: #FFF3E8; } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid #F0E4D8; cursor: pointer; display: block; margin-bottom: 4px; background: #FFF8F0; } .slip-label { font-size: 11px; color: #4A9B5C; font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #F0E4D8; padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: #A8876F; font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: #E8863A; font-weight: 700; } .loading { text-align: center; color: #A8876F; font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFF3E8; border: 2px solid #F0E4D8; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: #4A3428; } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: #E8863A; margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: #A8876F; margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,#4A3428,#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; } .staff-reminder { background: #FFF3E8; border: 2px solid #E8863A; color: #A85A1E; font-size: 12.5px; font-weight: 600; text-align: center; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; } .cal-widget { margin-bottom: 4px; } .cal-week-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; } .cal-week-label { font-size: 11px; color: #A8876F; font-weight: 600; } .cal-today-link { font-size: 11px; color: #E8863A; font-weight: 700; cursor: pointer; border-bottom: 1px dotted #E8863A; padding-bottom: 1px; } .cal-row { display: flex; align-items: center; gap: 2px; } .cal-arrow { flex-shrink: 0; width: 20px; height: 36px; border: none; background: none; color: #A8876F; font-size: 18px; font-family: inherit; } .cal-arrow:active { color: #E8863A; } .cal-days { display: flex; flex: 1; gap: 5px; touch-action: pan-y; } .cal-day { flex: 1 1 0; aspect-ratio: 1 / 1; max-width: 42px; border-radius: 50%; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-family: inherit; font-weight: 700; font-size: 13px; color: #4A3428; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } .cal-day:active { transform: scale(0.92); } .cal-day.is-today { outline: 2px dashed #4A3428; outline-offset: 2px; } .cal-day.selected { border-color: #4A3428; box-shadow: 0 2px 4px rgba(0,0,0,0.18); } .menu-group-card { background: #fff; border-radius: 14px; padding: 12px 14px 4px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .menu-group-header { display: flex; justify-content: space-between; align-items: center; font-size: 14.5px; font-weight: 700; color: #4A3428; padding-bottom: 8px; border-bottom: 2px solid #F0E4D8; margin-bottom: 8px; } .menu-group-count { color: #E8863A; font-weight: 700; font-size: 13px; white-space: nowrap; } .menu-group-milk-breakdown { background: #FFF3E8; color: #A85A1E; font-size: 11.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; margin: -2px 0 10px; } .card.compact { box-shadow: none; border-radius: 10px; background: #FFFBF6; margin-bottom: 8px; padding: 10px 12px; border-left-width: 3px; } .coffee-toggle-btn { width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #8a6a4a; font-size: 11.5px; font-weight: 700; font-family: inherit; } .coffee-toggle-btn.no-coffee-active { border-color: #D64545; color: #D64545; background: #FFF3F3; } .coffee-toggle-btn:disabled { opacity: .5; }</style>
+<style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: #FFF8F0; color: #4A3428; padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, #FFF3E8, #FFE4CC); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: #A8876F; letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: #4A3428; } .header .date { font-size: 13px; color: #E8863A; font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: #4A3428; color: #FFF8F0; border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid #E0D2C2; } .card.today { border-left-color: #E8863A; } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: #A8876F; cursor: pointer; border-bottom: 1px dotted #A8876F; padding-bottom: 1px; } .card-item-name { cursor: pointer; border-bottom: 1px dotted #6B5445; padding-bottom: 1px; } .card-menu { font-size: 13px; color: #6B5445; margin-bottom: 10px; } .card-menu .price { color: #E8863A; font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #F0E4D8; color: #4A3428; font-size: 13px; font-weight: 600; } .btn-done.checked { background: #4A9B5C; color: #fff; } .pkg-row { display: flex; gap: 4px; margin-bottom: 8px; } .pkg-btn { flex: 1; padding: 6px 1px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; font-size: 9.5px; color: #4A3428; font-family: inherit; white-space: nowrap; } .pkg-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; margin-bottom: 6px; background: #fff; color: #4A3428; } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #E8863A; color: #fff; font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: #D8C4B0; } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #A8876F; font-size: 12px; } .bean-empty-note { font-size: 11px; color: #D64545; } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: #D64545; font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: #6B5445; border-bottom: 1px solid #F5EEE5; } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: #D64545; font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: #A8876F; font-size: 14px; } .field-label { font-size: 12px; color: #8a6a4a; margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: #A8876F; margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: #E8863A; border-color: #E8863A; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; } .chip.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 15px; font-family: inherit; } input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #E8863A; } .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .menu-card { position: relative; border: 2px solid #F0E4D8; border-radius: 10px; padding: 4px 4px 6px; text-align: center; cursor: pointer; transition: all 0.15s; overflow: hidden; background: #fff; } .menu-card.selected { border-color: #E8863A; background: #FFF3E8; } .menu-card.allergy-severe { border-color: #D64545; background: #FFF0F0; } .menu-card.allergy-severe.selected { border-color: #D64545; background: #FFE0E0; } .menu-card.allergy-mild { border-color: #E8863A; background: #FFF6EC; } .menu-card.allergy-tolerate { border-color: #4A86D6; background: #F0F6FF; } .allergy-warn-badge { position: absolute; top: 2px; right: 2px; font-size: 13px; line-height: 1; z-index: 2; filter: drop-shadow(0 0 1px #fff); } .menu-card .icon { margin: -4px -4px 4px; font-size: 24px; line-height: 1.4; } .cup-icon { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px 8px 0 0; display: block; } .menu-card .name { font-size: 9.5px; font-weight: 600; line-height: 1.25; margin-bottom: 2px; min-height: 23px; } .menu-card .price { font-size: 9.5px; color: #E8863A; font-weight: 700; } .date-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .date-btn { padding: 10px 4px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 12px; text-align: center; line-height: 1.3; } .date-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: #E8863A; color: #fff; font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: #D8C4B0; } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: #4A9B5C; } .status-msg.error { color: #D64545; } .link-hint { font-size: 11px; color: #A8876F; margin-top: 6px; } .link-hint.linked { color: #4A9B5C; font-weight: 600; } .bill-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: #E8863A; } .bill-detail { font-size: 12px; color: #A8876F; margin-bottom: 12px; } .btn-paid { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px solid #4A3428; background: #fff; color: #4A3428; font-size: 12.5px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #E8863A; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: #D8C4B0; } .request-note { font-size: 11.5px; color: #A8876F; text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: #4A9B5C; font-weight: 600; } .bill-err { color: #D64545; font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: #E8863A; font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed #F0E4D8; border-radius: 10px; font-size: 12.5px; color: #8a6a4a; cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: #FFF3E8; } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid #F0E4D8; cursor: pointer; display: block; margin-bottom: 4px; background: #FFF8F0; } .slip-label { font-size: 11px; color: #4A9B5C; font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #F0E4D8; padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: #A8876F; font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: #E8863A; font-weight: 700; } .loading { text-align: center; color: #A8876F; font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFF3E8; border: 2px solid #F0E4D8; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: #4A3428; } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: #E8863A; margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: #A8876F; margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,#4A3428,#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; } .staff-reminder { background: #FFF3E8; border: 2px solid #E8863A; color: #A85A1E; font-size: 12.5px; font-weight: 600; text-align: center; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; } .cal-widget { margin-bottom: 4px; } .cal-week-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; } .cal-week-label { font-size: 11px; color: #A8876F; font-weight: 600; } .cal-today-link { font-size: 11px; color: #E8863A; font-weight: 700; cursor: pointer; border-bottom: 1px dotted #E8863A; padding-bottom: 1px; } .cal-row { display: flex; align-items: center; gap: 2px; } .cal-arrow { flex-shrink: 0; width: 20px; height: 36px; border: none; background: none; color: #A8876F; font-size: 18px; font-family: inherit; } .cal-arrow:active { color: #E8863A; } .cal-days { display: flex; flex: 1; gap: 5px; touch-action: pan-y; } .cal-day { flex: 1 1 0; aspect-ratio: 1 / 1; max-width: 42px; border-radius: 50%; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-family: inherit; font-weight: 700; font-size: 13px; color: #4A3428; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } .cal-day:active { transform: scale(0.92); } .cal-day.is-today { outline: 2px dashed #4A3428; outline-offset: 2px; } .cal-day.selected { border-color: #4A3428; box-shadow: 0 2px 4px rgba(0,0,0,0.18); } .menu-group-card { background: #fff; border-radius: 14px; padding: 12px 14px 4px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .menu-group-header { display: flex; justify-content: space-between; align-items: center; font-size: 14.5px; font-weight: 700; color: #4A3428; padding-bottom: 8px; border-bottom: 2px solid #F0E4D8; margin-bottom: 8px; } .menu-group-count { color: #E8863A; font-weight: 700; font-size: 13px; white-space: nowrap; } .menu-group-milk-breakdown { background: #FFF3E8; color: #A85A1E; font-size: 11.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; margin: -2px 0 10px; } .card.compact { box-shadow: none; border-radius: 10px; background: #FFFBF6; margin-bottom: 8px; padding: 10px 12px; border-left-width: 3px; } .coffee-toggle-btn { width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #8a6a4a; font-size: 11.5px; font-weight: 700; font-family: inherit; } .coffee-toggle-btn.no-coffee-active { border-color: #D64545; color: #D64545; background: #FFF3F3; } .coffee-toggle-btn:disabled { opacity: .5; } .lab-filter-label { font-size: 11px; font-weight: 700; color: #A8876F; margin: 14px 0 6px; } .lab-filter-label:first-of-type { margin-top: 4px; } .lab-chip-711 { border-color: #B8DFC4; background: #EAF7EE; color: #2E7D46; } .lab-chip-711.selected { border-color: #2E7D46; background: #2E7D46; color: #fff; } .lab-chip-craft { border-color: #D3C0EC; background: #F4EEFC; color: #6B4E8A; } .lab-chip-craft.selected { border-color: #6B4E8A; background: #6B4E8A; color: #fff; } .lab-chip-finish { border-color: #EBD48C; background: #FFF8E6; color: #A87C1E; } .lab-chip-finish.selected { border-color: #A87C1E; background: #A87C1E; color: #fff; } .lab-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; } .lab-ing-chip { padding: 9px 14px; border-radius: 999px; border: 2px solid #E0D2C2; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; line-height: 1.3; } .lab-ing-chip.src-seven_eleven { border-color: #B8DFC4; background: #EAF7EE; color: #2E7D46; } .lab-ing-chip.src-crafting { border-color: #D3C0EC; background: #F4EEFC; color: #6B4E8A; } .lab-ing-chip.src-finish_drink { border-color: #EBD48C; background: #FFF8E6; color: #A87C1E; } .lab-ing-chip.active { outline: 2px solid #4A3428; outline-offset: 1px; } .lab-create-divider { border-top: 2px dashed #E0D2C2; margin: 28px 0 16px; } .lab-create-btn { width: 100%; padding: 16px; border: none; border-radius: 14px; background: #4A3428; color: #FFE4CC; font-size: 15px; font-weight: 700; font-family: inherit; } .lab-detail-panel { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 2px solid #F0E4D8; margin-top: 12px; } .lab-detail-title { font-size: 17px; font-weight: 700; color: #4A3428; margin-bottom: 4px; } .lab-detail-meta { font-size: 11.5px; color: #A8876F; margin-bottom: 10px; } .lab-detail-notes { font-size: 13px; color: #6B5445; white-space: pre-wrap; line-height: 1.6; background: #FFFBF6; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; } .lab-detail-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; } .lab-detail-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 16px; color: #A8876F; } .lab-detail-panel { position: relative; }</style>
 </head>
 <body>
 <div id="pinGateOverlay" style="position:fixed;inset:0;background:#FFF8F0;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px;font-family:-apple-system,'Segoe UI','Mitr',sans-serif;">
@@ -268,26 +268,62 @@
 
 <div class="screen" id="screen-lab">
   <div class="field-label" style="margin-top:0;">🧪 แมวส้มแล็บ</div>
-  <div class="field-hint">บันทึกไอเดียเมนูใหม่วันละนิด แค่ชื่อก็พอ ใส่สูตร/โน้ตเพิ่มทีหลังได้ พร้อมชงเมื่อไหร่กด "☕ ชงจริง" เข้าคิววันนี้ได้เลย</div>
+  <div class="field-hint">แตะชิปเพื่อดูรายละเอียด แล้วตั้งวันไปชงจริงได้เลย</div>
 
-  <input type="text" id="labNewName" placeholder="ชื่อไอเดีย เช่น ลิ้นจี่โซดาบัตเตอร์สกอตช์">
-  <textarea id="labNewNotes" placeholder="โน้ตสั้นๆ (ไม่บังคับ) — ส่วนผสม ไอเดีย แรงบันดาลใจ ฯลฯ" style="width:100%;margin-top:8px;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:14px;font-family:inherit;min-height:64px;resize:vertical;"></textarea>
-  <div class="chip-row" style="margin-top:8px;" id="labNewCategoryRow">
-    <button type="button" class="chip selected" data-cat="coffee">☕ Coffee</button>
+  <div class="lab-filter-label">วัตถุดิบหลัก</div>
+  <div class="chip-row" id="labSourceFilterRow">
+    <button type="button" class="chip selected" data-source="all">ทั้งหมด</button>
+    <button type="button" class="chip lab-chip-711" data-source="seven_eleven">🏪 7-11</button>
+    <button type="button" class="chip lab-chip-craft" data-source="crafting">🧪 Crafting</button>
+    <button type="button" class="chip lab-chip-finish" data-source="finish_drink">✅ Finish Drink</button>
+  </div>
+
+  <div class="lab-filter-label">ประเภทเครื่องดื่ม</div>
+  <div class="chip-row" id="labCategoryFilterRow">
+    <button type="button" class="chip selected" data-cat="all">ทั้งหมด</button>
+    <button type="button" class="chip" data-cat="coffee">☕ Coffee</button>
     <button type="button" class="chip" data-cat="non_coffee">🧋 Non-coffee</button>
     <button type="button" class="chip" data-cat="special">✨ Special</button>
   </div>
-  <button type="button" class="submit-btn" id="labAddBtn" style="margin-top:14px;">＋ บันทึกไอเดีย</button>
-  <div class="status-msg" id="labAddStatus"></div>
 
-  <div class="chip-row" style="margin-top:24px;" id="labStatusFilterRow">
-    <button type="button" class="chip selected" data-status="all">ทั้งหมด</button>
-    <button type="button" class="chip" data-status="idea">💡 ไอเดีย</button>
-    <button type="button" class="chip" data-status="testing">🧪 กำลังทดลอง</button>
-    <button type="button" class="chip" data-status="ready">✅ พร้อมขึ้นเมนู</button>
-    <button type="button" class="chip" data-status="archived">📦 พัก</button>
+  <div id="labDetailPanel" class="lab-detail-panel" style="display:none;"></div>
+
+  <div id="labChipGrid" class="lab-chip-grid" style="margin-top:14px;"></div>
+
+  <div class="lab-create-divider"></div>
+  <button type="button" class="lab-create-btn" id="labCreateToggleBtn">➕ สร้างเมนูใหม่</button>
+
+  <div id="labCreateForm" style="display:none;margin-top:14px;">
+    <div class="field-label" style="margin-top:0;">ชื่อเมนู</div>
+    <input type="text" id="labNewName" placeholder="ชื่อไอเดีย เช่น ลิ้นจี่โซดาบัตเตอร์สกอตช์">
+
+    <div class="field-label">ประเภทเครื่องดื่ม</div>
+    <div class="chip-row" id="labNewCategoryRow">
+      <button type="button" class="chip selected" data-cat="coffee">☕ Coffee</button>
+      <button type="button" class="chip" data-cat="non_coffee">🧋 Non-coffee</button>
+      <button type="button" class="chip" data-cat="special">✨ Special</button>
+    </div>
+
+    <div class="field-label">สถานะ (R&D)</div>
+    <div class="chip-row" id="labNewStatusRow">
+      <button type="button" class="chip selected" data-status="idea">💡 ไอเดีย</button>
+      <button type="button" class="chip" data-status="testing">🧪 กำลังทดลอง</button>
+      <button type="button" class="chip" data-status="ready">✅ พร้อมขึ้นเมนู</button>
+      <button type="button" class="chip" data-status="archived">📦 พัก</button>
+    </div>
+
+    <div class="field-label">คะแนน (ไม่บังคับ, เต็ม 10)</div>
+    <input type="number" id="labNewScore" min="0" max="10" step="0.5" placeholder="เช่น 8">
+
+    <div class="field-label">วันที่คิดอยากทำ</div>
+    <input type="date" id="labNewPlannedDate">
+
+    <div class="field-label">โน้ตสูตร (ไม่บังคับ)</div>
+    <textarea id="labNewNotes" placeholder="ส่วนผสม สัดส่วน ไอเดีย แรงบันดาลใจ ฯลฯ" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:14px;font-family:inherit;min-height:80px;resize:vertical;"></textarea>
+
+    <button type="button" class="submit-btn" id="labAddBtn">บันทึกไอเดียใหม่</button>
+    <div class="status-msg" id="labAddStatus"></div>
   </div>
-  <div id="labTrialsList" style="margin-top:12px;"></div>
 </div>
 
 <!-- 📋 สูตร/สัดส่วน quick-view — เปิดจากปุ่มเล็กๆ บนการ์ดออเดอร์ตอนชง -->
@@ -2788,122 +2824,237 @@
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-  let labSelectedCategory = 'coffee';
-  let labStatusFilter = 'all';
   let labTrialsCache = [];
+  let labSourceFilter = 'all';
+  let labCategoryFilter = 'all';
+  let labActiveTrialId = null;
+  let labNewCategory = 'coffee';
+  let labNewStatus = 'idea';
   const LAB_STATUS_LABEL = { idea: '💡 ไอเดีย', testing: '🧪 กำลังทดลอง', ready: '✅ พร้อมขึ้นเมนู', archived: '📦 พัก' };
-  const LAB_CATEGORY_LABEL = { coffee: '☕', non_coffee: '🧋', special: '✨' };
+  const LAB_CATEGORY_LABEL = { coffee: '☕ Coffee', non_coffee: '🧋 Non-coffee', special: '✨ Special' };
+  const LAB_SOURCE_CLASS = { seven_eleven: 'src-seven_eleven', crafting: 'src-crafting', finish_drink: 'src-finish_drink' };
+  const LAB_SOURCE_ICON = { seven_eleven: '🏪 ', crafting: '🧪 ', finish_drink: '✅ ' };
 
+  function labAddDays(n) {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return toISODate(d);
+  }
+
+  // --- Filter rows ---
+  document.querySelectorAll('#labSourceFilterRow .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#labSourceFilterRow .chip').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      labSourceFilter = btn.dataset.source;
+      renderLabChipGrid();
+    });
+  });
+  document.querySelectorAll('#labCategoryFilterRow .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#labCategoryFilterRow .chip').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      labCategoryFilter = btn.dataset.cat;
+      renderLabChipGrid();
+    });
+  });
+
+  // --- Create form toggle ---
+  document.getElementById('labCreateToggleBtn').addEventListener('click', () => {
+    const form = document.getElementById('labCreateForm');
+    const showing = form.style.display !== 'none';
+    form.style.display = showing ? 'none' : 'block';
+    document.getElementById('labCreateToggleBtn').textContent = showing ? '➕ สร้างเมนูใหม่' : '✕ ปิดฟอร์ม';
+    if (!showing) {
+      const dEl = document.getElementById('labNewPlannedDate');
+      if (!dEl.value) dEl.value = toISODate(new Date());
+    }
+  });
   document.querySelectorAll('#labNewCategoryRow .chip').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#labNewCategoryRow .chip').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
-      labSelectedCategory = btn.dataset.cat;
+      labNewCategory = btn.dataset.cat;
     });
   });
-  document.querySelectorAll('#labStatusFilterRow .chip').forEach(btn => {
+  document.querySelectorAll('#labNewStatusRow .chip').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#labStatusFilterRow .chip').forEach(b => b.classList.remove('selected'));
+      document.querySelectorAll('#labNewStatusRow .chip').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
-      labStatusFilter = btn.dataset.status;
-      renderLabTrials();
+      labNewStatus = btn.dataset.status;
     });
   });
 
   document.getElementById('labAddBtn').addEventListener('click', async () => {
     const nameEl = document.getElementById('labNewName');
     const notesEl = document.getElementById('labNewNotes');
+    const scoreEl = document.getElementById('labNewScore');
+    const dateEl = document.getElementById('labNewPlannedDate');
     const name = nameEl.value.trim();
     const statusEl = document.getElementById('labAddStatus');
     if (!name) { statusEl.textContent = 'ใส่ชื่อไอเดียก่อนนะ'; statusEl.className = 'status-msg error'; return; }
     const btn = document.getElementById('labAddBtn');
     btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
     const { error } = await sb.from('lab_trials').insert({
-      name, notes: notesEl.value.trim() || null, category: labSelectedCategory, status: 'idea',
+      name,
+      notes: notesEl.value.trim() || null,
+      category: labNewCategory,
+      status: labNewStatus,
+      score: scoreEl.value ? parseFloat(scoreEl.value) : null,
+      planned_date: dateEl.value || null,
+      chips: [{ label: name, source: null }],
     });
-    btn.disabled = false; btn.textContent = '＋ บันทึกไอเดีย';
+    btn.disabled = false; btn.textContent = 'บันทึกไอเดียใหม่';
     if (error) {
       statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + error.message;
       statusEl.className = 'status-msg error';
       return;
     }
-    nameEl.value = ''; notesEl.value = '';
+    nameEl.value = ''; notesEl.value = ''; scoreEl.value = '';
     statusEl.textContent = 'บันทึกแล้ว 🧪';
     statusEl.className = 'status-msg success';
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
     loadLabTrials();
   });
 
-  document.getElementById('labTrialsList').addEventListener('click', (e) => {
-    const statusBtn = e.target.closest('[data-lab-status-btn]');
-    if (statusBtn) { setLabStatus(statusBtn.dataset.labStatusBtn, statusBtn.dataset.statusVal); return; }
-    const brewBtn = e.target.closest('[data-lab-brew-btn]');
-    if (brewBtn) {
-      const trial = labTrialsCache.find(t => t.id === brewBtn.dataset.labBrewBtn);
-      if (trial) brewLabTrial(trial);
-      return;
+  // --- Chip grid ---
+  document.getElementById('labChipGrid').addEventListener('click', (e) => {
+    const chipBtn = e.target.closest('[data-lab-chip-trial]');
+    if (!chipBtn) return;
+    const trialId = chipBtn.dataset.labChipTrial;
+    if (labActiveTrialId === trialId) {
+      labActiveTrialId = null;
+      document.getElementById('labDetailPanel').style.display = 'none';
+    } else {
+      labActiveTrialId = trialId;
+      openLabDetail(trialId);
     }
-    const delBtn = e.target.closest('[data-lab-delete-btn]');
-    if (delBtn) { deleteLabTrial(delBtn.dataset.labDeleteBtn); return; }
+    renderLabChipGrid();
   });
 
   async function loadLabTrials() {
-    const listEl = document.getElementById('labTrialsList');
-    listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+    const gridEl = document.getElementById('labChipGrid');
+    gridEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
     const { data, error } = await sb.from('lab_trials').select('*').order('created_at', { ascending: false });
-    if (error) { listEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + error.message + '</div>'; return; }
+    if (error) { gridEl.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + error.message + '</div>'; return; }
     labTrialsCache = data || [];
-    renderLabTrials();
+    renderLabChipGrid();
+    if (labActiveTrialId) openLabDetail(labActiveTrialId);
   }
 
-  function renderLabTrials() {
-    const listEl = document.getElementById('labTrialsList');
-    let rows = labTrialsCache;
-    if (labStatusFilter !== 'all') rows = rows.filter(r => r.status === labStatusFilter);
-    if (rows.length === 0) { listEl.innerHTML = '<div class="empty-state">ยังไม่มีรายการในหมวดนี้</div>'; return; }
-    listEl.innerHTML = rows.map(r => `
-      <div class="card compact">
-        <div class="card-top">
-          <span class="card-name">${LAB_CATEGORY_LABEL[r.category] || '🧪'} ${escapeHtml(r.name)}</span>
-          <span style="font-size:11px;color:#A8876F;">${r.score != null ? '⭐' + r.score : ''}</span>
-        </div>
-        <div class="card-menu">${LAB_STATUS_LABEL[r.status] || r.status} · ${fmtDate(new Date(r.trial_date + 'T00:00:00'))}</div>
-        ${r.notes ? `<div style="font-size:12.5px;color:#6B5445;margin-bottom:8px;white-space:pre-wrap;">${escapeHtml(r.notes)}</div>` : ''}
-        <div class="chip-row" style="margin-bottom:8px;">
-          ${Object.entries(LAB_STATUS_LABEL).map(([val, label]) => `<button type="button" class="chip${r.status === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-status-btn="${r.id}" data-status-val="${val}">${label}</button>`).join('')}
-        </div>
-        <div style="display:flex;gap:8px;">
-          <button type="button" class="btn-bean-confirm" style="flex:1;" data-lab-brew-btn="${r.id}">☕ ชงจริง</button>
-          <button type="button" class="btn-delete" data-lab-delete-btn="${r.id}">✕</button>
-        </div>
-      </div>
-    `).join('');
+  function renderLabChipGrid() {
+    const gridEl = document.getElementById('labChipGrid');
+    let trials = labTrialsCache;
+    if (labCategoryFilter !== 'all') trials = trials.filter(t => t.category === labCategoryFilter);
+
+    const items = [];
+    trials.forEach(t => {
+      const chips = Array.isArray(t.chips) && t.chips.length ? t.chips : [{ label: t.name, source: null }];
+      chips.forEach(c => {
+        if (labSourceFilter !== 'all' && c.source !== labSourceFilter) return;
+        items.push({ trial: t, chip: c });
+      });
+    });
+
+    if (items.length === 0) { gridEl.innerHTML = '<div class="empty-state">ไม่มีรายการในตัวกรองนี้</div>'; return; }
+
+    gridEl.innerHTML = items.map(({ trial, chip }) => {
+      const srcClass = chip.source ? (LAB_SOURCE_CLASS[chip.source] || '') : '';
+      const isActive = labActiveTrialId === trial.id;
+      const coffeeIcon = trial.category === 'coffee' ? '☕ ' : '';
+      const srcIcon = chip.source ? (LAB_SOURCE_ICON[chip.source] || '') : '';
+      return `<button type="button" class="lab-ing-chip ${srcClass}${isActive ? ' active' : ''}" data-lab-chip-trial="${trial.id}">${coffeeIcon}${srcIcon}${escapeHtml(chip.label)}</button>`;
+    }).join('');
   }
+
+  function openLabDetail(trialId) {
+    const trial = labTrialsCache.find(t => t.id === trialId);
+    const panel = document.getElementById('labDetailPanel');
+    if (!trial) { panel.style.display = 'none'; return; }
+    const chips = Array.isArray(trial.chips) ? trial.chips : [];
+    const todayISO = toISODate(new Date());
+    const maxDateISO = labAddDays(6);
+    let defaultDate = trial.planned_date && trial.planned_date >= todayISO ? trial.planned_date : todayISO;
+
+    panel.innerHTML = `
+      <button type="button" class="lab-detail-close" data-lab-close>✕</button>
+      <div class="lab-detail-title">${trial.category === 'coffee' ? '☕ ' : ''}${escapeHtml(trial.name)}</div>
+      <div class="lab-detail-meta">${LAB_STATUS_LABEL[trial.status] || trial.status} · ${LAB_CATEGORY_LABEL[trial.category] || trial.category}${trial.score != null ? ' · ⭐ ' + trial.score : ''} · บันทึก ${fmtDate(new Date(trial.trial_date + 'T00:00:00'))}</div>
+      <div class="lab-detail-chips">${chips.map(c => `<span class="lab-ing-chip ${c.source ? (LAB_SOURCE_CLASS[c.source] || '') : ''}">${c.source ? (LAB_SOURCE_ICON[c.source] || '') : ''}${escapeHtml(c.label)}</span>`).join('')}</div>
+      <div class="lab-detail-notes">${trial.notes ? escapeHtml(trial.notes) : 'ยังไม่มีโน้ตเพิ่มเติม'}</div>
+
+      <div class="field-label" style="margin-top:0;">สถานะ</div>
+      <div class="chip-row" style="margin-bottom:12px;">
+        ${Object.entries(LAB_STATUS_LABEL).map(([val, label]) => `<button type="button" class="chip${trial.status === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-status-btn="${trial.id}" data-status-val="${val}">${label}</button>`).join('')}
+      </div>
+
+      <div class="field-label" style="margin-top:0;">เลือกวันไปชงจริง (ล่วงหน้าได้ 7 วัน)</div>
+      <input type="date" id="labDetailDate" min="${todayISO}" max="${maxDateISO}" value="${defaultDate}">
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button type="button" class="btn-bean-cancel" style="flex:1;" data-lab-schedule="${trial.id}">📅 บันทึกวันตั้งใจทำ</button>
+        <button type="button" class="btn-bean-confirm" style="flex:1;" data-lab-brew="${trial.id}">☕ ส่งไปชงจริง</button>
+      </div>
+      <button type="button" class="btn-delete" style="margin-top:12px;width:100%;text-align:center;padding:8px;" data-lab-delete="${trial.id}">ลบไอเดียนี้</button>
+    `;
+    panel.style.display = 'block';
+  }
+
+  document.getElementById('labDetailPanel').addEventListener('click', async (e) => {
+    const closeBtn = e.target.closest('[data-lab-close]');
+    if (closeBtn) {
+      labActiveTrialId = null;
+      document.getElementById('labDetailPanel').style.display = 'none';
+      renderLabChipGrid();
+      return;
+    }
+    const statusBtn = e.target.closest('[data-lab-status-btn]');
+    if (statusBtn) { await setLabStatus(statusBtn.dataset.labStatusBtn, statusBtn.dataset.statusVal); return; }
+    const scheduleBtn = e.target.closest('[data-lab-schedule]');
+    if (scheduleBtn) {
+      const dateVal = document.getElementById('labDetailDate').value;
+      await sb.from('lab_trials').update({ planned_date: dateVal, updated_at: new Date().toISOString() }).eq('id', scheduleBtn.dataset.labSchedule);
+      alert('บันทึกวันที่ตั้งใจทำแล้ว: ' + dateVal);
+      await loadLabTrials();
+      return;
+    }
+    const brewBtn = e.target.closest('[data-lab-brew]');
+    if (brewBtn) {
+      const trial = labTrialsCache.find(t => t.id === brewBtn.dataset.labBrew);
+      const dateVal = document.getElementById('labDetailDate').value;
+      if (trial) await brewLabTrial(trial, dateVal);
+      return;
+    }
+    const delBtn = e.target.closest('[data-lab-delete]');
+    if (delBtn) { await deleteLabTrial(delBtn.dataset.labDelete); return; }
+  });
 
   async function setLabStatus(id, status) {
     await sb.from('lab_trials').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
-    loadLabTrials();
+    await loadLabTrials();
   }
 
   async function deleteLabTrial(id) {
     if (!confirm('ลบไอเดียนี้เลยไหม?')) return;
+    labActiveTrialId = null;
+    document.getElementById('labDetailPanel').style.display = 'none';
     await sb.from('lab_trials').delete().eq('id', id);
-    loadLabTrials();
+    await loadLabTrials();
   }
 
-  async function brewLabTrial(trial) {
-    if (!confirm(`เพิ่ม "${trial.name}" เข้าคิวชงวันนี้เลยไหม?`)) return;
-    const todayISO = toISODate(new Date());
+  async function brewLabTrial(trial, dateVal) {
+    const wantedDate = dateVal || toISODate(new Date());
+    const dateLabel = wantedDate === toISODate(new Date()) ? 'วันนี้' : fmtDate(new Date(wantedDate + 'T00:00:00'));
+    if (!confirm(`เพิ่ม "${trial.name}" เข้าคิวชง ${dateLabel} เลยไหม?`)) return;
     const { error } = await sb.from('preorders').insert({
-      customer_name: '🧪 แล็บทดลอง', menu_item_name: trial.name, price: 0, wanted_date: todayISO,
+      customer_name: '🧪 แล็บทดลอง', menu_item_name: trial.name, price: 0, wanted_date: wantedDate,
       order_type: 'staff', channel: 'lab', lab_trial_id: trial.id, notes: trial.notes || null,
     });
     if (error) { alert('เพิ่มคิวไม่สำเร็จ: ' + error.message); return; }
-    if (trial.status === 'idea') {
-      await sb.from('lab_trials').update({ status: 'testing', updated_at: new Date().toISOString() }).eq('id', trial.id);
-    }
-    alert('เพิ่มเข้าคิว "วันนี้" แล้ว 🧪 ไปที่แท็บวันนี้เพื่อชงได้เลย');
-    loadLabTrials();
+    const updates = { updated_at: new Date().toISOString(), planned_date: wantedDate };
+    if (trial.status === 'idea') updates.status = 'testing';
+    await sb.from('lab_trials').update(updates).eq('id', trial.id);
+    alert(`เพิ่มเข้าคิว ${dateLabel} แล้ว 🧪`);
+    await loadLabTrials();
   }
 
   async function loadMenuRecipeList() {
