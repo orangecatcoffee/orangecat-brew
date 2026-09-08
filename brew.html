@@ -2984,24 +2984,16 @@
     if (labCategoryFilter !== 'all') trials = trials.filter(t => t.category === labCategoryFilter);
     if (labStatusFilter !== 'all') trials = trials.filter(t => t.status === labStatusFilter);
     if (labVerdictFilter !== 'all') trials = trials.filter(t => t.verdict === labVerdictFilter);
+    if (labSourceFilter !== 'all') {
+      trials = trials.filter(t => Array.isArray(t.chips) && t.chips.some(c => c.source === labSourceFilter));
+    }
 
-    const items = [];
-    trials.forEach(t => {
-      const chips = Array.isArray(t.chips) && t.chips.length ? t.chips : [{ label: t.name, source: null }];
-      chips.forEach(c => {
-        if (labSourceFilter !== 'all' && c.source !== labSourceFilter) return;
-        items.push({ trial: t, chip: c });
-      });
-    });
+    if (trials.length === 0) { gridEl.innerHTML = '<div class="empty-state">ไม่มีรายการในตัวกรองนี้</div>'; return; }
 
-    if (items.length === 0) { gridEl.innerHTML = '<div class="empty-state">ไม่มีรายการในตัวกรองนี้</div>'; return; }
-
-    gridEl.innerHTML = items.map(({ trial, chip }) => {
-      const srcClass = chip.source ? (LAB_SOURCE_CLASS[chip.source] || '') : '';
+    gridEl.innerHTML = trials.map(trial => {
       const isActive = labActiveTrialId === trial.id;
       const coffeeIcon = trial.category === 'coffee' ? '☕ ' : '';
-      const srcIcon = chip.source ? (LAB_SOURCE_ICON[chip.source] || '') : '';
-      return `<button type="button" class="lab-ing-chip ${srcClass}${isActive ? ' active' : ''}" data-lab-chip-trial="${trial.id}">${coffeeIcon}${srcIcon}${escapeHtml(chip.label)}</button>`;
+      return `<button type="button" class="lab-ing-chip${isActive ? ' active' : ''}" data-lab-chip-trial="${trial.id}">${coffeeIcon}${escapeHtml(trial.name)}</button>`;
     }).join('');
   }
 
