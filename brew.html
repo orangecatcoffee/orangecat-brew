@@ -286,6 +286,21 @@
     <button type="button" class="chip" data-cat="special">✨ Special</button>
   </div>
 
+  <div class="lab-filter-label">ขั้นตอน</div>
+  <div class="chip-row" id="labStatusFilterRow">
+    <button type="button" class="chip selected" data-status="all">ทั้งหมด</button>
+    <button type="button" class="chip" data-status="idea">💡 ไอเดีย</button>
+    <button type="button" class="chip" data-status="in_progress">🧪 กำลังทำ</button>
+    <button type="button" class="chip" data-status="done">✅ ทำแล้ว</button>
+  </div>
+
+  <div class="lab-filter-label">ผลตัดสิน</div>
+  <div class="chip-row" id="labVerdictFilterRow">
+    <button type="button" class="chip selected" data-verdict="all">ทั้งหมด</button>
+    <button type="button" class="chip" data-verdict="go">👍 อร่อยได้ไปต่อ</button>
+    <button type="button" class="chip" data-verdict="not_yet">🤔 อาจจะยังนะ</button>
+  </div>
+
   <div id="labDetailPanel" class="lab-detail-panel" style="display:none;"></div>
 
   <div id="labChipGrid" class="lab-chip-grid" style="margin-top:14px;"></div>
@@ -2826,6 +2841,8 @@
   let labTrialsCache = [];
   let labSourceFilter = 'all';
   let labCategoryFilter = 'all';
+  let labStatusFilter = 'all';
+  let labVerdictFilter = 'all';
   let labActiveTrialId = null;
   let labNewCategory = 'coffee';
   let labNewStatus = 'idea';
@@ -2858,6 +2875,22 @@
       document.querySelectorAll('#labCategoryFilterRow .chip').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       labCategoryFilter = btn.dataset.cat;
+      renderLabChipGrid();
+    });
+  });
+  document.querySelectorAll('#labStatusFilterRow .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#labStatusFilterRow .chip').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      labStatusFilter = btn.dataset.status;
+      renderLabChipGrid();
+    });
+  });
+  document.querySelectorAll('#labVerdictFilterRow .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#labVerdictFilterRow .chip').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      labVerdictFilter = btn.dataset.verdict;
       renderLabChipGrid();
     });
   });
@@ -2949,6 +2982,8 @@
     const gridEl = document.getElementById('labChipGrid');
     let trials = labTrialsCache;
     if (labCategoryFilter !== 'all') trials = trials.filter(t => t.category === labCategoryFilter);
+    if (labStatusFilter !== 'all') trials = trials.filter(t => t.status === labStatusFilter);
+    if (labVerdictFilter !== 'all') trials = trials.filter(t => t.verdict === labVerdictFilter);
 
     const items = [];
     trials.forEach(t => {
