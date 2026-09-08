@@ -351,6 +351,9 @@
     <div class="field-label">โน้ตสูตร (ไม่บังคับ)</div>
     <textarea id="labNewNotes" placeholder="ส่วนผสม สัดส่วน ไอเดีย แรงบันดาลใจ ฯลฯ" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:14px;font-family:inherit;min-height:80px;resize:vertical;"></textarea>
 
+    <div class="field-label">ลิงก์อ้างอิง (ไม่บังคับ)</div>
+    <textarea id="labNewRefUrl" placeholder="เช่น ลิงก์ Pinterest, รูปตัวอย่าง — วางได้หลายลิงก์ (ขึ้นบรรทัดใหม่)" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;min-height:50px;resize:vertical;"></textarea>
+
     <button type="button" class="submit-btn" id="labAddBtn">บันทึกไอเดียใหม่</button>
     <div class="status-msg" id="labAddStatus"></div>
   </div>
@@ -2962,6 +2965,7 @@
   document.getElementById('labAddBtn').addEventListener('click', async () => {
     const nameEl = document.getElementById('labNewName');
     const notesEl = document.getElementById('labNewNotes');
+    const refUrlEl = document.getElementById('labNewRefUrl');
     const scoreEl = document.getElementById('labNewScore');
     const dateEl = document.getElementById('labNewPlannedDate');
     const name = nameEl.value.trim();
@@ -2972,6 +2976,7 @@
     const { error } = await sb.from('lab_trials').insert({
       name,
       notes: notesEl.value.trim() || null,
+      reference_url: refUrlEl.value.trim() || null,
       category: labNewCategory,
       status: labNewStatus,
       source_type: labNewSourceType,
@@ -2985,7 +2990,7 @@
       statusEl.className = 'status-msg error';
       return;
     }
-    nameEl.value = ''; notesEl.value = ''; scoreEl.value = '';
+    nameEl.value = ''; notesEl.value = ''; scoreEl.value = ''; refUrlEl.value = '';
     labNewSourceType = null;
     document.querySelectorAll('#labNewSourceTypeRow .chip').forEach(b => b.classList.remove('selected'));
     statusEl.textContent = 'บันทึกแล้ว 🧪';
@@ -3113,6 +3118,11 @@
       <textarea id="labEditNotes" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:13.5px;font-family:inherit;min-height:100px;resize:vertical;">${trial.notes ? escapeHtml(trial.notes) : ''}</textarea>
       <div class="lab-field-autosaved" id="labNotesSaved">บันทึกแล้ว ✓</div>
 
+      <div class="field-label">ลิงก์อ้างอิง</div>
+      ${trial.reference_url ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">${trial.reference_url.split('\n').map(u => u.trim()).filter(Boolean).map((u, i) => `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" class="lab-ing-chip" style="text-decoration:none;">🔗 ลิงก์ ${i + 1}</a>`).join('')}</div>` : ''}
+      <textarea id="labEditRefUrl" placeholder="วางลิงก์ เช่น Pinterest — หลายลิงก์คั่นด้วยขึ้นบรรทัดใหม่" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:13px;font-family:inherit;min-height:54px;resize:vertical;">${trial.reference_url ? escapeHtml(trial.reference_url) : ''}</textarea>
+      <div class="lab-field-autosaved" id="labRefUrlSaved">บันทึกแล้ว ✓</div>
+
       <div class="field-label">ขั้นตอน</div>
       <div class="chip-row" style="margin-bottom:12px;">
         ${Object.entries(LAB_STATUS_LABEL).map(([val, label]) => `<button type="button" class="chip${trial.status === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-status-btn="${trial.id}" data-status-val="${val}">${label}</button>`).join('')}
@@ -3152,6 +3162,10 @@
     document.getElementById('labEditNotes').addEventListener('blur', (e) => {
       const val = e.target.value.trim() || null;
       if (val !== trial.notes) saveLabField(trial.id, 'notes', val, 'labNotesSaved');
+    });
+    document.getElementById('labEditRefUrl').addEventListener('blur', (e) => {
+      const val = e.target.value.trim() || null;
+      if (val !== trial.reference_url) saveLabField(trial.id, 'reference_url', val, 'labRefUrlSaved');
     });
   }
 
