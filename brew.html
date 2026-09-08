@@ -327,6 +327,14 @@
       <button type="button" class="chip" data-cat="special">✨ Special</button>
     </div>
 
+    <div class="field-label">วัตถุดิบหลัก (ไม่บังคับ)</div>
+    <div class="chip-row" id="labNewSourceTypeRow">
+      <button type="button" class="chip lab-chip-711" data-sourcetype="seven_eleven">🏪 7-11</button>
+      <button type="button" class="chip lab-chip-craft" data-sourcetype="crafting">🧪 Crafting</button>
+      <button type="button" class="chip lab-chip-finish" data-sourcetype="finish_drink">✅ Finish Drink</button>
+      <button type="button" class="chip lab-chip-material" data-sourcetype="raw_material">🌾 วัตถุดิบ</button>
+    </div>
+
     <div class="field-label">สถานะ (R&D)</div>
     <div class="chip-row" id="labNewStatusRow">
       <button type="button" class="chip selected" data-status="idea">💡 ไอเดีย</button>
@@ -2854,6 +2862,7 @@
   let labActiveTrialId = null;
   let labNewCategory = 'coffee';
   let labNewStatus = 'idea';
+  let labNewSourceType = null;
   const LAB_STATUS_LABEL = { idea: '💡 ไอเดีย', in_progress: '🧪 กำลังทำ', done: '✅ ทำแล้ว' };
   const LAB_VERDICT_LABEL = { not_yet: '🤔 อาจจะยังนะ', go: '👍 อร่อย รอขึ้นเมนู', launched: '🎉 ขึ้นเป็นเมนูแล้ว' };
   const LAB_CATEGORY_LABEL = { coffee: '☕ Coffee', non_coffee: '🧋 Non-coffee', special: '✨ Special' };
@@ -2936,6 +2945,19 @@
       labNewStatus = btn.dataset.status;
     });
   });
+  document.querySelectorAll('#labNewSourceTypeRow .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.sourcetype;
+      if (labNewSourceType === val) {
+        labNewSourceType = null;
+        btn.classList.remove('selected');
+      } else {
+        document.querySelectorAll('#labNewSourceTypeRow .chip').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        labNewSourceType = val;
+      }
+    });
+  });
 
   document.getElementById('labAddBtn').addEventListener('click', async () => {
     const nameEl = document.getElementById('labNewName');
@@ -2952,6 +2974,7 @@
       notes: notesEl.value.trim() || null,
       category: labNewCategory,
       status: labNewStatus,
+      source_type: labNewSourceType,
       score: scoreEl.value ? parseFloat(scoreEl.value) : null,
       planned_date: dateEl.value || null,
       chips: [{ label: name, source: null }],
@@ -2963,6 +2986,8 @@
       return;
     }
     nameEl.value = ''; notesEl.value = ''; scoreEl.value = '';
+    labNewSourceType = null;
+    document.querySelectorAll('#labNewSourceTypeRow .chip').forEach(b => b.classList.remove('selected'));
     statusEl.textContent = 'บันทึกแล้ว 🧪';
     statusEl.className = 'status-msg success';
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
