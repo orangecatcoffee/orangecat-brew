@@ -1830,7 +1830,7 @@
         </div>
       </div>
       <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.sweetness ? ` <span style="color:#C9A44A;font-weight:700;">🍯 ${order.sweetness}</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}${order.milk_name ? ` <span style="color:#7B4F9E;font-weight:700;">🥛 ${order.milk_name}</span>` : ''} <button type="button" class="btn-recipe-quick" data-menu-name="${order.menu_item_name.replace(/"/g,'&quot;')}" style="background:#F0E4D8;border:none;border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:700;color:#8a6a4a;font-family:inherit;vertical-align:middle;">📋 สูตร</button></div>
-      ${order.notes ? `<div style="font-size:11.5px;color:#A85A1E;background:#FFF3E8;border-radius:8px;padding:6px 10px;margin-bottom:8px;">📝 ${order.notes}</div>` : ''}
+      <div class="card-notes-field" data-id="${order.id}" data-notes="${(order.notes || '').replace(/"/g, '&quot;')}" title="แตะเพื่อ${order.notes ? 'แก้' : 'เพิ่ม'}หมายเหตุ" style="font-size:11.5px;${order.notes ? 'color:#A85A1E;background:#FFF3E8;' : 'color:#A8876F;background:#F5EEE5;border:1px dashed #E0D2C2;'}border-radius:8px;padding:6px 10px;margin-bottom:8px;cursor:pointer;">${order.notes ? `📝 ${order.notes}` : '📝 + หมายเหตุ'}</div>
       ${order.mood_note ? `<div style="font-size:11.5px;color:#7B4F9E;background:#F3ECFB;border-radius:8px;padding:6px 10px;margin-bottom:8px;">🎨 Freestyle mood: “${order.mood_note}” — ตีโจทย์แล้วชงได้เลย ไม่มีสูตรตายตัว</div>` : ''}
       ${isCoffeeFlexible ? `<button type="button" class="coffee-toggle-btn${order.no_coffee ? ' no-coffee-active' : ''}" data-id="${order.id}">${order.no_coffee ? '☕🚫 ไม่ใช้กาแฟแก้วนี้ — แตะเพื่อกลับมาใช้กาแฟ' : '☕ ใช้กาแฟแก้วนี้ — แตะถ้าจะไม่ใช้กาแฟ'}</button>` : ''}
       ${isMilkFlexible(menuDef) ? `
@@ -5863,6 +5863,37 @@
     viewMode = chip.dataset.view;
     document.querySelectorAll('#viewToggleRow .chip').forEach(c => c.classList.toggle('selected', c === chip));
     renderTodayList();
+  });
+
+  // แตะที่ช่องหมายเหตุ (card-notes-field) เพื่อเพิ่ม/แก้หมายเหตุของออเดอร์นั้นได้เลย
+  document.getElementById('todayList').addEventListener('click', (e) => {
+    const notesDiv = e.target.closest('.card-notes-field');
+    if (!notesDiv) return;
+    const orderId = notesDiv.dataset.id;
+    const currentNotes = notesDiv.dataset.notes || '';
+    if (!orderId) return;
+
+    const textarea = document.createElement('textarea');
+    textarea.value = currentNotes;
+    textarea.placeholder = 'พิมพ์หมายเหตุ...';
+    textarea.style.cssText = 'width:100%;font-size:12.5px;padding:8px 10px;border-radius:8px;border:2px solid #E8863A;font-family:inherit;margin-bottom:8px;min-height:44px;resize:vertical;';
+    notesDiv.replaceWith(textarea);
+    textarea.focus();
+
+    let handled = false;
+    const save = async () => {
+      if (handled) return;
+      handled = true;
+      const newNotes = textarea.value.trim() || null;
+      if (newNotes === (currentNotes || null)) { loadToday(); return; }
+      const { error } = await sb.from('preorders').update({ notes: newNotes }).eq('id', orderId);
+      if (error) alert('บันทึกหมายเหตุไม่สำเร็จ: ' + error.message);
+      loadToday();
+    };
+    textarea.addEventListener('blur', save);
+    textarea.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); textarea.blur(); }
+    });
   });
 
   // แตะที่ป้ายวันที่ (card-date) เพื่อแก้วันที่ต้องการรับของออเดอร์นั้นได้เลย —
