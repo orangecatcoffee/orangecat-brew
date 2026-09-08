@@ -268,11 +268,12 @@
 
 <div class="screen" id="screen-lab">
   <div class="field-label" style="margin-top:0;">🧪 แมวส้มแล็บ</div>
-  <div class="field-hint">แตะชิปเพื่อดูรายละเอียด แล้วตั้งวันไปชงจริงได้เลย</div>
+  <div class="field-hint">แตะชิปเพื่อดูรายละเอียด แล้วตั้งวันไปชงจริงได้เลย (เลือกฟิลเตอร์ได้หลายอันพร้อมกัน)</div>
+
+  <button type="button" class="btn-bean-cancel" id="labClearFiltersBtn" style="width:100%;margin-bottom:4px;">🧹 ล้างตัวกรองทั้งหมด</button>
 
   <div class="lab-filter-label">วัตถุดิบหลัก</div>
   <div class="chip-row" id="labSourceFilterRow">
-    <button type="button" class="chip selected" data-source="all">ทั้งหมด</button>
     <button type="button" class="chip lab-chip-711" data-source="seven_eleven">🏪 7-11</button>
     <button type="button" class="chip lab-chip-craft" data-source="crafting">🧪 Crafting</button>
     <button type="button" class="chip lab-chip-finish" data-source="finish_drink">✅ Finish Drink</button>
@@ -280,7 +281,6 @@
 
   <div class="lab-filter-label">ประเภทเครื่องดื่ม</div>
   <div class="chip-row" id="labCategoryFilterRow">
-    <button type="button" class="chip selected" data-cat="all">ทั้งหมด</button>
     <button type="button" class="chip" data-cat="coffee">☕ Coffee</button>
     <button type="button" class="chip" data-cat="non_coffee">🧋 Non-coffee</button>
     <button type="button" class="chip" data-cat="special">✨ Special</button>
@@ -288,15 +288,13 @@
 
   <div class="lab-filter-label">ขั้นตอน</div>
   <div class="chip-row" id="labStatusFilterRow">
-    <button type="button" class="chip selected" data-status="all">ทั้งหมด</button>
-    <button type="button" class="chip" data-status="idea">💡 ไอเดีย</button>
-    <button type="button" class="chip" data-status="in_progress">🧪 กำลังทำ</button>
+    <button type="button" class="chip selected" data-status="idea">💡 ไอเดีย</button>
+    <button type="button" class="chip selected" data-status="in_progress">🧪 กำลังทำ</button>
     <button type="button" class="chip" data-status="done">✅ ทำแล้ว</button>
   </div>
 
   <div class="lab-filter-label">ผลตัดสิน</div>
   <div class="chip-row" id="labVerdictFilterRow">
-    <button type="button" class="chip selected" data-verdict="all">ทั้งหมด</button>
     <button type="button" class="chip" data-verdict="go">👍 อร่อยได้ไปต่อ</button>
     <button type="button" class="chip" data-verdict="not_yet">🤔 อาจจะยังนะ</button>
   </div>
@@ -2839,10 +2837,10 @@
     return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
   let labTrialsCache = [];
-  let labSourceFilter = 'all';
-  let labCategoryFilter = 'all';
-  let labStatusFilter = 'all';
-  let labVerdictFilter = 'all';
+  let labSourceFilter = new Set();
+  let labCategoryFilter = new Set();
+  let labStatusFilter = new Set(['idea', 'in_progress']);
+  let labVerdictFilter = new Set();
   let labActiveTrialId = null;
   let labNewCategory = 'coffee';
   let labNewStatus = 'idea';
@@ -2861,38 +2859,27 @@
     return toISODate(d);
   }
 
-  // --- Filter rows ---
-  document.querySelectorAll('#labSourceFilterRow .chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#labSourceFilterRow .chip').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      labSourceFilter = btn.dataset.source;
-      renderLabChipGrid();
+  // --- Filter rows (multi-select toggle) ---
+  function labWireFilterRow(rowId, dataAttr, setRef) {
+    document.querySelectorAll(`#${rowId} .chip`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset[dataAttr];
+        if (setRef.has(val)) { setRef.delete(val); btn.classList.remove('selected'); }
+        else { setRef.add(val); btn.classList.add('selected'); }
+        renderLabChipGrid();
+      });
     });
-  });
-  document.querySelectorAll('#labCategoryFilterRow .chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#labCategoryFilterRow .chip').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      labCategoryFilter = btn.dataset.cat;
-      renderLabChipGrid();
-    });
-  });
-  document.querySelectorAll('#labStatusFilterRow .chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#labStatusFilterRow .chip').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      labStatusFilter = btn.dataset.status;
-      renderLabChipGrid();
-    });
-  });
-  document.querySelectorAll('#labVerdictFilterRow .chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#labVerdictFilterRow .chip').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      labVerdictFilter = btn.dataset.verdict;
-      renderLabChipGrid();
-    });
+  }
+  labWireFilterRow('labSourceFilterRow', 'source', labSourceFilter);
+  labWireFilterRow('labCategoryFilterRow', 'cat', labCategoryFilter);
+  labWireFilterRow('labStatusFilterRow', 'status', labStatusFilter);
+  labWireFilterRow('labVerdictFilterRow', 'verdict', labVerdictFilter);
+
+  document.getElementById('labClearFiltersBtn').addEventListener('click', () => {
+    labSourceFilter.clear(); labCategoryFilter.clear(); labStatusFilter.clear(); labVerdictFilter.clear();
+    document.querySelectorAll('#labSourceFilterRow .chip, #labCategoryFilterRow .chip, #labStatusFilterRow .chip, #labVerdictFilterRow .chip')
+      .forEach(b => b.classList.remove('selected'));
+    renderLabChipGrid();
   });
 
   // --- Create form toggle ---
@@ -2981,11 +2968,11 @@
   function renderLabChipGrid() {
     const gridEl = document.getElementById('labChipGrid');
     let trials = labTrialsCache;
-    if (labCategoryFilter !== 'all') trials = trials.filter(t => t.category === labCategoryFilter);
-    if (labStatusFilter !== 'all') trials = trials.filter(t => t.status === labStatusFilter);
-    if (labVerdictFilter !== 'all') trials = trials.filter(t => t.verdict === labVerdictFilter);
-    if (labSourceFilter !== 'all') {
-      trials = trials.filter(t => Array.isArray(t.chips) && t.chips.some(c => c.source === labSourceFilter));
+    if (labCategoryFilter.size > 0) trials = trials.filter(t => labCategoryFilter.has(t.category));
+    if (labStatusFilter.size > 0) trials = trials.filter(t => labStatusFilter.has(t.status));
+    if (labVerdictFilter.size > 0) trials = trials.filter(t => labVerdictFilter.has(t.verdict));
+    if (labSourceFilter.size > 0) {
+      trials = trials.filter(t => Array.isArray(t.chips) && t.chips.some(c => labSourceFilter.has(c.source)));
     }
 
     if (trials.length === 0) { gridEl.innerHTML = '<div class="empty-state">ไม่มีรายการในตัวกรองนี้</div>'; return; }
