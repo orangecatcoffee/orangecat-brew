@@ -307,9 +307,8 @@
     <div class="field-label">สถานะ (R&D)</div>
     <div class="chip-row" id="labNewStatusRow">
       <button type="button" class="chip selected" data-status="idea">💡 ไอเดีย</button>
-      <button type="button" class="chip" data-status="testing">🧪 กำลังทดลอง</button>
-      <button type="button" class="chip" data-status="ready">✅ พร้อมขึ้นเมนู</button>
-      <button type="button" class="chip" data-status="archived">📦 พัก</button>
+      <button type="button" class="chip" data-status="in_progress">🧪 กำลังทำ</button>
+      <button type="button" class="chip" data-status="done">✅ ทำแล้ว</button>
     </div>
 
     <div class="field-label">คะแนน (ไม่บังคับ, เต็ม 10)</div>
@@ -2830,10 +2829,14 @@
   let labActiveTrialId = null;
   let labNewCategory = 'coffee';
   let labNewStatus = 'idea';
-  const LAB_STATUS_LABEL = { idea: '💡 ไอเดีย', testing: '🧪 กำลังทดลอง', ready: '✅ พร้อมขึ้นเมนู', archived: '📦 พัก' };
+  const LAB_STATUS_LABEL = { idea: '💡 ไอเดีย', in_progress: '🧪 กำลังทำ', done: '✅ ทำแล้ว' };
+  const LAB_VERDICT_LABEL = { go: '👍 อร่อยได้ไปต่อ', not_yet: '🤔 อาจจะยังนะ' };
   const LAB_CATEGORY_LABEL = { coffee: '☕ Coffee', non_coffee: '🧋 Non-coffee', special: '✨ Special' };
   const LAB_SOURCE_CLASS = { seven_eleven: 'src-seven_eleven', crafting: 'src-crafting', finish_drink: 'src-finish_drink' };
   const LAB_SOURCE_ICON = { seven_eleven: '🏪 ', crafting: '🧪 ', finish_drink: '✅ ' };
+  const LAB_SOURCE_CYCLE = [null, 'seven_eleven', 'crafting', 'finish_drink'];
+  let labEditChips = [];
+  let labEditCategory = 'coffee';
 
   function labAddDays(n) {
     const d = new Date();
@@ -2967,25 +2970,60 @@
     }).join('');
   }
 
+  function renderLabEditChipsList() {
+    const el = document.getElementById('labEditChipsList');
+    if (!el) return;
+    el.innerHTML = labEditChips.map((c, i) => `
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+        <input type="text" class="lab-edit-chip-label" data-chip-idx="${i}" value="${escapeHtml(c.label)}" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;">
+        <button type="button" class="lab-ing-chip ${c.source ? LAB_SOURCE_CLASS[c.source] : ''}" style="padding:6px 8px;font-size:14px;" data-lab-cycle-source data-chip-idx="${i}">${c.source ? LAB_SOURCE_ICON[c.source].trim() : '⚪'}</button>
+        <button type="button" class="btn-delete" style="padding:4px 8px;" data-lab-remove-chip data-chip-idx="${i}">✕</button>
+      </div>
+    `).join('') + '<div class="field-hint" style="margin-top:0;">แตะไอคอนวงกลมเพื่อวนเปลี่ยนแหล่งที่มา: ⚪ ไม่ระบุ → 🏪 7-11 → 🧪 Crafting → ✅ Finish Drink</div>';
+  }
+
   function openLabDetail(trialId) {
     const trial = labTrialsCache.find(t => t.id === trialId);
     const panel = document.getElementById('labDetailPanel');
     if (!trial) { panel.style.display = 'none'; return; }
-    const chips = Array.isArray(trial.chips) ? trial.chips : [];
+    labEditChips = (Array.isArray(trial.chips) ? trial.chips : []).map(c => ({ label: c.label, source: c.source || null }));
+    labEditCategory = trial.category || 'coffee';
     const todayISO = toISODate(new Date());
     const maxDateISO = labAddDays(6);
     let defaultDate = trial.planned_date && trial.planned_date >= todayISO ? trial.planned_date : todayISO;
 
     panel.innerHTML = `
       <button type="button" class="lab-detail-close" data-lab-close>✕</button>
-      <div class="lab-detail-title">${trial.category === 'coffee' ? '☕ ' : ''}${escapeHtml(trial.name)}</div>
-      <div class="lab-detail-meta">${LAB_STATUS_LABEL[trial.status] || trial.status} · ${LAB_CATEGORY_LABEL[trial.category] || trial.category}${trial.score != null ? ' · ⭐ ' + trial.score : ''} · บันทึก ${fmtDate(new Date(trial.trial_date + 'T00:00:00'))}</div>
-      <div class="lab-detail-chips">${chips.map(c => `<span class="lab-ing-chip ${c.source ? (LAB_SOURCE_CLASS[c.source] || '') : ''}">${c.source ? (LAB_SOURCE_ICON[c.source] || '') : ''}${escapeHtml(c.label)}</span>`).join('')}</div>
-      <div class="lab-detail-notes">${trial.notes ? escapeHtml(trial.notes) : 'ยังไม่มีโน้ตเพิ่มเติม'}</div>
 
-      <div class="field-label" style="margin-top:0;">สถานะ</div>
+      <div class="field-label" style="margin-top:0;">ชื่อเมนู</div>
+      <input type="text" id="labEditName" value="${escapeHtml(trial.name)}">
+
+      <div class="field-label">ประเภทเครื่องดื่ม</div>
+      <div class="chip-row" id="labEditCategoryRow" style="margin-bottom:4px;">
+        ${Object.entries(LAB_CATEGORY_LABEL).map(([val, label]) => `<button type="button" class="chip${trial.category === val ? ' selected' : ''}" data-lab-edit-cat="${val}">${label}</button>`).join('')}
+      </div>
+
+      <div class="field-label">คะแนน (เต็ม 10, ไม่บังคับ)</div>
+      <input type="number" id="labEditScore" min="0" max="10" step="0.5" value="${trial.score != null ? trial.score : ''}" placeholder="ยังไม่ให้คะแนน">
+
+      <div class="field-label">วัตถุดิบ / ส่วนประกอบ</div>
+      <div id="labEditChipsList"></div>
+      <button type="button" class="btn-bean-cancel" style="width:100%;margin-top:2px;" data-lab-add-chip>＋ เพิ่มวัตถุดิบ</button>
+
+      <div class="field-label">โน้ตสูตร</div>
+      <textarea id="labEditNotes" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:13.5px;font-family:inherit;min-height:100px;resize:vertical;">${trial.notes ? escapeHtml(trial.notes) : ''}</textarea>
+
+      <button type="button" class="submit-btn" style="margin-top:12px;" data-lab-save-edit="${trial.id}">💾 บันทึกการแก้ไข</button>
+      <div class="status-msg" id="labEditStatus"></div>
+
+      <div class="field-label">ขั้นตอน</div>
       <div class="chip-row" style="margin-bottom:12px;">
         ${Object.entries(LAB_STATUS_LABEL).map(([val, label]) => `<button type="button" class="chip${trial.status === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-status-btn="${trial.id}" data-status-val="${val}">${label}</button>`).join('')}
+      </div>
+
+      <div class="field-label">ผลตัดสิน</div>
+      <div class="chip-row" style="margin-bottom:12px;">
+        ${Object.entries(LAB_VERDICT_LABEL).map(([val, label]) => `<button type="button" class="chip${trial.verdict === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-verdict-btn="${trial.id}" data-verdict-val="${val}">${label}</button>`).join('')}
       </div>
 
       <div class="field-label" style="margin-top:0;">เลือกวันไปชงจริง (ล่วงหน้าได้ 7 วัน)</div>
@@ -2996,8 +3034,16 @@
       </div>
       <button type="button" class="btn-delete" style="margin-top:12px;width:100%;text-align:center;padding:8px;" data-lab-delete="${trial.id}">ลบไอเดียนี้</button>
     `;
+    renderLabEditChipsList();
     panel.style.display = 'block';
   }
+
+  document.getElementById('labDetailPanel').addEventListener('input', (e) => {
+    if (e.target.classList.contains('lab-edit-chip-label')) {
+      const idx = parseInt(e.target.dataset.chipIdx, 10);
+      if (labEditChips[idx]) labEditChips[idx].label = e.target.value;
+    }
+  });
 
   document.getElementById('labDetailPanel').addEventListener('click', async (e) => {
     const closeBtn = e.target.closest('[data-lab-close]');
@@ -3007,8 +3053,62 @@
       renderLabChipGrid();
       return;
     }
+    const editCatBtn = e.target.closest('[data-lab-edit-cat]');
+    if (editCatBtn) {
+      document.querySelectorAll('#labEditCategoryRow .chip').forEach(b => b.classList.remove('selected'));
+      editCatBtn.classList.add('selected');
+      labEditCategory = editCatBtn.dataset.labEditCat;
+      return;
+    }
+    const cycleBtn = e.target.closest('[data-lab-cycle-source]');
+    if (cycleBtn) {
+      const idx = parseInt(cycleBtn.dataset.chipIdx, 10);
+      const curPos = LAB_SOURCE_CYCLE.indexOf(labEditChips[idx].source);
+      labEditChips[idx].source = LAB_SOURCE_CYCLE[(curPos + 1) % LAB_SOURCE_CYCLE.length];
+      renderLabEditChipsList();
+      return;
+    }
+    const removeChipBtn = e.target.closest('[data-lab-remove-chip]');
+    if (removeChipBtn) {
+      const idx = parseInt(removeChipBtn.dataset.chipIdx, 10);
+      labEditChips.splice(idx, 1);
+      renderLabEditChipsList();
+      return;
+    }
+    const addChipBtn = e.target.closest('[data-lab-add-chip]');
+    if (addChipBtn) {
+      labEditChips.push({ label: '', source: null });
+      renderLabEditChipsList();
+      const inputs = document.querySelectorAll('.lab-edit-chip-label');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+      return;
+    }
+    const saveBtn = e.target.closest('[data-lab-save-edit]');
+    if (saveBtn) {
+      const statusEl = document.getElementById('labEditStatus');
+      const name = document.getElementById('labEditName').value.trim();
+      if (!name) { statusEl.textContent = 'ชื่อเมนูห้ามว่าง'; statusEl.className = 'status-msg error'; return; }
+      const scoreVal = document.getElementById('labEditScore').value;
+      const cleanChips = labEditChips.filter(c => c.label && c.label.trim()).map(c => ({ label: c.label.trim(), source: c.source || null }));
+      saveBtn.disabled = true; saveBtn.textContent = 'กำลังบันทึก...';
+      const { error } = await sb.from('lab_trials').update({
+        name,
+        category: labEditCategory,
+        score: scoreVal ? parseFloat(scoreVal) : null,
+        notes: document.getElementById('labEditNotes').value.trim() || null,
+        chips: cleanChips.length ? cleanChips : [{ label: name, source: null }],
+        updated_at: new Date().toISOString(),
+      }).eq('id', saveBtn.dataset.labSaveEdit);
+      saveBtn.disabled = false; saveBtn.textContent = '💾 บันทึกการแก้ไข';
+      if (error) { statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + error.message; statusEl.className = 'status-msg error'; return; }
+      statusEl.textContent = 'บันทึกแล้ว ✓'; statusEl.className = 'status-msg success';
+      await loadLabTrials();
+      return;
+    }
     const statusBtn = e.target.closest('[data-lab-status-btn]');
     if (statusBtn) { await setLabStatus(statusBtn.dataset.labStatusBtn, statusBtn.dataset.statusVal); return; }
+    const verdictBtn = e.target.closest('[data-lab-verdict-btn]');
+    if (verdictBtn) { await setLabVerdict(verdictBtn.dataset.labVerdictBtn, verdictBtn.dataset.verdictVal); return; }
     const scheduleBtn = e.target.closest('[data-lab-schedule]');
     if (scheduleBtn) {
       const dateVal = document.getElementById('labDetailDate').value;
@@ -3033,6 +3133,13 @@
     await loadLabTrials();
   }
 
+  async function setLabVerdict(id, verdict) {
+    const trial = labTrialsCache.find(t => t.id === id);
+    const newVerdict = trial && trial.verdict === verdict ? null : verdict; // tap again to clear
+    await sb.from('lab_trials').update({ verdict: newVerdict, updated_at: new Date().toISOString() }).eq('id', id);
+    await loadLabTrials();
+  }
+
   async function deleteLabTrial(id) {
     if (!confirm('ลบไอเดียนี้เลยไหม?')) return;
     labActiveTrialId = null;
@@ -3051,7 +3158,7 @@
     });
     if (error) { alert('เพิ่มคิวไม่สำเร็จ: ' + error.message); return; }
     const updates = { updated_at: new Date().toISOString(), planned_date: wantedDate };
-    if (trial.status === 'idea') updates.status = 'testing';
+    if (trial.status === 'idea') updates.status = 'in_progress';
     await sb.from('lab_trials').update(updates).eq('id', trial.id);
     alert(`เพิ่มเข้าคิว ${dateLabel} แล้ว 🧪`);
     await loadLabTrials();
