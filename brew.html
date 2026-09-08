@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Brew Tracker">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: #FFF8F0; color: #4A3428; padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, #FFF3E8, #FFE4CC); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: #A8876F; letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: #4A3428; } .header .date { font-size: 13px; color: #E8863A; font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: #4A3428; color: #FFF8F0; border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid #E0D2C2; } .card.today { border-left-color: #E8863A; } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: #A8876F; cursor: pointer; border-bottom: 1px dotted #A8876F; padding-bottom: 1px; } .card-item-name { cursor: pointer; border-bottom: 1px dotted #6B5445; padding-bottom: 1px; } .card-menu { font-size: 13px; color: #6B5445; margin-bottom: 10px; } .card-menu .price { color: #E8863A; font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #F0E4D8; color: #4A3428; font-size: 13px; font-weight: 600; } .btn-done.checked { background: #4A9B5C; color: #fff; } .pkg-row { display: flex; gap: 4px; margin-bottom: 8px; } .pkg-btn { flex: 1; padding: 6px 1px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; font-size: 9.5px; color: #4A3428; font-family: inherit; white-space: nowrap; } .pkg-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; margin-bottom: 6px; background: #fff; color: #4A3428; } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #E8863A; color: #fff; font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: #D8C4B0; } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #A8876F; font-size: 12px; } .bean-empty-note { font-size: 11px; color: #D64545; } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: #D64545; font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: #6B5445; border-bottom: 1px solid #F5EEE5; } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: #D64545; font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: #A8876F; font-size: 14px; } .field-label { font-size: 12px; color: #8a6a4a; margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: #A8876F; margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: #E8863A; border-color: #E8863A; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; } .chip.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 15px; font-family: inherit; } input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #E8863A; } .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .menu-card { position: relative; border: 2px solid #F0E4D8; border-radius: 10px; padding: 4px 4px 6px; text-align: center; cursor: pointer; transition: all 0.15s; overflow: hidden; background: #fff; } .menu-card.selected { border-color: #E8863A; background: #FFF3E8; } .menu-card.allergy-severe { border-color: #D64545; background: #FFF0F0; } .menu-card.allergy-severe.selected { border-color: #D64545; background: #FFE0E0; } .menu-card.allergy-mild { border-color: #E8863A; background: #FFF6EC; } .menu-card.allergy-tolerate { border-color: #4A86D6; background: #F0F6FF; } .allergy-warn-badge { position: absolute; top: 2px; right: 2px; font-size: 13px; line-height: 1; z-index: 2; filter: drop-shadow(0 0 1px #fff); } .menu-card .icon { margin: -4px -4px 4px; font-size: 24px; line-height: 1.4; } .cup-icon { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px 8px 0 0; display: block; } .menu-card .name { font-size: 9.5px; font-weight: 600; line-height: 1.25; margin-bottom: 2px; min-height: 23px; } .menu-card .price { font-size: 9.5px; color: #E8863A; font-weight: 700; } .date-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .date-btn { padding: 10px 4px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 12px; text-align: center; line-height: 1.3; } .date-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: #E8863A; color: #fff; font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: #D8C4B0; } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: #4A9B5C; } .status-msg.error { color: #D64545; } .link-hint { font-size: 11px; color: #A8876F; margin-top: 6px; } .link-hint.linked { color: #4A9B5C; font-weight: 600; } .bill-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: #E8863A; } .bill-detail { font-size: 12px; color: #A8876F; margin-bottom: 12px; } .btn-paid { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px solid #4A3428; background: #fff; color: #4A3428; font-size: 12.5px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #E8863A; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: #D8C4B0; } .request-note { font-size: 11.5px; color: #A8876F; text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: #4A9B5C; font-weight: 600; } .bill-err { color: #D64545; font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: #E8863A; font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed #F0E4D8; border-radius: 10px; font-size: 12.5px; color: #8a6a4a; cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: #FFF3E8; } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid #F0E4D8; cursor: pointer; display: block; margin-bottom: 4px; background: #FFF8F0; } .slip-label { font-size: 11px; color: #4A9B5C; font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #F0E4D8; padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: #A8876F; font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: #E8863A; font-weight: 700; } .loading { text-align: center; color: #A8876F; font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFF3E8; border: 2px solid #F0E4D8; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: #4A3428; } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: #E8863A; margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: #A8876F; margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,#4A3428,#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; } .staff-reminder { background: #FFF3E8; border: 2px solid #E8863A; color: #A85A1E; font-size: 12.5px; font-weight: 600; text-align: center; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; } .cal-widget { margin-bottom: 4px; } .cal-week-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; } .cal-week-label { font-size: 11px; color: #A8876F; font-weight: 600; } .cal-today-link { font-size: 11px; color: #E8863A; font-weight: 700; cursor: pointer; border-bottom: 1px dotted #E8863A; padding-bottom: 1px; } .cal-row { display: flex; align-items: center; gap: 2px; } .cal-arrow { flex-shrink: 0; width: 20px; height: 36px; border: none; background: none; color: #A8876F; font-size: 18px; font-family: inherit; } .cal-arrow:active { color: #E8863A; } .cal-days { display: flex; flex: 1; gap: 5px; touch-action: pan-y; } .cal-day { flex: 1 1 0; aspect-ratio: 1 / 1; max-width: 42px; border-radius: 50%; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-family: inherit; font-weight: 700; font-size: 13px; color: #4A3428; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } .cal-day:active { transform: scale(0.92); } .cal-day.is-today { outline: 2px dashed #4A3428; outline-offset: 2px; } .cal-day.selected { border-color: #4A3428; box-shadow: 0 2px 4px rgba(0,0,0,0.18); } .menu-group-card { background: #fff; border-radius: 14px; padding: 12px 14px 4px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .menu-group-header { display: flex; justify-content: space-between; align-items: center; font-size: 14.5px; font-weight: 700; color: #4A3428; padding-bottom: 8px; border-bottom: 2px solid #F0E4D8; margin-bottom: 8px; } .menu-group-count { color: #E8863A; font-weight: 700; font-size: 13px; white-space: nowrap; } .menu-group-milk-breakdown { background: #FFF3E8; color: #A85A1E; font-size: 11.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; margin: -2px 0 10px; } .card.compact { box-shadow: none; border-radius: 10px; background: #FFFBF6; margin-bottom: 8px; padding: 10px 12px; border-left-width: 3px; } .coffee-toggle-btn { width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #8a6a4a; font-size: 11.5px; font-weight: 700; font-family: inherit; } .coffee-toggle-btn.no-coffee-active { border-color: #D64545; color: #D64545; background: #FFF3F3; } .coffee-toggle-btn:disabled { opacity: .5; } .lab-filter-label { font-size: 11px; font-weight: 700; color: #A8876F; margin: 14px 0 6px; } .lab-filter-label:first-of-type { margin-top: 4px; } .lab-chip-711 { border-color: #B8DFC4; background: #EAF7EE; color: #2E7D46; } .lab-chip-711.selected { border-color: #2E7D46; background: #2E7D46; color: #fff; } .lab-chip-craft { border-color: #D3C0EC; background: #F4EEFC; color: #6B4E8A; } .lab-chip-craft.selected { border-color: #6B4E8A; background: #6B4E8A; color: #fff; } .lab-chip-finish { border-color: #EBD48C; background: #FFF8E6; color: #A87C1E; } .lab-chip-finish.selected { border-color: #A87C1E; background: #A87C1E; color: #fff; } .lab-chip-material { border-color: #E0C0A0; background: #FBF0E4; color: #A0653A; } .lab-chip-material.selected { border-color: #A0653A; background: #A0653A; color: #fff; } .lab-chip-verdict-go { border-color: #F0C090; background: #FFF4E4; color: #B87333; } .lab-chip-verdict-go.selected { border-color: #B87333; background: #B87333; color: #fff; } .lab-chip-verdict-launched { border-color: #A8D9BC; background: #EAFAF0; color: #2E7D46; } .lab-chip-verdict-launched.selected { border-color: #2E7D46; background: #2E7D46; color: #fff; } .lab-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; } .lab-ing-chip { padding: 9px 14px; border-radius: 999px; border: 2px solid #E0D2C2; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; line-height: 1.3; } .lab-ing-chip.src-seven_eleven { border-color: #B8DFC4; background: #EAF7EE; color: #2E7D46; } .lab-ing-chip.src-crafting { border-color: #D3C0EC; background: #F4EEFC; color: #6B4E8A; } .lab-ing-chip.src-finish_drink { border-color: #EBD48C; background: #FFF8E6; color: #A87C1E; } .lab-ing-chip.active { outline: 2px solid #4A3428; outline-offset: 1px; } .lab-create-divider { border-top: 2px dashed #E0D2C2; margin: 28px 0 16px; } .lab-create-btn { width: 100%; padding: 16px; border: none; border-radius: 14px; background: #4A3428; color: #FFE4CC; font-size: 15px; font-weight: 700; font-family: inherit; } .lab-detail-panel { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 2px solid #F0E4D8; margin-top: 12px; } .lab-detail-title { font-size: 17px; font-weight: 700; color: #4A3428; margin-bottom: 4px; } .lab-detail-meta { font-size: 11.5px; color: #A8876F; margin-bottom: 10px; } .lab-detail-notes { font-size: 13px; color: #6B5445; white-space: pre-wrap; line-height: 1.6; background: #FFFBF6; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; } .lab-detail-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; } .lab-detail-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 16px; color: #A8876F; } .lab-detail-panel { position: relative; }</style>
+<style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: #FFF8F0; color: #4A3428; padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, #FFF3E8, #FFE4CC); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: #A8876F; letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: #4A3428; } .header .date { font-size: 13px; color: #E8863A; font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: #4A3428; color: #FFF8F0; border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid #E0D2C2; } .card.today { border-left-color: #E8863A; } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: #A8876F; cursor: pointer; border-bottom: 1px dotted #A8876F; padding-bottom: 1px; } .card-item-name { cursor: pointer; border-bottom: 1px dotted #6B5445; padding-bottom: 1px; } .card-menu { font-size: 13px; color: #6B5445; margin-bottom: 10px; } .card-menu .price { color: #E8863A; font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #F0E4D8; color: #4A3428; font-size: 13px; font-weight: 600; } .btn-done.checked { background: #4A9B5C; color: #fff; } .pkg-row { display: flex; gap: 4px; margin-bottom: 8px; } .pkg-btn { flex: 1; padding: 6px 1px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; font-size: 9.5px; color: #4A3428; font-family: inherit; white-space: nowrap; } .pkg-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; margin-bottom: 6px; background: #fff; color: #4A3428; } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #E8863A; color: #fff; font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: #D8C4B0; } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #A8876F; font-size: 12px; } .bean-empty-note { font-size: 11px; color: #D64545; } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: #D64545; font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: #6B5445; border-bottom: 1px solid #F5EEE5; } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: #D64545; font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: #A8876F; font-size: 14px; } .field-label { font-size: 12px; color: #8a6a4a; margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: #A8876F; margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: #E8863A; border-color: #E8863A; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; } .chip.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 15px; font-family: inherit; } input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #E8863A; } .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .menu-card { position: relative; border: 2px solid #F0E4D8; border-radius: 10px; padding: 4px 4px 6px; text-align: center; cursor: pointer; transition: all 0.15s; overflow: hidden; background: #fff; } .menu-card.selected { border-color: #E8863A; background: #FFF3E8; } .menu-card.allergy-severe { border-color: #D64545; background: #FFF0F0; } .menu-card.allergy-severe.selected { border-color: #D64545; background: #FFE0E0; } .menu-card.allergy-mild { border-color: #E8863A; background: #FFF6EC; } .menu-card.allergy-tolerate { border-color: #4A86D6; background: #F0F6FF; } .allergy-warn-badge { position: absolute; top: 2px; right: 2px; font-size: 13px; line-height: 1; z-index: 2; filter: drop-shadow(0 0 1px #fff); } .menu-card .icon { margin: -4px -4px 4px; font-size: 24px; line-height: 1.4; } .cup-icon { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px 8px 0 0; display: block; } .menu-card .name { font-size: 9.5px; font-weight: 600; line-height: 1.25; margin-bottom: 2px; min-height: 23px; } .menu-card .price { font-size: 9.5px; color: #E8863A; font-weight: 700; } .date-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .date-btn { padding: 10px 4px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 12px; text-align: center; line-height: 1.3; } .date-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: #E8863A; color: #fff; font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: #D8C4B0; } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: #4A9B5C; } .status-msg.error { color: #D64545; } .link-hint { font-size: 11px; color: #A8876F; margin-top: 6px; } .link-hint.linked { color: #4A9B5C; font-weight: 600; } .bill-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: #E8863A; } .bill-detail { font-size: 12px; color: #A8876F; margin-bottom: 12px; } .btn-paid { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px solid #4A3428; background: #fff; color: #4A3428; font-size: 12.5px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #E8863A; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: #D8C4B0; } .request-note { font-size: 11.5px; color: #A8876F; text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: #4A9B5C; font-weight: 600; } .bill-err { color: #D64545; font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: #E8863A; font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed #F0E4D8; border-radius: 10px; font-size: 12.5px; color: #8a6a4a; cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: #FFF3E8; } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid #F0E4D8; cursor: pointer; display: block; margin-bottom: 4px; background: #FFF8F0; } .slip-label { font-size: 11px; color: #4A9B5C; font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #F0E4D8; padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: #A8876F; font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: #E8863A; font-weight: 700; } .loading { text-align: center; color: #A8876F; font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFF3E8; border: 2px solid #F0E4D8; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: #4A3428; } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: #E8863A; margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: #A8876F; margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,#4A3428,#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; } .staff-reminder { background: #FFF3E8; border: 2px solid #E8863A; color: #A85A1E; font-size: 12.5px; font-weight: 600; text-align: center; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; } .cal-widget { margin-bottom: 4px; } .cal-week-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; } .cal-week-label { font-size: 11px; color: #A8876F; font-weight: 600; } .cal-today-link { font-size: 11px; color: #E8863A; font-weight: 700; cursor: pointer; border-bottom: 1px dotted #E8863A; padding-bottom: 1px; } .cal-row { display: flex; align-items: center; gap: 2px; } .cal-arrow { flex-shrink: 0; width: 20px; height: 36px; border: none; background: none; color: #A8876F; font-size: 18px; font-family: inherit; } .cal-arrow:active { color: #E8863A; } .cal-days { display: flex; flex: 1; gap: 5px; touch-action: pan-y; } .cal-day { flex: 1 1 0; aspect-ratio: 1 / 1; max-width: 42px; border-radius: 50%; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-family: inherit; font-weight: 700; font-size: 13px; color: #4A3428; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } .cal-day:active { transform: scale(0.92); } .cal-day.is-today { outline: 2px dashed #4A3428; outline-offset: 2px; } .cal-day.selected { border-color: #4A3428; box-shadow: 0 2px 4px rgba(0,0,0,0.18); } .menu-group-card { background: #fff; border-radius: 14px; padding: 12px 14px 4px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .menu-group-header { display: flex; justify-content: space-between; align-items: center; font-size: 14.5px; font-weight: 700; color: #4A3428; padding-bottom: 8px; border-bottom: 2px solid #F0E4D8; margin-bottom: 8px; } .menu-group-count { color: #E8863A; font-weight: 700; font-size: 13px; white-space: nowrap; } .menu-group-milk-breakdown { background: #FFF3E8; color: #A85A1E; font-size: 11.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; margin: -2px 0 10px; } .card.compact { box-shadow: none; border-radius: 10px; background: #FFFBF6; margin-bottom: 8px; padding: 10px 12px; border-left-width: 3px; } .coffee-toggle-btn { width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #8a6a4a; font-size: 11.5px; font-weight: 700; font-family: inherit; } .coffee-toggle-btn.no-coffee-active { border-color: #D64545; color: #D64545; background: #FFF3F3; } .coffee-toggle-btn:disabled { opacity: .5; } .lab-filter-label { font-size: 11px; font-weight: 700; color: #A8876F; margin: 14px 0 6px; } .lab-filter-label:first-of-type { margin-top: 4px; } .lab-chip-711.selected { border-color: #2E7D46; background: #2E7D46; color: #fff; } .lab-chip-craft.selected { border-color: #6B4E8A; background: #6B4E8A; color: #fff; } .lab-chip-finish.selected { border-color: #A87C1E; background: #A87C1E; color: #fff; } .lab-chip-material.selected { border-color: #A0653A; background: #A0653A; color: #fff; } .lab-chip-verdict-go.selected { border-color: #B87333; background: #B87333; color: #fff; } .lab-chip-verdict-launched.selected { border-color: #2E7D46; background: #2E7D46; color: #fff; } .lab-filter-toggle-btn { padding: 8px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; color: #4A3428; font-size: 12.5px; font-weight: 700; font-family: inherit; } .lab-filter-toggle-btn.open { border-color: #E8863A; background: #FFF3E8; color: #E8863A; } .lab-clear-filters-link { font-size: 11.5px; color: #D64545; text-decoration: underline dotted; cursor: pointer; } .lab-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; } .lab-ing-chip { padding: 9px 14px; border-radius: 999px; border: 2px solid #E0D2C2; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; line-height: 1.3; display: inline-flex; align-items: center; gap: 5px; } .lab-ing-chip .lab-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; } .lab-ing-chip .lab-chip-score { font-size: 11px; color: #E8863A; font-weight: 700; } .lab-ing-chip.src-seven_eleven { border-color: #B8DFC4; background: #EAF7EE; color: #2E7D46; } .lab-ing-chip.src-crafting { border-color: #D3C0EC; background: #F4EEFC; color: #6B4E8A; } .lab-ing-chip.src-finish_drink { border-color: #EBD48C; background: #FFF8E6; color: #A87C1E; } .lab-ing-chip.active { outline: 2px solid #4A3428; outline-offset: 1px; } .lab-create-divider { border-top: 2px dashed #E0D2C2; margin: 28px 0 16px; } .lab-create-btn { width: 100%; padding: 16px; border: none; border-radius: 14px; background: #4A3428; color: #FFE4CC; font-size: 15px; font-weight: 700; font-family: inherit; } .lab-detail-panel { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 2px solid #F0E4D8; margin-top: 12px; } .lab-detail-title { font-size: 17px; font-weight: 700; color: #4A3428; margin-bottom: 4px; } .lab-detail-meta { font-size: 11.5px; color: #A8876F; margin-bottom: 10px; } .lab-detail-notes { font-size: 13px; color: #6B5445; white-space: pre-wrap; line-height: 1.6; background: #FFFBF6; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; } .lab-detail-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; } .lab-detail-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 16px; color: #A8876F; } .lab-detail-panel { position: relative; } .lab-field-autosaved { font-size: 10.5px; color: #4A9B5C; font-weight: 600; margin-top: -4px; margin-bottom: 6px; opacity: 0; transition: opacity 0.3s; } .lab-field-autosaved.show { opacity: 1; }</style>
 </head>
 <body>
 <div id="pinGateOverlay" style="position:fixed;inset:0;background:#FFF8F0;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px;font-family:-apple-system,'Segoe UI','Mitr',sans-serif;">
@@ -268,39 +268,44 @@
 
 <div class="screen" id="screen-lab">
   <div class="field-label" style="margin-top:0;">🧪 แมวส้มแล็บ</div>
-  <div class="field-hint">แตะชิปเพื่อดูรายละเอียด แล้วตั้งวันไปชงจริงได้เลย (เลือกฟิลเตอร์ได้หลายอันพร้อมกัน)</div>
+  <div class="field-hint">แตะการ์ดเพื่อดูรายละเอียด แล้วตั้งวันไปชงจริงได้เลย</div>
 
-  <button type="button" class="btn-bean-cancel" id="labClearFiltersBtn" style="width:100%;margin-bottom:4px;">🧹 ล้างตัวกรองทั้งหมด</button>
-
-  <div class="lab-filter-label">วัตถุดิบหลัก</div>
-  <div class="chip-row" id="labSourceFilterRow">
-    <button type="button" class="chip lab-chip-711" data-source="seven_eleven">🏪 7-11</button>
-    <button type="button" class="chip lab-chip-craft" data-source="crafting">🧪 Crafting</button>
-    <button type="button" class="chip lab-chip-finish" data-source="finish_drink">✅ Finish Drink</button>
-    <button type="button" class="chip lab-chip-material" data-source="raw_material">🌾 วัตถุดิบ</button>
-    <button type="button" class="chip" data-source="unset">❔ ไม่ระบุ</button>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+    <button type="button" class="lab-filter-toggle-btn" id="labFilterToggleBtn">🔍 ตัวกรอง</button>
+    <span class="lab-clear-filters-link" id="labClearFiltersBtn" style="display:none;">ล้างทั้งหมด</span>
   </div>
 
-  <div class="lab-filter-label">ประเภทเครื่องดื่ม</div>
-  <div class="chip-row" id="labCategoryFilterRow">
-    <button type="button" class="chip" data-cat="coffee">☕ Coffee</button>
-    <button type="button" class="chip" data-cat="non_coffee">🧋 Non-coffee</button>
-    <button type="button" class="chip" data-cat="special">✨ Special</button>
-  </div>
+  <div id="labFilterPanel" style="display:none;margin-top:10px;">
+    <div class="lab-filter-label" style="margin-top:0;">วัตถุดิบหลัก</div>
+    <div class="chip-row" id="labSourceFilterRow">
+      <button type="button" class="chip lab-chip-711" data-source="seven_eleven">🏪 7-11</button>
+      <button type="button" class="chip lab-chip-craft" data-source="crafting">🧪 Crafting</button>
+      <button type="button" class="chip lab-chip-finish" data-source="finish_drink">✅ Finish Drink</button>
+      <button type="button" class="chip lab-chip-material" data-source="raw_material">🌾 วัตถุดิบ</button>
+      <button type="button" class="chip" data-source="unset">❔ ไม่ระบุ</button>
+    </div>
 
-  <div class="lab-filter-label">ขั้นตอน</div>
-  <div class="chip-row" id="labStatusFilterRow">
-    <button type="button" class="chip selected" data-status="idea">💡 ไอเดีย</button>
-    <button type="button" class="chip selected" data-status="in_progress">🧪 กำลังทำ</button>
-    <button type="button" class="chip" data-status="done">✅ ทำแล้ว</button>
-  </div>
+    <div class="lab-filter-label">ประเภทเครื่องดื่ม</div>
+    <div class="chip-row" id="labCategoryFilterRow">
+      <button type="button" class="chip" data-cat="coffee">☕ Coffee</button>
+      <button type="button" class="chip" data-cat="non_coffee">🧋 Non-coffee</button>
+      <button type="button" class="chip" data-cat="special">✨ Special</button>
+    </div>
 
-  <div class="lab-filter-label">ผลตัดสิน</div>
-  <div class="chip-row" id="labVerdictFilterRow">
-    <button type="button" class="chip" data-verdict="not_yet">🤔 อาจจะยังนะ</button>
-    <button type="button" class="chip lab-chip-verdict-go" data-verdict="go">👍 อร่อย รอขึ้นเมนู</button>
-    <button type="button" class="chip lab-chip-verdict-launched" data-verdict="launched">🎉 ขึ้นเป็นเมนูแล้ว</button>
-    <button type="button" class="chip" data-verdict="unset">❔ ยังไม่ตัดสิน</button>
+    <div class="lab-filter-label">ขั้นตอน</div>
+    <div class="chip-row" id="labStatusFilterRow">
+      <button type="button" class="chip selected" data-status="idea">💡 ไอเดีย</button>
+      <button type="button" class="chip selected" data-status="in_progress">🧪 กำลังทำ</button>
+      <button type="button" class="chip" data-status="done">✅ ทำแล้ว</button>
+    </div>
+
+    <div class="lab-filter-label">ผลตัดสิน</div>
+    <div class="chip-row" id="labVerdictFilterRow">
+      <button type="button" class="chip" data-verdict="not_yet">🤔 อาจจะยังนะ</button>
+      <button type="button" class="chip lab-chip-verdict-go" data-verdict="go">👍 อร่อย รอขึ้นเมนู</button>
+      <button type="button" class="chip lab-chip-verdict-launched" data-verdict="launched">🎉 ขึ้นเป็นเมนูแล้ว</button>
+      <button type="button" class="chip" data-verdict="unset">❔ ยังไม่ตัดสิน</button>
+    </div>
   </div>
 
   <div id="labDetailPanel" class="lab-detail-panel" style="display:none;"></div>
@@ -2863,6 +2868,23 @@
     return toISODate(d);
   }
 
+  // --- Filter toggle (collapsed by default) ---
+  document.getElementById('labFilterToggleBtn').addEventListener('click', () => {
+    const panel = document.getElementById('labFilterPanel');
+    const btn = document.getElementById('labFilterToggleBtn');
+    const showing = panel.style.display !== 'none';
+    panel.style.display = showing ? 'none' : 'block';
+    btn.classList.toggle('open', !showing);
+  });
+
+  function updateLabFilterUI() {
+    const total = labSourceFilter.size + labCategoryFilter.size + labStatusFilter.size + labVerdictFilter.size;
+    const btn = document.getElementById('labFilterToggleBtn');
+    btn.textContent = total > 0 ? `🔍 ตัวกรอง (${total})` : '🔍 ตัวกรอง';
+    document.getElementById('labClearFiltersBtn').style.display = total > 0 ? 'inline' : 'none';
+  }
+  updateLabFilterUI();
+
   // --- Filter rows (multi-select toggle) ---
   function labWireFilterRow(rowId, dataAttr, setRef) {
     document.querySelectorAll(`#${rowId} .chip`).forEach(btn => {
@@ -2870,6 +2892,7 @@
         const val = btn.dataset[dataAttr];
         if (setRef.has(val)) { setRef.delete(val); btn.classList.remove('selected'); }
         else { setRef.add(val); btn.classList.add('selected'); }
+        updateLabFilterUI();
         renderLabChipGrid();
       });
     });
@@ -2883,6 +2906,7 @@
     labSourceFilter.clear(); labCategoryFilter.clear(); labStatusFilter.clear(); labVerdictFilter.clear();
     document.querySelectorAll('#labSourceFilterRow .chip, #labCategoryFilterRow .chip, #labStatusFilterRow .chip, #labVerdictFilterRow .chip')
       .forEach(b => b.classList.remove('selected'));
+    updateLabFilterUI();
     renderLabChipGrid();
   });
 
@@ -2979,10 +3003,13 @@
 
     if (trials.length === 0) { gridEl.innerHTML = '<div class="empty-state">ไม่มีรายการในตัวกรองนี้</div>'; return; }
 
+    const LAB_STATUS_DOT = { idea: '#D8C4B0', in_progress: '#E8863A', done: '#4A9B5C' };
     gridEl.innerHTML = trials.map(trial => {
       const isActive = labActiveTrialId === trial.id;
       const coffeeIcon = trial.category === 'coffee' ? '☕ ' : '';
-      return `<button type="button" class="lab-ing-chip${isActive ? ' active' : ''}" data-lab-chip-trial="${trial.id}">${coffeeIcon}${escapeHtml(trial.name)}</button>`;
+      const dotColor = LAB_STATUS_DOT[trial.status] || '#D8C4B0';
+      const scoreBadge = trial.score != null ? `<span class="lab-chip-score">⭐${trial.score}</span>` : '';
+      return `<button type="button" class="lab-ing-chip${isActive ? ' active' : ''}" data-lab-chip-trial="${trial.id}"><span class="lab-status-dot" style="background:${dotColor};"></span>${coffeeIcon}${escapeHtml(trial.name)}${scoreBadge}</button>`;
     }).join('');
   }
 
@@ -2990,19 +3017,31 @@
     const el = document.getElementById('labEditChipsList');
     if (!el) return;
     el.innerHTML = labEditChips.map((c, i) => `
-      <div style="margin-bottom:10px;padding:10px;background:#FFFBF6;border-radius:10px;border:1px solid #F0E4D8;">
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
-          <input type="text" class="lab-edit-chip-label" data-chip-idx="${i}" value="${escapeHtml(c.label)}" placeholder="ชื่อวัตถุดิบ เช่น ข้าวโพด" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;">
-          <button type="button" class="btn-delete" style="padding:4px 8px;" data-lab-remove-chip data-chip-idx="${i}">✕</button>
-        </div>
-        <div class="chip-row">
-          <button type="button" class="chip lab-chip-711${c.source === 'seven_eleven' ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-set-source data-chip-idx="${i}" data-src-val="seven_eleven">🏪 7-11</button>
-          <button type="button" class="chip lab-chip-craft${c.source === 'crafting' ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-set-source data-chip-idx="${i}" data-src-val="crafting">🧪 Crafting</button>
-          <button type="button" class="chip lab-chip-finish${c.source === 'finish_drink' ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-set-source data-chip-idx="${i}" data-src-val="finish_drink">✅ Finish Drink</button>
-          <button type="button" class="chip lab-chip-material${c.source === 'raw_material' ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-set-source data-chip-idx="${i}" data-src-val="raw_material">🌾 วัตถุดิบ</button>
-        </div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+        <input type="text" class="lab-edit-chip-label" data-chip-idx="${i}" value="${escapeHtml(c.label)}" placeholder="ชื่อวัตถุดิบ เช่น ข้าวโพด" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;">
+        <button type="button" class="btn-delete" style="padding:4px 8px;" data-lab-remove-chip data-chip-idx="${i}">✕</button>
       </div>
     `).join('');
+  }
+
+  async function saveLabField(trialId, field, value, indicatorId) {
+    const { error } = await sb.from('lab_trials').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', trialId);
+    if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+    const trial = labTrialsCache.find(t => t.id === trialId);
+    if (trial) trial[field] = value;
+    if (indicatorId) {
+      const el = document.getElementById(indicatorId);
+      if (el) { el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1500); }
+    }
+    renderLabChipGrid();
+  }
+
+  async function saveLabChips(trialId) {
+    const trial = labTrialsCache.find(t => t.id === trialId);
+    const cleanChips = labEditChips.filter(c => c.label && c.label.trim()).map(c => ({ label: c.label.trim(), source: c.source || null }));
+    const finalChips = cleanChips.length ? cleanChips : [{ label: trial ? trial.name : '', source: null }];
+    await sb.from('lab_trials').update({ chips: finalChips, updated_at: new Date().toISOString() }).eq('id', trialId);
+    if (trial) trial.chips = finalChips;
   }
 
   function openLabDetail(trialId) {
@@ -3010,44 +3049,47 @@
     const panel = document.getElementById('labDetailPanel');
     if (!trial) { panel.style.display = 'none'; return; }
     labEditChips = (Array.isArray(trial.chips) ? trial.chips : []).map(c => ({ label: c.label, source: c.source || null }));
-    labEditCategory = trial.category || 'coffee';
     const todayISO = toISODate(new Date());
     const maxDateISO = labAddDays(6);
     let defaultDate = trial.planned_date && trial.planned_date >= todayISO ? trial.planned_date : todayISO;
+
+    const verdictSection = trial.status === 'done' ? `
+      <div class="field-label">ผลตัดสิน</div>
+      <div class="chip-row" style="margin-bottom:12px;">
+        ${Object.entries(LAB_VERDICT_LABEL).map(([val, label]) => `<button type="button" class="chip${val === 'go' ? ' lab-chip-verdict-go' : ''}${val === 'launched' ? ' lab-chip-verdict-launched' : ''}${trial.verdict === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-verdict-btn="${trial.id}" data-verdict-val="${val}">${label}</button>`).join('')}
+      </div>
+    ` : '';
 
     panel.innerHTML = `
       <button type="button" class="lab-detail-close" data-lab-close>✕</button>
 
       <div class="field-label" style="margin-top:0;">ชื่อเมนู</div>
       <input type="text" id="labEditName" value="${escapeHtml(trial.name)}">
+      <div class="lab-field-autosaved" id="labNameSaved">บันทึกแล้ว ✓</div>
 
       <div class="field-label">ประเภทเครื่องดื่ม</div>
-      <div class="chip-row" id="labEditCategoryRow" style="margin-bottom:4px;">
-        ${Object.entries(LAB_CATEGORY_LABEL).map(([val, label]) => `<button type="button" class="chip${trial.category === val ? ' selected' : ''}" data-lab-edit-cat="${val}">${label}</button>`).join('')}
+      <div class="chip-row" id="labEditCategoryRow" style="margin-bottom:12px;">
+        ${Object.entries(LAB_CATEGORY_LABEL).map(([val, label]) => `<button type="button" class="chip${trial.category === val ? ' selected' : ''}" data-lab-edit-cat="${trial.id}" data-cat-val="${val}">${label}</button>`).join('')}
       </div>
 
       <div class="field-label">คะแนน (เต็ม 10, ไม่บังคับ)</div>
       <input type="number" id="labEditScore" min="0" max="10" step="0.5" value="${trial.score != null ? trial.score : ''}" placeholder="ยังไม่ให้คะแนน">
+      <div class="lab-field-autosaved" id="labScoreSaved">บันทึกแล้ว ✓</div>
 
       <div class="field-label">วัตถุดิบ / ส่วนประกอบ</div>
       <div id="labEditChipsList"></div>
-      <button type="button" class="btn-bean-cancel" style="width:100%;margin-top:2px;" data-lab-add-chip>＋ เพิ่มวัตถุดิบ</button>
+      <button type="button" class="btn-bean-cancel" style="width:100%;margin-top:2px;" data-lab-add-chip="${trial.id}">＋ เพิ่มวัตถุดิบ</button>
 
       <div class="field-label">โน้ตสูตร</div>
       <textarea id="labEditNotes" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:13.5px;font-family:inherit;min-height:100px;resize:vertical;">${trial.notes ? escapeHtml(trial.notes) : ''}</textarea>
-
-      <button type="button" class="submit-btn" style="margin-top:12px;" data-lab-save-edit="${trial.id}">💾 บันทึกการแก้ไข</button>
-      <div class="status-msg" id="labEditStatus"></div>
+      <div class="lab-field-autosaved" id="labNotesSaved">บันทึกแล้ว ✓</div>
 
       <div class="field-label">ขั้นตอน</div>
       <div class="chip-row" style="margin-bottom:12px;">
         ${Object.entries(LAB_STATUS_LABEL).map(([val, label]) => `<button type="button" class="chip${trial.status === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-status-btn="${trial.id}" data-status-val="${val}">${label}</button>`).join('')}
       </div>
 
-      <div class="field-label">ผลตัดสิน</div>
-      <div class="chip-row" style="margin-bottom:12px;">
-        ${Object.entries(LAB_VERDICT_LABEL).map(([val, label]) => `<button type="button" class="chip${val === 'go' ? ' lab-chip-verdict-go' : ''}${val === 'launched' ? ' lab-chip-verdict-launched' : ''}${trial.verdict === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-verdict-btn="${trial.id}" data-verdict-val="${val}">${label}</button>`).join('')}
-      </div>
+      ${verdictSection}
 
       <div class="field-label">หมวดวัตถุดิบหลัก (ของทั้งเมนูนี้ — ใช้กรองในหน้ารวม)</div>
       <div class="chip-row" style="margin-bottom:12px;">
@@ -3067,12 +3109,33 @@
     `;
     renderLabEditChipsList();
     panel.style.display = 'block';
+
+    // Autosave on blur — direct listeners (blur doesn't bubble, so can't delegate)
+    document.getElementById('labEditName').addEventListener('blur', (e) => {
+      const val = e.target.value.trim();
+      if (!val) { e.target.value = trial.name; return; }
+      if (val !== trial.name) saveLabField(trial.id, 'name', val, 'labNameSaved');
+    });
+    document.getElementById('labEditScore').addEventListener('blur', (e) => {
+      const val = e.target.value ? parseFloat(e.target.value) : null;
+      if (val !== trial.score) saveLabField(trial.id, 'score', val, 'labScoreSaved');
+    });
+    document.getElementById('labEditNotes').addEventListener('blur', (e) => {
+      const val = e.target.value.trim() || null;
+      if (val !== trial.notes) saveLabField(trial.id, 'notes', val, 'labNotesSaved');
+    });
   }
 
   document.getElementById('labDetailPanel').addEventListener('input', (e) => {
     if (e.target.classList.contains('lab-edit-chip-label')) {
       const idx = parseInt(e.target.dataset.chipIdx, 10);
       if (labEditChips[idx]) labEditChips[idx].label = e.target.value;
+    }
+  });
+
+  document.getElementById('labDetailPanel').addEventListener('focusout', (e) => {
+    if (e.target.classList.contains('lab-edit-chip-label') && labActiveTrialId) {
+      saveLabChips(labActiveTrialId);
     }
   });
 
@@ -3088,15 +3151,7 @@
     if (editCatBtn) {
       document.querySelectorAll('#labEditCategoryRow .chip').forEach(b => b.classList.remove('selected'));
       editCatBtn.classList.add('selected');
-      labEditCategory = editCatBtn.dataset.labEditCat;
-      return;
-    }
-    const setSourceBtn = e.target.closest('[data-lab-set-source]');
-    if (setSourceBtn) {
-      const idx = parseInt(setSourceBtn.dataset.chipIdx, 10);
-      const val = setSourceBtn.dataset.srcVal;
-      labEditChips[idx].source = labEditChips[idx].source === val ? null : val; // tap again to clear
-      renderLabEditChipsList();
+      await saveLabField(editCatBtn.dataset.labEditCat, 'category', editCatBtn.dataset.catVal, null);
       return;
     }
     const removeChipBtn = e.target.closest('[data-lab-remove-chip]');
@@ -3104,6 +3159,7 @@
       const idx = parseInt(removeChipBtn.dataset.chipIdx, 10);
       labEditChips.splice(idx, 1);
       renderLabEditChipsList();
+      if (labActiveTrialId) await saveLabChips(labActiveTrialId);
       return;
     }
     const addChipBtn = e.target.closest('[data-lab-add-chip]');
@@ -3112,28 +3168,6 @@
       renderLabEditChipsList();
       const inputs = document.querySelectorAll('.lab-edit-chip-label');
       if (inputs.length) inputs[inputs.length - 1].focus();
-      return;
-    }
-    const saveBtn = e.target.closest('[data-lab-save-edit]');
-    if (saveBtn) {
-      const statusEl = document.getElementById('labEditStatus');
-      const name = document.getElementById('labEditName').value.trim();
-      if (!name) { statusEl.textContent = 'ชื่อเมนูห้ามว่าง'; statusEl.className = 'status-msg error'; return; }
-      const scoreVal = document.getElementById('labEditScore').value;
-      const cleanChips = labEditChips.filter(c => c.label && c.label.trim()).map(c => ({ label: c.label.trim(), source: c.source || null }));
-      saveBtn.disabled = true; saveBtn.textContent = 'กำลังบันทึก...';
-      const { error } = await sb.from('lab_trials').update({
-        name,
-        category: labEditCategory,
-        score: scoreVal ? parseFloat(scoreVal) : null,
-        notes: document.getElementById('labEditNotes').value.trim() || null,
-        chips: cleanChips.length ? cleanChips : [{ label: name, source: null }],
-        updated_at: new Date().toISOString(),
-      }).eq('id', saveBtn.dataset.labSaveEdit);
-      saveBtn.disabled = false; saveBtn.textContent = '💾 บันทึกการแก้ไข';
-      if (error) { statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + error.message; statusEl.className = 'status-msg error'; return; }
-      statusEl.textContent = 'บันทึกแล้ว ✓'; statusEl.className = 'status-msg success';
-      await loadLabTrials();
       return;
     }
     const statusBtn = e.target.closest('[data-lab-status-btn]');
