@@ -2971,9 +2971,7 @@
     if (labCategoryFilter.size > 0) trials = trials.filter(t => labCategoryFilter.has(t.category));
     if (labStatusFilter.size > 0) trials = trials.filter(t => labStatusFilter.has(t.status));
     if (labVerdictFilter.size > 0) trials = trials.filter(t => labVerdictFilter.has(t.verdict));
-    if (labSourceFilter.size > 0) {
-      trials = trials.filter(t => Array.isArray(t.chips) && t.chips.some(c => labSourceFilter.has(c.source)));
-    }
+    if (labSourceFilter.size > 0) trials = trials.filter(t => labSourceFilter.has(t.source_type));
 
     if (trials.length === 0) { gridEl.innerHTML = '<div class="empty-state">ไม่มีรายการในตัวกรองนี้</div>'; return; }
 
@@ -3044,6 +3042,13 @@
       <div class="field-label">ผลตัดสิน</div>
       <div class="chip-row" style="margin-bottom:12px;">
         ${Object.entries(LAB_VERDICT_LABEL).map(([val, label]) => `<button type="button" class="chip${trial.verdict === val ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-verdict-btn="${trial.id}" data-verdict-val="${val}">${label}</button>`).join('')}
+      </div>
+
+      <div class="field-label">หมวดวัตถุดิบหลัก (ของทั้งเมนูนี้ — ใช้กรองในหน้ารวม)</div>
+      <div class="chip-row" style="margin-bottom:12px;">
+        <button type="button" class="chip lab-chip-711${trial.source_type === 'seven_eleven' ? ' selected' : ''}" data-lab-sourcetype-btn="${trial.id}" data-sourcetype-val="seven_eleven">🏪 7-11</button>
+        <button type="button" class="chip lab-chip-craft${trial.source_type === 'crafting' ? ' selected' : ''}" data-lab-sourcetype-btn="${trial.id}" data-sourcetype-val="crafting">🧪 Crafting</button>
+        <button type="button" class="chip lab-chip-finish${trial.source_type === 'finish_drink' ? ' selected' : ''}" data-lab-sourcetype-btn="${trial.id}" data-sourcetype-val="finish_drink">✅ Finish Drink</button>
       </div>
 
       <div class="field-label" style="margin-top:0;">เลือกวันไปชงจริง (ล่วงหน้าได้ 7 วัน)</div>
@@ -3129,6 +3134,8 @@
     if (statusBtn) { await setLabStatus(statusBtn.dataset.labStatusBtn, statusBtn.dataset.statusVal); return; }
     const verdictBtn = e.target.closest('[data-lab-verdict-btn]');
     if (verdictBtn) { await setLabVerdict(verdictBtn.dataset.labVerdictBtn, verdictBtn.dataset.verdictVal); return; }
+    const sourceTypeBtn = e.target.closest('[data-lab-sourcetype-btn]');
+    if (sourceTypeBtn) { await setLabSourceType(sourceTypeBtn.dataset.labSourcetypeBtn, sourceTypeBtn.dataset.sourcetypeVal); return; }
     const scheduleBtn = e.target.closest('[data-lab-schedule]');
     if (scheduleBtn) {
       const dateVal = document.getElementById('labDetailDate').value;
@@ -3157,6 +3164,13 @@
     const trial = labTrialsCache.find(t => t.id === id);
     const newVerdict = trial && trial.verdict === verdict ? null : verdict; // tap again to clear
     await sb.from('lab_trials').update({ verdict: newVerdict, updated_at: new Date().toISOString() }).eq('id', id);
+    await loadLabTrials();
+  }
+
+  async function setLabSourceType(id, sourceType) {
+    const trial = labTrialsCache.find(t => t.id === id);
+    const newVal = trial && trial.source_type === sourceType ? null : sourceType; // tap again to clear
+    await sb.from('lab_trials').update({ source_type: newVal, updated_at: new Date().toISOString() }).eq('id', id);
     await loadLabTrials();
   }
 
