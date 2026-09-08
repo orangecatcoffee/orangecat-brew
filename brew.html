@@ -2988,12 +2988,18 @@
     const el = document.getElementById('labEditChipsList');
     if (!el) return;
     el.innerHTML = labEditChips.map((c, i) => `
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-        <input type="text" class="lab-edit-chip-label" data-chip-idx="${i}" value="${escapeHtml(c.label)}" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;">
-        <button type="button" class="lab-ing-chip ${c.source ? LAB_SOURCE_CLASS[c.source] : ''}" style="padding:6px 8px;font-size:14px;" data-lab-cycle-source data-chip-idx="${i}">${c.source ? LAB_SOURCE_ICON[c.source].trim() : '⚪'}</button>
-        <button type="button" class="btn-delete" style="padding:4px 8px;" data-lab-remove-chip data-chip-idx="${i}">✕</button>
+      <div style="margin-bottom:10px;padding:10px;background:#FFFBF6;border-radius:10px;border:1px solid #F0E4D8;">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+          <input type="text" class="lab-edit-chip-label" data-chip-idx="${i}" value="${escapeHtml(c.label)}" placeholder="ชื่อวัตถุดิบ เช่น ข้าวโพด" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;">
+          <button type="button" class="btn-delete" style="padding:4px 8px;" data-lab-remove-chip data-chip-idx="${i}">✕</button>
+        </div>
+        <div class="chip-row">
+          <button type="button" class="chip lab-chip-711${c.source === 'seven_eleven' ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-set-source data-chip-idx="${i}" data-src-val="seven_eleven">🏪 7-11</button>
+          <button type="button" class="chip lab-chip-craft${c.source === 'crafting' ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-set-source data-chip-idx="${i}" data-src-val="crafting">🧪 Crafting</button>
+          <button type="button" class="chip lab-chip-finish${c.source === 'finish_drink' ? ' selected' : ''}" style="font-size:11px;padding:6px 10px;" data-lab-set-source data-chip-idx="${i}" data-src-val="finish_drink">✅ Finish Drink</button>
+        </div>
       </div>
-    `).join('') + '<div class="field-hint" style="margin-top:0;">แตะไอคอนวงกลมเพื่อวนเปลี่ยนแหล่งที่มา: ⚪ ไม่ระบุ → 🏪 7-11 → 🧪 Crafting → ✅ Finish Drink</div>';
+    `).join('');
   }
 
   function openLabDetail(trialId) {
@@ -3074,11 +3080,11 @@
       labEditCategory = editCatBtn.dataset.labEditCat;
       return;
     }
-    const cycleBtn = e.target.closest('[data-lab-cycle-source]');
-    if (cycleBtn) {
-      const idx = parseInt(cycleBtn.dataset.chipIdx, 10);
-      const curPos = LAB_SOURCE_CYCLE.indexOf(labEditChips[idx].source);
-      labEditChips[idx].source = LAB_SOURCE_CYCLE[(curPos + 1) % LAB_SOURCE_CYCLE.length];
+    const setSourceBtn = e.target.closest('[data-lab-set-source]');
+    if (setSourceBtn) {
+      const idx = parseInt(setSourceBtn.dataset.chipIdx, 10);
+      const val = setSourceBtn.dataset.srcVal;
+      labEditChips[idx].source = labEditChips[idx].source === val ? null : val; // tap again to clear
       renderLabEditChipsList();
       return;
     }
