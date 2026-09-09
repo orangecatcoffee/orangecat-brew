@@ -3326,6 +3326,15 @@
         <button type="button" class="chip lab-chip-material${trial.source_type === 'raw_material' ? ' selected' : ''}" data-lab-sourcetype-btn="${trial.id}" data-sourcetype-val="raw_material">🌾 วัตถุดิบ</button>
       </div>
 
+      <div class="field-label" style="margin-top:0;">ส่งไปชงให้ใคร</div>
+      <select id="labBrewCustomerSelect" style="width:100%;margin-bottom:8px;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:14px;font-family:inherit;">
+        <option value="">🧪 ตัวเอง/สตาฟ (ไม่คิดเงิน)</option>
+      </select>
+      <div id="labBrewPriceRow" style="display:none;margin-bottom:8px;">
+        <div class="field-label" style="margin-top:0;">ราคาที่จะคิด (บาท)</div>
+        <input type="number" id="labBrewPriceInput" min="0" step="1" placeholder="0 = ไม่คิดเงิน (แถม)">
+      </div>
+
       <div class="field-label" style="margin-top:0;">เลือกวันไปชงจริง (ล่วงหน้าได้ 7 วัน)</div>
       <input type="date" id="labDetailDate" min="${todayISO}" max="${maxDateISO}" value="${defaultDate}">
       <div style="display:flex;gap:8px;margin-top:10px;">
@@ -3336,6 +3345,11 @@
     `;
     renderLabEditChipsList();
     panel.style.display = 'block';
+    populateLabBrewCustomerSelect();
+
+    document.getElementById('labBrewCustomerSelect').addEventListener('change', (e) => {
+      document.getElementById('labBrewPriceRow').style.display = e.target.value ? 'block' : 'none';
+    });
 
     // Autosave on blur — direct listeners (blur doesn't bubble, so can't delegate)
     document.getElementById('labEditName').addEventListener('blur', (e) => {
@@ -3469,14 +3483,37 @@
     await loadLabTrials();
   }
 
+  async function populateLabBrewCustomerSelect() {
+    const sel = document.getElementById('labBrewCustomerSelect');
+    if (!sel) return;
+    if (membersCache.length === 0) await loadMembers();
+    sel.innerHTML = '<option value="">🧪 ตัวเอง/สตาฟ (ไม่คิดเงิน)</option>' +
+      membersCache.map(m => `<option value="${m.line_user_id}">${m.display_name}</option>`).join('');
+  }
+
   async function brewLabTrial(trial, dateVal) {
     const wantedDate = dateVal || toISODate(new Date());
     const dateLabel = wantedDate === toISODate(new Date()) ? 'วันนี้' : fmtDate(new Date(wantedDate + 'T00:00:00'));
-    if (!confirm(`เพิ่ม "${trial.name}" เข้าคิวชง ${dateLabel} เลยไหม?`)) return;
-    const { error } = await sb.from('preorders').insert({
-      customer_name: '🧪 แล็บทดลอง', menu_item_name: trial.name, price: 0, wanted_date: wantedDate,
-      order_type: 'staff', channel: 'lab', lab_trial_id: trial.id, notes: trial.notes || null,
-    });
+    const custSel = document.getElementById('labBrewCustomerSelect');
+    const chosenLineUserId = custSel ? custSel.value : '';
+    let insertPayload;
+    if (chosenLineUserId) {
+      const member = membersCache.find(m => m.line_user_id === chosenLineUserId);
+      const priceVal = parseFloat(document.getElementById('labBrewPriceInput').value) || 0;
+      if (!confirm(`เพิ่ม "${trial.name}" เข้าคิวชง ${dateLabel} ให้ ${member.display_name} ราคา ${priceVal}฿ เลยไหม?`)) return;
+      insertPayload = {
+        customer_name: member.display_name, menu_item_name: trial.name, price: priceVal, wanted_date: wantedDate,
+        line_user_id: member.line_user_id, order_type: 'customer', paid: false,
+        channel: 'lab', lab_trial_id: trial.id, notes: trial.notes || null,
+      };
+    } else {
+      if (!confirm(`เพิ่ม "${trial.name}" เข้าคิวชง ${dateLabel} เลยไหม?`)) return;
+      insertPayload = {
+        customer_name: '🧪 แล็บทดลอง', menu_item_name: trial.name, price: 0, wanted_date: wantedDate,
+        order_type: 'staff', channel: 'lab', lab_trial_id: trial.id, notes: trial.notes || null,
+      };
+    }
+    const { error } = await sb.from('preorders').insert(insertPayload);
     if (error) { alert('เพิ่มคิวไม่สำเร็จ: ' + error.message); return; }
     const updates = { updated_at: new Date().toISOString(), planned_date: wantedDate };
     if (trial.status === 'idea') updates.status = 'in_progress';
