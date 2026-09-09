@@ -148,6 +148,12 @@
     <select id="milkSelect" style="width:100%;margin-bottom:8px;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;"></select>
   </div>
 
+  <div id="matchaRow" style="display:none;">
+    <div class="field-label">🍵 เลือกมัทฉะ</div>
+    <div class="field-hint">เมนูนี้ใช้มัทฉะ — เลือกตัวที่จะใช้จริง ต้นทุนจะคิดตามตัวที่เลือก (4g/แก้ว)</div>
+    <select id="matchaSelect" style="width:100%;margin-bottom:8px;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;"></select>
+  </div>
+
   <div class="field-label">ความหวาน</div>
   <div class="sweetness-row" id="sweetnessRow">
     <button type="button" class="sweetness-btn selected" data-sweet="ไม่หวาน">ไม่หวาน</button>
@@ -418,6 +424,7 @@
   const BEAN_DOSE_G = 20;
   const MAX_BLEND_BEANS = 3;
   const FLAT_COFFEE_COST = 20; // ต้นทุนกาแฟ flat ต่อแก้ว (บาท) — ใช้ตอนคำนวณต้นทุนเมนูที่ needs_bean=true, ตรงกับที่ orangecat-ops เคยใช้
+  const MATCHA_DOSE_G = 4; // ตั้งไว้ 8 ก.ย. 2569 — 1 แก้วใช้มัทฉะ 4 กรัม ตัดสต็อกจากตัวที่บาริสต้าเลือกจริงตอนกดชงแล้ว (ต้นทุนผันแปรตามยี่ห้อที่เลือก)
 
   let MENU = [];
   const CATEGORY_ICON = {
@@ -465,7 +472,7 @@
   async function loadMenuItems() {
     const { data, error } = await sb
       .from('menu_items')
-      .select('id, name, price, category, status, needs_bean, image_url, uses_misc_cost_estimate, show_in_add_order, coffee_flexible')
+      .select('id, name, price, category, status, needs_bean, needs_matcha, image_url, uses_misc_cost_estimate, show_in_add_order, coffee_flexible')
       .eq('is_omakase_placeholder', false);
     // (id ถูกดึงมาอยู่แล้วในนี้ — ใช้ join menu_recipes สำหรับระบบเตือนแพ้/ไม่กิน)
     if (error || !data) {
@@ -491,6 +498,7 @@
       usesMiscCost: !!m.uses_misc_cost_estimate,
       showInAddOrder: !!m.show_in_add_order,
       coffeeFlexible: !!m.coffee_flexible,
+      needsMatcha: !!m.needs_matcha,
     }));
   }
 
@@ -512,6 +520,7 @@
       const dairyRow = (ingRows || []).find(i => i.name === 'Dairy milk');
       dairyMilkIngredientId = dairyRow ? dairyRow.id : null;
       updateMilkRow(selectedMenu); // เผื่อโหลดข้อมูลนี้เสร็จทีหลังตอนที่ผู้ใช้เลือกเมนูไปแล้ว
+      updateMatchaRow(selectedMenu);
       // สรุปต่อลูกค้า — ใช้โชว์ไอคอนเตือนในหน้า "วันนี้" ด้วย
       allergySummaryByLineId = {};
       noCoffeeLineIdSet = new Set();
@@ -657,6 +666,7 @@
   let menuRecipeIngredientsByItemId = {}; // menu_item_id -> Set(ingredient_id) โหลดครั้งเดียวตอน init
   let dairyMilkIngredientId = null; // ใช้เช็คว่าเมนูไหน "เปลี่ยนนมได้" (มี Dairy milk ในสูตรจริง)
   let availableMilksBrew = []; // นมทางเลือกที่มีสต็อก + upcharge > 0
+  let availableMatchaBrew = []; // มัทฉะทุกยี่ห้อที่มีสต็อก (category='base', ชื่อขึ้นต้น 'มัทฉะ')
   // ⚠️ แพ้/ไม่กิน — สรุประดับ "แย่สุด" ต่อลูกค้า (line_user_id) ใช้โชว์ไอคอนเตือนในหน้า "วันนี้" ด้วย ไม่ใช่แค่ตอนเพิ่มออเดอร์
   let allergySummaryByLineId = {}; // line_user_id -> 'severe' | 'mild' | 'tolerate'
   let noCoffeeLineIdSet = new Set();
@@ -783,6 +793,15 @@
           else warnings.push(`ไม่พบวัตถุดิบ "${order.milk_name}" ในระบบ — ตัดสต็อก Dairy milk แทนไปก่อน`);
         }
 
+        // เมนูใช้มัทฉะ → ตัดสต็อกจากมัทฉะยี่ห้อที่บาริสต้าเลือกจริง (4g/แก้ว ตามที่ Fah ตั้งไว้ 8 ก.ย. 2569) แทน Matcha powder เดิม
+        if (ing.name === 'Matcha powder' && order.matcha_name) {
+          const { data: subIng } = await sb.from('ingredients')
+            .select('id, name, category, stock_quantity, base_unit')
+            .eq('name', order.matcha_name).maybeSingle();
+          if (subIng) { ing = subIng; deductQty = MATCHA_DOSE_G; }
+          else warnings.push(`ไม่พบวัตถุดิบ "${order.matcha_name}" ในระบบ — ตัดสต็อก Matcha powder เดิมแทนไปก่อน`);
+        }
+
         const newStock = Number(ing.stock_quantity) - deductQty;
         await sb.from('ingredients')
           .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
@@ -839,6 +858,44 @@
     if (!milkName) return 0;
     const milk = availableMilksBrew.find(m => m.name === milkName);
     return milk ? (Number(milk.customer_bean_surcharge) || 0) : 0;
+  }
+
+  async function loadMatchaForAddOrder() {
+    const { data, error } = await sb
+      .from('ingredients')
+      .select('id, name, cost_per_base_unit, stock_quantity')
+      .eq('category', 'base')
+      .eq('active', true)
+      .ilike('name', 'มัทฉะ%')
+      .order('cost_per_base_unit');
+    availableMatchaBrew = (!error && data) ? data : [];
+    updateMatchaRow(selectedMenu);
+  }
+
+  function updateMatchaRow(item) {
+    const row = document.getElementById('matchaRow');
+    const sel = document.getElementById('matchaSelect');
+    if (!row || !sel) return;
+    if (item && item.needsMatcha) {
+      row.style.display = 'block';
+      const current = sel.value;
+      sel.innerHTML = availableMatchaBrew.map(mt => {
+        const stock = Number(mt.stock_quantity) || 0;
+        const low = stock < MATCHA_DOSE_G;
+        return `<option value="${mt.name}" ${low ? 'disabled' : ''}>${mt.name}${low ? ' (หมด)' : ` — ฿${(Number(mt.cost_per_base_unit) * MATCHA_DOSE_G).toFixed(1)}/แก้ว`}</option>`;
+      }).join('');
+      sel.value = availableMatchaBrew.some(mt => mt.name === current) ? current : (availableMatchaBrew[0] ? availableMatchaBrew[0].name : '');
+    } else {
+      row.style.display = 'none';
+      sel.innerHTML = '';
+      sel.value = '';
+    }
+  }
+
+  function matchaCostBrew(matchaName) {
+    if (!matchaName) return 0;
+    const mt = availableMatchaBrew.find(m => m.name === matchaName);
+    return mt ? Math.round((Number(mt.cost_per_base_unit) || 0) * MATCHA_DOSE_G * 100) / 100 : 0;
   }
 
 
@@ -1836,7 +1893,7 @@
           <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
         </div>
       </div>
-      <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.sweetness ? ` <span style="color:#C9A44A;font-weight:700;">🍯 ${order.sweetness}</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}${order.milk_name ? ` <span style="color:#7B4F9E;font-weight:700;">🥛 ${order.milk_name}</span>` : ''} <button type="button" class="btn-recipe-quick" data-menu-name="${order.menu_item_name.replace(/"/g,'&quot;')}" style="background:#F0E4D8;border:none;border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:700;color:#8a6a4a;font-family:inherit;vertical-align:middle;">📋 สูตร</button></div>
+      <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:#4A9B5C;font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.sweetness ? ` <span style="color:#C9A44A;font-weight:700;">🍯 ${order.sweetness}</span>` : ''}${order.no_coffee ? ` <span style="color:#D64545;font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}${order.milk_name ? ` <span style="color:#7B4F9E;font-weight:700;">🥛 ${order.milk_name}</span>` : ''}${order.matcha_name ? ` <span style="color:#4A9B5C;font-weight:700;">🍵 ${order.matcha_name}</span>` : ''} <button type="button" class="btn-recipe-quick" data-menu-name="${order.menu_item_name.replace(/"/g,'&quot;')}" style="background:#F0E4D8;border:none;border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:700;color:#8a6a4a;font-family:inherit;vertical-align:middle;">📋 สูตร</button></div>
       <div class="card-notes-field" data-id="${order.id}" data-notes="${(order.notes || '').replace(/"/g, '&quot;')}" title="แตะเพื่อ${order.notes ? 'แก้' : 'เพิ่ม'}หมายเหตุ" style="font-size:11.5px;${order.notes ? 'color:#A85A1E;background:#FFF3E8;' : 'color:#A8876F;background:#F5EEE5;border:1px dashed #E0D2C2;'}border-radius:8px;padding:6px 10px;margin-bottom:8px;cursor:pointer;">${order.notes ? `📝 ${order.notes}` : '📝 + หมายเหตุ'}</div>
       ${order.mood_note ? `<div style="font-size:11.5px;color:#7B4F9E;background:#F3ECFB;border-radius:8px;padding:6px 10px;margin-bottom:8px;">🎨 Freestyle mood: “${order.mood_note}” — ตีโจทย์แล้วชงได้เลย ไม่มีสูตรตายตัว</div>` : ''}
       ${isCoffeeFlexible ? `<button type="button" class="coffee-toggle-btn${order.no_coffee ? ' no-coffee-active' : ''}" data-id="${order.id}">${order.no_coffee ? '☕🚫 ไม่ใช้กาแฟแก้วนี้ — แตะเพื่อกลับมาใช้กาแฟ' : '☕ ใช้กาแฟแก้วนี้ — แตะถ้าจะไม่ใช้กาแฟ'}</button>` : ''}
@@ -1844,6 +1901,11 @@
         <select class="card-milk-select" data-id="${order.id}" style="width:100%;margin-bottom:8px;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;color:#4A3428;">
           <option value="">🥛 นมสด (ค่าเริ่มต้น)</option>
           ${availableMilksBrew.map(m => `<option value="${m.name}" ${order.milk_name === m.name ? 'selected' : ''}>🥛 ${m.name} (+${Number(m.customer_bean_surcharge) || 0}฿)</option>`).join('')}
+        </select>
+      ` : ''}
+      ${menuDef && menuDef.needsMatcha ? `
+        <select class="card-matcha-select" data-id="${order.id}" style="width:100%;margin-bottom:8px;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;color:#4A3428;">
+          ${availableMatchaBrew.map(mt => `<option value="${mt.name}" ${order.matcha_name === mt.name ? 'selected' : ''}>🍵 ${mt.name} (฿${(Number(mt.cost_per_base_unit) * MATCHA_DOSE_G).toFixed(1)}/แก้ว)</option>`).join('')}
         </select>
       ` : ''}
       <div class="pkg-row">
@@ -1890,6 +1952,21 @@
           return;
         }
         order.milk_name = newVal; // อัปเดตในหน่วยความจำ ให้ deductRecipeIngredients ตอนกด "ชงแล้ว" เห็นค่าล่าสุดทันที
+        renderTodayList();
+      });
+    }
+    const matchaSelectEl = div.querySelector('.card-matcha-select');
+    if (matchaSelectEl) {
+      matchaSelectEl.addEventListener('change', async () => {
+        matchaSelectEl.disabled = true;
+        const newVal = matchaSelectEl.value || null;
+        const { error } = await sb.from('preorders').update({ matcha_name: newVal }).eq('id', order.id);
+        matchaSelectEl.disabled = false;
+        if (error) {
+          alert('บันทึกมัทฉะไม่สำเร็จ: ' + error.message);
+          return;
+        }
+        order.matcha_name = newVal; // อัปเดตในหน่วยความจำ ให้ตัดสต็อกจากตัวที่เลือกจริงตอนกด "ชงแล้ว"
         renderTodayList();
       });
     }
@@ -2003,6 +2080,7 @@
           noCoffeeRow.style.display = item.coffeeFlexible ? 'flex' : 'none';
           if (!item.coffeeFlexible) document.getElementById('noCoffeeCheckbox').checked = false;
           updateMilkRow(item);
+          updateMatchaRow(item);
         }
         updateSubmitState();
       });
@@ -4836,6 +4914,7 @@
     noCoffeeRow.style.display = selectedMenu.coffeeFlexible ? 'flex' : 'none';
     if (!selectedMenu.coffeeFlexible) document.getElementById('noCoffeeCheckbox').checked = false;
     updateMilkRow(selectedMenu);
+    updateMatchaRow(selectedMenu);
   }
 
   function setSweetnessValue(val) {
@@ -4989,6 +5068,7 @@
       const discount = isFree ? 0 : Math.min(discountInput, selectedMenu.price);
       const milkName = (isMilkFlexible(selectedMenu) ? document.getElementById('milkSelect').value : '') || null;
       const milkSur = isFree ? 0 : milkSurchargeBrew(milkName);
+      const matchaName = (selectedMenu.needsMatcha ? document.getElementById('matchaSelect').value : '') || null;
       const noCoffeeChecked = selectedMenu.coffeeFlexible && document.getElementById('noCoffeeCheckbox').checked;
       const beanSur = (isFree || noCoffeeChecked) ? 0 : beanSurchargeForSelection(blendPayload);
       insertRows = [{
@@ -5001,6 +5081,7 @@
         bean_surcharge: isMaxCup ? 0 : beanSur,
         milk_name: isMaxCup ? null : milkName,
         milk_surcharge: isMaxCup ? 0 : milkSur,
+        matcha_name: isMaxCup ? null : matchaName,
         line_user_id: selectedMemberLineId,
         order_type: orderType,
         paid: isMaxCup ? false : isFree,
@@ -5092,6 +5173,8 @@
     document.getElementById('noCoffeeCheckbox').checked = false;
     document.getElementById('milkRow').style.display = 'none';
     document.getElementById('milkSelect').value = '';
+    document.getElementById('matchaRow').style.display = 'none';
+    document.getElementById('matchaSelect').value = '';
     document.getElementById('orderNotes').value = '';
     selectedToppings = {};
     renderToppingChips();
@@ -6148,6 +6231,7 @@
     await loadMenuItems();
     loadAllergyReferenceData(); // ไม่ต้อง await — ไม่บล็อกการโหลดหน้าจอหลัก โหลดเสร็จแล้ว renderMenuGrid() รอบถัดไปจะได้ข้อมูล
     loadMilksForAddOrder(); // ไม่ต้อง await เช่นกัน — ถ้าโหลดช้ากว่าที่ user เลือกเมนู updateMilkRow ยังโชว์ row แต่ dropdown จะว่างจนกว่าจะโหลดเสร็จ (ไม่ block)
+    loadMatchaForAddOrder(); // เช่นเดียวกับนม — โหลดพื้นหลัง ไม่ block
     renderMenuGrid();
     renderDateRow();
     loadToday();
