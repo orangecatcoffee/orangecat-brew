@@ -362,6 +362,13 @@
     <button type="button" class="submit-btn" id="labAddBtn">บันทึกไอเดียใหม่</button>
     <div class="status-msg" id="labAddStatus"></div>
   </div>
+
+  <div class="lab-create-divider"></div>
+  <div class="field-label" style="margin-top:0;">🧮 คำนวณสัดส่วนวัตถุดิบ (Batch Calculator)</div>
+  <div class="field-hint">แตะชื่อองค์ประกอบ ใส่เป้าหมายรวม แล้วระบบคำนวณสัดส่วนแต่ละอย่างให้อัตโนมัติ</div>
+  <div id="labComponentChips" class="lab-chip-grid"></div>
+  <button type="button" class="btn-bean-cancel" id="labAddComponentBtn" style="width:100%;margin-top:10px;">＋ เพิ่มองค์ประกอบใหม่</button>
+  <div id="labComponentPanel" style="display:none;margin-top:12px;"></div>
 </div>
 
 <!-- 📋 สูตร/สัดส่วน quick-view — เปิดจากปุ่มเล็กๆ บนการ์ดออเดอร์ตอนชง -->
@@ -704,7 +711,7 @@
     if (name === 'members') { loadMembers(); loadPrograms(); loadRecurringOrders(); }
     if (name === 'menu') loadMenuContentList();
     if (name === 'recipe') loadMenuRecipeList();
-    if (name === 'lab') loadLabTrials();
+    if (name === 'lab') { loadLabTrials(); loadLabComponents(); }
   }
 
   function fmtDate(d) {
@@ -3354,6 +3361,179 @@
     alert(`เพิ่มเข้าคิว ${dateLabel} แล้ว 🧪`);
     await loadLabTrials();
   }
+
+  // ===== 🧮 Batch Calculator (lab_components) =====
+  let labComponentsCache = [];
+  let labActiveComponentId = null;
+  let labCompDraftIngredients = [];
+
+  async function loadLabComponents() {
+    const el = document.getElementById('labComponentChips');
+    el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+    const { data, error } = await sb.from('lab_components').select('*').order('name');
+    if (error) { el.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + error.message + '</div>'; return; }
+    labComponentsCache = data || [];
+    renderLabComponentChips();
+    if (labActiveComponentId) openLabComponentPanel(labActiveComponentId);
+  }
+
+  function renderLabComponentChips() {
+    const el = document.getElementById('labComponentChips');
+    if (!labComponentsCache.length) { el.innerHTML = '<div class="empty-state">ยังไม่มีองค์ประกอบ — กด + เพิ่มองค์ประกอบใหม่</div>'; return; }
+    el.innerHTML = labComponentsCache.map(c => {
+      const isActive = labActiveComponentId === c.id;
+      const draftFlag = (!c.ingredients || !c.ingredients.length) ? ' ⚠️' : '';
+      return `<button type="button" class="lab-ing-chip${isActive ? ' active' : ''}" data-comp-id="${c.id}">${escapeHtml(c.name)}${draftFlag}</button>`;
+    }).join('');
+  }
+
+  document.getElementById('labComponentChips').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-comp-id]');
+    if (!btn) return;
+    const id = btn.dataset.compId;
+    if (labActiveComponentId === id) {
+      labActiveComponentId = null;
+      document.getElementById('labComponentPanel').style.display = 'none';
+    } else {
+      labActiveComponentId = id;
+      openLabComponentPanel(id);
+    }
+    renderLabComponentChips();
+  });
+
+  document.getElementById('labAddComponentBtn').addEventListener('click', async () => {
+    const name = prompt('ชื่อองค์ประกอบใหม่ เช่น "Matcha Syrup"');
+    if (!name || !name.trim()) return;
+    const { data, error } = await sb.from('lab_components').insert({ name: name.trim(), unit: 'g', base_total: 0, ingredients: [] }).select().single();
+    if (error) { alert('เพิ่มไม่สำเร็จ: ' + error.message); return; }
+    labActiveComponentId = data.id;
+    await loadLabComponents();
+  });
+
+  function openLabComponentPanel(id) {
+    const comp = labComponentsCache.find(c => c.id === id);
+    const panel = document.getElementById('labComponentPanel');
+    if (!comp) { panel.style.display = 'none'; return; }
+    labCompDraftIngredients = (Array.isArray(comp.ingredients) ? comp.ingredients : []).map(i => ({ label: i.label, amount: i.amount }));
+
+    panel.innerHTML = `
+      <div class="lab-detail-panel">
+        <button type="button" class="lab-detail-close" data-comp-close>✕</button>
+        <div class="lab-detail-title">${escapeHtml(comp.name)}</div>
+        <div class="lab-detail-meta">สูตรฐานรวม ${comp.base_total} ${escapeHtml(comp.unit || 'g')}${comp.notes ? ' · ' + escapeHtml(comp.notes) : ''}</div>
+
+        <div class="field-label" style="margin-top:0;">เป้าหมายรวม (${escapeHtml(comp.unit || 'g')})</div>
+        <input type="number" id="labCompTarget" min="0" step="0.1" value="${comp.base_total || ''}" placeholder="เช่น 100">
+
+        <div class="field-label">ผลคำนวณ</div>
+        <div id="labCompResult"></div>
+
+        <div class="field-label">แก้ไขสูตรฐาน (วัตถุดิบ + ปริมาณที่สัดส่วนนี้)</div>
+        <div id="labCompIngredientsEdit"></div>
+        <button type="button" class="btn-bean-cancel" style="width:100%;margin-top:2px;" data-comp-add-ing>＋ เพิ่มวัตถุดิบ</button>
+
+        <button type="button" class="submit-btn" style="margin-top:12px;" data-comp-save="${comp.id}">💾 บันทึกสูตรฐาน</button>
+        <div class="status-msg" id="labCompSaveStatus"></div>
+        <button type="button" class="btn-delete" style="margin-top:12px;width:100%;text-align:center;padding:8px;" data-comp-delete="${comp.id}">ลบองค์ประกอบนี้</button>
+      </div>
+    `;
+    panel.style.display = 'block';
+    renderLabCompIngredientsEdit();
+    renderLabCompCalc(comp, comp.base_total);
+
+    document.getElementById('labCompTarget').addEventListener('input', (e) => {
+      renderLabCompCalc(comp, parseFloat(e.target.value) || 0);
+    });
+  }
+
+  function renderLabCompCalc(comp, target) {
+    const resultEl = document.getElementById('labCompResult');
+    if (!resultEl) return;
+    if (!labCompDraftIngredients.length) { resultEl.innerHTML = '<div class="empty-state">ยังไม่มีสูตรฐาน กรอกด้านล่างก่อน</div>'; return; }
+    const baseTotal = labCompDraftIngredients.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+    const ratio = baseTotal > 0 ? target / baseTotal : 0;
+    resultEl.innerHTML = labCompDraftIngredients.map(ing => `
+      <div class="bill-item"><span>${escapeHtml(ing.label || '(ยังไม่ตั้งชื่อ)')}</span><span style="font-weight:700;color:#E8863A;">${(((parseFloat(ing.amount) || 0) * ratio)).toFixed(1)} ${escapeHtml(comp.unit || 'g')}</span></div>
+    `).join('');
+  }
+
+  function renderLabCompIngredientsEdit() {
+    const el = document.getElementById('labCompIngredientsEdit');
+    if (!el) return;
+    el.innerHTML = labCompDraftIngredients.map((ing, i) => `
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+        <input type="text" class="lab-comp-ing-label" data-idx="${i}" value="${escapeHtml(ing.label || '')}" placeholder="ชื่อวัตถุดิบ" style="flex:2;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;">
+        <input type="number" class="lab-comp-ing-amount" data-idx="${i}" value="${ing.amount != null ? ing.amount : ''}" placeholder="ปริมาณ" step="0.1" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;">
+        <button type="button" class="btn-delete" style="padding:4px 8px;" data-comp-remove-ing data-idx="${i}">✕</button>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('labComponentPanel').addEventListener('input', (e) => {
+    if (e.target.classList.contains('lab-comp-ing-label')) {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      if (labCompDraftIngredients[idx]) labCompDraftIngredients[idx].label = e.target.value;
+    }
+    if (e.target.classList.contains('lab-comp-ing-amount')) {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      if (labCompDraftIngredients[idx]) labCompDraftIngredients[idx].amount = parseFloat(e.target.value) || 0;
+      const comp = labComponentsCache.find(c => c.id === labActiveComponentId);
+      const targetEl = document.getElementById('labCompTarget');
+      if (comp && targetEl) renderLabCompCalc(comp, parseFloat(targetEl.value) || 0);
+    }
+  });
+
+  document.getElementById('labComponentPanel').addEventListener('click', async (e) => {
+    const closeBtn = e.target.closest('[data-comp-close]');
+    if (closeBtn) {
+      labActiveComponentId = null;
+      document.getElementById('labComponentPanel').style.display = 'none';
+      renderLabComponentChips();
+      return;
+    }
+    const addIngBtn = e.target.closest('[data-comp-add-ing]');
+    if (addIngBtn) {
+      labCompDraftIngredients.push({ label: '', amount: 0 });
+      renderLabCompIngredientsEdit();
+      const inputs = document.querySelectorAll('.lab-comp-ing-label');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+      return;
+    }
+    const removeIngBtn = e.target.closest('[data-comp-remove-ing]');
+    if (removeIngBtn) {
+      const idx = parseInt(removeIngBtn.dataset.idx, 10);
+      labCompDraftIngredients.splice(idx, 1);
+      renderLabCompIngredientsEdit();
+      const comp = labComponentsCache.find(c => c.id === labActiveComponentId);
+      const targetEl = document.getElementById('labCompTarget');
+      if (comp && targetEl) renderLabCompCalc(comp, parseFloat(targetEl.value) || 0);
+      return;
+    }
+    const saveBtn = e.target.closest('[data-comp-save]');
+    if (saveBtn) {
+      const statusEl = document.getElementById('labCompSaveStatus');
+      const cleanIngredients = labCompDraftIngredients.filter(i => i.label && i.label.trim()).map(i => ({ label: i.label.trim(), amount: parseFloat(i.amount) || 0 }));
+      const newBaseTotal = cleanIngredients.reduce((s, i) => s + i.amount, 0);
+      saveBtn.disabled = true; saveBtn.textContent = 'กำลังบันทึก...';
+      const { error } = await sb.from('lab_components').update({
+        ingredients: cleanIngredients, base_total: newBaseTotal, updated_at: new Date().toISOString(),
+      }).eq('id', saveBtn.dataset.compSave);
+      saveBtn.disabled = false; saveBtn.textContent = '💾 บันทึกสูตรฐาน';
+      if (error) { statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + error.message; statusEl.className = 'status-msg error'; return; }
+      statusEl.textContent = 'บันทึกแล้ว ✓'; statusEl.className = 'status-msg success';
+      await loadLabComponents();
+      return;
+    }
+    const deleteBtn = e.target.closest('[data-comp-delete]');
+    if (deleteBtn) {
+      if (!confirm('ลบองค์ประกอบนี้เลยไหม?')) return;
+      labActiveComponentId = null;
+      document.getElementById('labComponentPanel').style.display = 'none';
+      await sb.from('lab_components').delete().eq('id', deleteBtn.dataset.compDelete);
+      await loadLabComponents();
+      return;
+    }
+  });
 
   async function loadMenuRecipeList() {
     const listEl = document.getElementById('recipeMenuList');
