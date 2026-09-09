@@ -104,6 +104,7 @@
   <div id="guestNameBlock" style="display:none;">
     <div class="field-label">ชื่อลูกค้า</div>
     <input type="text" id="customerName" placeholder="พิมพ์ชื่อ...">
+    <div class="field-hint" id="nameDupWarning" style="display:none;color:#D64545;font-weight:600;"></div>
     <div class="chip-row" id="recentCustomers" style="margin-top:8px;"></div>
   </div>
 
@@ -688,6 +689,7 @@
   let orderType = 'customer';
   let selectedSweetness = 'ไม่หวาน';
   let membersCache = [];
+  let allGuestNamesCache = []; // ชื่อลูกค้าทั่วไปทั้งหมดที่เคยพิมพ์ (ไม่ใช่แค่ 20 แถวล่าสุด) — ใช้เช็คชื่อซ้ำ/คล้ายกัน
   let beanOptionsCache = [];
   let selectedBeanIds = [];
   let orderMode = 'normal'; // 'normal' | 'omakase'
@@ -2384,22 +2386,68 @@
   }
 
   async function loadRecentCustomers() {
-    const el = document.getElementById('recentCustomers');
+    // ดึงชื่อลูกค้าทั่วไปทั้งหมดที่เคยพิมพ์ (ไม่ใช่แค่ 20 แถวล่าสุด) เพื่อกันสร้างชื่อซ้ำ
+    // เช่น "Bodee 2026" vs "Bodee (🎉2024)" ที่หายไปจากลิสต์ล่าสุดแล้วโดนพิมพ์ใหม่
     const { data } = await sb
       .from('preorders')
       .select('customer_name')
+      .eq('order_type', 'customer')
       .order('created_at', { ascending: false })
-      .limit(20);
-    if (!data) return;
-    const uniqueNames = [...new Set(data.map(d => d.customer_name))].slice(0, 6);
+      .limit(500);
+    allGuestNamesCache = data ? [...new Set(data.map(d => d.customer_name).filter(Boolean))] : [];
+    renderNameSuggestions('');
+  }
+
+  // ตัดอิโมจิ/วงเล็บ/เว้นวรรค/ตัวพิมพ์ใหญ่-เล็กออก เหลือแค่แก่นชื่อไว้เทียบ
+  // เช่น "Bodee (🎉2024)" กับ "Bodee 2026" -> "bodee2024" / "bodee2026" ยัง match กันได้บางส่วนผ่าน includes
+  function normalizeForMatch(s) {
+    return (s || '')
+      .toLowerCase()
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+      .replace(/\(.*?\)/g, '')
+      .replace(/[^\p{L}\p{N}]/gu, '')
+      .trim();
+  }
+
+  function renderNameSuggestions(query) {
+    const el = document.getElementById('recentCustomers');
+    const warnEl = document.getElementById('nameDupWarning');
     el.innerHTML = '';
-    uniqueNames.forEach(name => {
+    const q = normalizeForMatch(query);
+    let namesToShow;
+
+    if (!q) {
+      // ยังไม่พิมพ์อะไร -> โชว์ชื่อล่าสุด 6 คนเหมือนเดิม
+      namesToShow = allGuestNamesCache.slice(0, 6);
+      warnEl.style.display = 'none';
+    } else {
+      // กำลังพิมพ์ -> ค้นทั้งชื่อลูกค้าทั่วไปเก่า + รายชื่อสมาชิก ที่แก่นชื่อคล้ายกัน
+      const allKnown = [...new Set([...allGuestNamesCache, ...membersCache.map(m => m.display_name)])];
+      namesToShow = allKnown
+        .filter(n => {
+          const norm = normalizeForMatch(n);
+          return norm && (norm.includes(q) || q.includes(norm));
+        })
+        .slice(0, 8);
+
+      const exactMatch = allKnown.some(n => n === (query || '').trim());
+      if (!exactMatch && namesToShow.length > 0) {
+        warnEl.textContent = '⚠️ มีชื่อคล้ายกันอยู่แล้ว — แตะด้านล่างถ้าเป็นคนเดียวกัน กันสร้างชื่อซ้ำ';
+        warnEl.style.display = 'block';
+      } else {
+        warnEl.style.display = 'none';
+      }
+    }
+
+    namesToShow.forEach(name => {
       const chip = document.createElement('button');
+      chip.type = 'button';
       chip.className = 'chip';
       chip.textContent = name;
       chip.addEventListener('click', () => {
         document.getElementById('customerName').value = name;
         customerName = name;
+        warnEl.style.display = 'none';
         updateSubmitState();
       });
       el.appendChild(chip);
@@ -5070,12 +5118,14 @@
     selectedMemberLineId = null;
     document.getElementById('customerName').value = '';
     document.querySelectorAll('#memberChips .chip').forEach(c => c.classList.remove('selected'));
+    renderNameSuggestions('');
     updateLinkHint();
     updateSubmitState();
   });
 
   document.getElementById('customerName').addEventListener('input', (e) => {
     customerName = e.target.value.trim();
+    renderNameSuggestions(e.target.value);
     updateSubmitState();
   });
 
@@ -5252,6 +5302,8 @@
     orderType = 'customer';
     selectedSweetness = 'ไม่หวาน';
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
+    if (name && !allGuestNamesCache.includes(name)) allGuestNamesCache.unshift(name); // เติมชื่อที่เพิ่งบันทึกเข้า cache ทันที ไม่ต้องรีโหลดหน้า
+    renderNameSuggestions('');
     updateLinkHint(); // เคลียร์ banner ⚠️ แพ้/ไม่กิน ของลูกค้าคนก่อนหน้าไปด้วย
     document.getElementById('noCoffeeRow').style.display = 'none';
     document.getElementById('noCoffeeCheckbox').checked = false;
