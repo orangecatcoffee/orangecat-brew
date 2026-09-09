@@ -109,6 +109,7 @@
 
   <div class="link-hint" id="linkHint"></div>
   <div id="allergyBanner" style="display:none;"></div>
+  <div id="omakasePendingBanner" style="display:none;"></div>
 
   <div class="field-label">โหมดสั่ง</div>
   <div class="sweetness-row" id="orderModeRow">
@@ -658,6 +659,8 @@
   let selectedMenu = null;
   let selectedDate = null;
   let selectedMemberLineId = null;
+  let pendingOmakaseSetId = null; // เซ็ต Omakase ที่ค้างไม่ครบ 3 แก้วของลูกค้าที่เลือกอยู่ (ถ้ามี) — กันเคสแบบ jump/Kapook ที่แก้วปกติหลุดไม่ผูกเข้าเซ็ต
+  let pendingOmakaseSetLinked = true;
   // ⚠️ แพ้/ไม่กิน — state ของลูกค้าที่เลือกอยู่ตอนนี้
   let customerAllergyIngredientIds = {}; // ingredient_id -> 'แพ้' | 'ไม่ชอบ' | 'ทานได้น้อย' (แพ้ ชนะทุกกรณีถ้าซ้ำ)
   let customerAllergyNoteById = {}; // ingredient_id -> note ล่าสุดของระดับที่ถูกเลือก (เช่น "ขอนมน้อยกว่าปกติ")
@@ -2295,6 +2298,7 @@
     renderMenuGrid();
     if (orderMode === 'omakase') { renderOmakaseSlotChips(); renderOmakaseCupDateRow(); renderOmakaseBeanPicker(); }
     updateSubmitState();
+    checkPendingOmakaseSet(selectedMemberLineId);
   });
 
   async function loadAllIngredients() {
@@ -2760,6 +2764,46 @@
     }
   });
 
+  // เช็คว่าลูกค้าคนนี้มีเซ็ต Omakase ที่ยังไม่ครบ 3 แก้ว (ค้างจากวันก่อนๆ ในสัปดาห์นี้) ไหม — ถ้ามีเสนอผูกออเดอร์ปกติเข้าเซ็ตเดียวกัน
+  // กันบั๊กที่ทำให้ jump/Kapook โดนคิดราคาแยกซ้อนกับราคาแพ็กเกจ (แก้วปกติหลุดไม่ผูก omakase_set_id)
+  async function checkPendingOmakaseSet(lineUserId) {
+    const banner = document.getElementById('omakasePendingBanner');
+    pendingOmakaseSetId = null;
+    if (!lineUserId || orderMode !== 'normal') { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+    const { data } = await sb.from('preorders')
+      .select('id, omakase_set_id, wanted_date')
+      .eq('line_user_id', lineUserId)
+      .eq('paid', false)
+      .not('omakase_set_id', 'is', null)
+      .order('wanted_date', { ascending: false })
+      .limit(20);
+    if (!data || !data.length) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+    const groups = {};
+    data.forEach(r => { (groups[r.omakase_set_id] = groups[r.omakase_set_id] || []).push(r); });
+    let latestIncompleteId = null, latestCount = 0, latestDate = null;
+    Object.entries(groups).forEach(([setId, rows]) => {
+      if (rows.length < 3) {
+        const maxDate = rows.reduce((m, r) => (r.wanted_date > m ? r.wanted_date : m), rows[0].wanted_date);
+        if (!latestDate || maxDate > latestDate) { latestDate = maxDate; latestIncompleteId = setId; latestCount = rows.length; }
+      }
+    });
+    if (!latestIncompleteId) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+    pendingOmakaseSetId = latestIncompleteId;
+    pendingOmakaseSetLinked = true;
+    banner.style.display = 'block';
+    banner.innerHTML = `
+      <div style="background:#FFF3E8;border:2px solid #E8863A;border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#5A361B;font-weight:600;cursor:pointer;">
+          <input type="checkbox" id="omakasePendingCheckbox" checked style="margin-top:2px;width:18px;height:18px;flex-shrink:0;">
+          <span>🎴 ลูกค้านี้มี Omakase ค้างอยู่ (${latestCount}/3 แก้ว) — ผูกแก้วนี้เข้าชุดเดียวกัน ไม่คิดราคาแยก (270฿/ชุด รวม)</span>
+        </label>
+      </div>
+    `;
+    document.getElementById('omakasePendingCheckbox').addEventListener('change', (e) => {
+      pendingOmakaseSetLinked = e.target.checked;
+    });
+  }
+
   function renderMemberChips() {
     const el = document.getElementById('memberChips');
     el.innerHTML = '';
@@ -2790,6 +2834,7 @@
         selectedMemberLineId = m.line_user_id;
         updateLinkHint();
         updateSubmitState();
+        checkPendingOmakaseSet(selectedMemberLineId);
       });
 
       const rewardProgress = rewardEligibleMap[m.line_user_id];
@@ -4963,6 +5008,7 @@
         selectMenuByName('Iced Latte'); // default เมนู เพื่อลดเวลากรอก — ยังเปลี่ยนเป็นเมนูอื่นได้ตามปกติ
         setSweetnessValue(STAFF_SWEETNESS_DEFAULT[staffName] || 'ไม่หวาน');
         updateSubmitState();
+        checkPendingOmakaseSet(selectedMemberLineId);
       });
       el.appendChild(chip);
     });
@@ -5089,6 +5135,7 @@
         channel: isMaxCup ? 'liff-omakase-fullweek' : 'walk-in',
         no_coffee: selectedMenu.coffeeFlexible ? document.getElementById('noCoffeeCheckbox').checked : false,
         notes: orderNotes,
+        omakase_set_id: (!isMaxCup && pendingOmakaseSetId && pendingOmakaseSetLinked) ? pendingOmakaseSetId : null,
       }];
     }
 
@@ -5175,6 +5222,10 @@
     document.getElementById('milkSelect').value = '';
     document.getElementById('matchaRow').style.display = 'none';
     document.getElementById('matchaSelect').value = '';
+    pendingOmakaseSetId = null;
+    pendingOmakaseSetLinked = true;
+    document.getElementById('omakasePendingBanner').style.display = 'none';
+    document.getElementById('omakasePendingBanner').innerHTML = '';
     document.getElementById('orderNotes').value = '';
     selectedToppings = {};
     renderToppingChips();
