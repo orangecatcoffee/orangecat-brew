@@ -6073,7 +6073,7 @@
         const sorted = [...cups].sort((a, b) => (a.wanted_date || '').localeCompare(b.wanted_date || ''));
         const doneCount = sorted.filter(c => c.brewed).length;
         const customerName = sorted[0].customer_name;
-        const total = sorted.reduce((s, c) => s + Number(c.price || 0), 0) || OMAKASE_WEEKLY_PRICE;
+        const total = OMAKASE_WEEKLY_PRICE; // ราคาแพ็กเกจจริงที่เก็บจากลูกค้า — ไม่ใช่ผลรวมราคาแต่ละแก้ว (แก้วลับมักตั้งราคาเต็มแพ็กเกจไว้ที่ตัวเดียว ทำให้ผลรวมเพี้ยนเป็น 430 แทนที่จะเป็น 270)
 
         const card = document.createElement('div');
         card.style.cssText = 'background:#FBFAF6;border:1px solid #E4DCC8;border-radius:16px;padding:16px;margin-bottom:12px;';
