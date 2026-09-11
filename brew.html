@@ -3694,7 +3694,7 @@
   async function loadLabComponents() {
     const el = document.getElementById('labComponentChips');
     el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
-    const { data, error } = await sb.from('lab_components').select('*').order('name');
+    const { data, error } = await sb.from('lab_components').select('*').order('created_at', { ascending: false });
     if (error) { el.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + error.message + '</div>'; return; }
     labComponentsCache = data || [];
     renderLabComponentChips();
