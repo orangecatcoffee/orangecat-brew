@@ -110,6 +110,7 @@
 
   <div class="link-hint" id="linkHint"></div>
   <div id="allergyBanner" style="display:none;"></div>
+  <div id="preferenceBanner" style="display:none;"></div>
   <div id="omakasePendingBanner" style="display:none;"></div>
 
   <div class="field-label">โหมดสั่ง</div>
@@ -5046,6 +5047,42 @@
     if (lookupId !== lastAllergyLookupLineId) {
       lastAllergyLookupLineId = lookupId;
       loadCustomerAllergiesFor(lookupId);
+      loadCustomerPreferencesFor(lookupId);
+    }
+  }
+
+  // ☕ ค่า default หวาน/คั่ว จาก GTKY — โหลดคู่กับข้อมูลแพ้/ไม่กิน จุดเดียวกัน
+  const GTKY_Q_SWEETNESS = '6aab533f-dba7-4bc9-bd99-ceefd35be9e9';
+  const GTKY_Q_ROAST = 'e28014a7-8433-4bbc-a25f-08feafe6d81d';
+
+  async function loadCustomerPreferencesFor(lineUserId) {
+    const el = document.getElementById('preferenceBanner');
+    if (!el) return;
+    if (!lineUserId) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    try {
+      const { data } = await sb.from('gtky_sends')
+        .select('question_id, answer_text, responded_at')
+        .eq('line_user_id', lineUserId)
+        .in('question_id', [GTKY_Q_SWEETNESS, GTKY_Q_ROAST])
+        .not('answer_text', 'is', null)
+        .order('responded_at', { ascending: false });
+
+      const latestByQuestion = {};
+      (data || []).forEach(row => {
+        if (!latestByQuestion[row.question_id]) latestByQuestion[row.question_id] = row.answer_text;
+      });
+
+      const sweetness = latestByQuestion[GTKY_Q_SWEETNESS];
+      const roast = latestByQuestion[GTKY_Q_ROAST];
+      const parts = [];
+      if (sweetness) parts.push(`หวาน: <b>${sweetness}</b>`);
+      if (roast) parts.push(`คั่ว: <b>${roast}</b>`);
+
+      if (!parts.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+      el.style.display = 'block';
+      el.innerHTML = `<div style="background:#F0F6FF;border:2px solid #C6D9F5;border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.7;margin:4px 0 4px;">☕ ค่า default จาก GTKY — ${parts.join(' &nbsp;|&nbsp; ')}</div>`;
+    } catch (e) {
+      el.style.display = 'none'; el.innerHTML = '';
     }
   }
 
