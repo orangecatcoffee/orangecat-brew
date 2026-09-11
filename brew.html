@@ -1148,14 +1148,19 @@
       <button class="btn-bean-cancel" style="margin-top:10px;">ยกเลิก</button>
     `;
     cardEl.querySelector('.btn-bean-cancel').addEventListener('click', () => loadToday());
+
+    let resolving = false; // กันกดซ้ำ/ดับเบิลแตะระหว่างรอบันทึก — ต้นตอนึงของแก้วซ้ำที่เจอในเคส Nene
     cardEl.querySelectorAll('.surprise-pick-chip').forEach(chip => {
       chip.addEventListener('click', async () => {
+        if (resolving) return;
+        resolving = true;
         cardEl.querySelectorAll('.surprise-pick-chip').forEach(c => c.disabled = true);
         chip.textContent = 'กำลังบันทึก...';
 
         // Insert ใหม่ (ไม่ใช่ update) เพราะ trg_copy_to_order_log ทำงานตอน INSERT เท่านั้น —
         // ต้องการให้ order_log (ประวัติลูกค้าถาวร + เหรียญสะสม) เก็บชื่อ/ราคาเมนูจริงที่ชง ไม่ใช่ placeholder
-        const { error: insErr } = await sb.from('preorders').insert([{
+        // ⚠️ ต้องคัดลอก omakase_set_id ไปด้วยเสมอ ไม่งั้นแก้วที่แปลงแล้วจะหลุดออกจากเซต omakase (บั๊กที่ทำให้เคส Nene พัง)
+        const { data: inserted, error: insErr } = await sb.from('preorders').insert([{
           customer_name: order.customer_name,
           menu_item_name: chip.dataset.name,
           price: Number(chip.dataset.price),
@@ -1167,17 +1172,33 @@
           order_type: order.order_type || 'customer',
           channel: order.channel,
           surprise_actual_item_id: chip.dataset.id,
-        }]);
+          omakase_set_id: order.omakase_set_id || null,
+        }]).select('id');
+
         if (insErr) {
           alert('บันทึกไม่สำเร็จ: ' + insErr.message);
+          resolving = false;
           cardEl.querySelectorAll('.surprise-pick-chip').forEach(c => c.disabled = false);
           return;
         }
-        const { error: delErr } = await sb.from('preorders').delete().eq('id', order.id);
-        if (delErr) {
-          alert('เลือกเมนูสำเร็จ แต่ลบออเดอร์เดิมไม่สำเร็จ (มีแถวซ้ำ แจ้ง Claude ให้เช็คด้วย): ' + delErr.message);
+
+        // ลบแถว placeholder เดิม — ลองซ้ำสูงสุด 3 ครั้งกันพลาดแบบเคส Nene (ถ้าลบไม่สำเร็จ placeholder จะค้างโผล่ให้กดแปลงซ้ำได้อีก กลายเป็นแก้วซ้อน)
+        let delOk = false;
+        for (let attempt = 0; attempt < 3 && !delOk; attempt++) {
+          const { error: delErr } = await sb.from('preorders').delete().eq('id', order.id);
+          if (!delErr) { delOk = true; }
+          else if (attempt < 2) { await new Promise(r => setTimeout(r, 400)); }
+          else {
+            alert(
+              `⚠️ เลือกเมนูสำเร็จแล้ว (${chip.dataset.name}) แต่ลบออเดอร์เดิม "แมวส้มเลือกหน่อย" ไม่สำเร็จหลังลองซ้ำ 3 ครั้ง\n\n` +
+              `ห้ามกดเลือกเมนูให้ลูกค้าคนนี้ซ้ำอีก เดี๋ยวจะได้แก้วซ้อน 2 แก้ว — แจ้ง Claude ให้เข้ามาลบแถว placeholder เดิม (id: ${order.id}) ออกด้วยมือแทน\n\n` +
+              `รายละเอียด: ${delErr.message}`
+            );
+          }
         }
-        await sb.from('order_log').delete().eq('source_preorder_id', order.id);
+        if (delOk) {
+          await sb.from('order_log').delete().eq('source_preorder_id', order.id);
+        }
         loadToday();
       });
     });
