@@ -3311,6 +3311,7 @@
   renderFruitRefTable();
 
   document.getElementById('labAddBtn').addEventListener('click', async () => {
+    const nameEl = document.getElementById('labNewName');
     const notesEl = document.getElementById('labNewNotes');
     const refUrlEl = document.getElementById('labNewRefUrl');
     const scoreEl = document.getElementById('labNewScore');
@@ -3440,8 +3441,7 @@
     const tasteBtn = e.target.closest('[data-lab-taste-now]');
     if (tasteBtn) {
       const tid = tasteBtn.dataset.labTasteNow;
-      await saveLabField(tid, 'tasted_at', toISODate(new Date()), null);
-      renderLabResultsGrid();
+      await markLabTasted(tid);
       labActiveTrialId = tid;
       openLabDetail(tid);
       return;
@@ -3497,6 +3497,16 @@
       if (el) { el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1500); }
     }
     renderLabChipGrid();
+  }
+
+  async function markLabTasted(trialId) {
+    const todayISO = toISODate(new Date());
+    const { error } = await sb.from('lab_trials').update({ tasted_at: todayISO, status: 'done', updated_at: new Date().toISOString() }).eq('id', trialId);
+    if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+    const trial = labTrialsCache.find(t => t.id === trialId);
+    if (trial) { trial.tasted_at = todayISO; trial.status = 'done'; }
+    renderLabChipGrid();
+    renderLabResultsGrid();
   }
 
   async function saveLabChips(trialId) {
@@ -3699,7 +3709,7 @@
     const tasteNowBtn = e.target.closest('[data-lab-taste-now]');
     if (tasteNowBtn) {
       const tid = tasteNowBtn.dataset.labTasteNow;
-      await saveLabField(tid, 'tasted_at', toISODate(new Date()), null);
+      await markLabTasted(tid);
       openLabDetail(tid);
       return;
     }
