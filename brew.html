@@ -2934,33 +2934,16 @@
 
       const rewardProgress = rewardEligibleMap[m.line_user_id];
       if (rewardProgress) {
+        // ปุ่มแลกแต้มแบบ inline เดิมถูกตัดออกแล้ว (Fah ไม่ได้ใช้) — ใช้ปุ่ม "แลกแต้ม (ฟรี)" ที่ประเภทออเดอร์ด้านบนแทน
+        // ยังเก็บ badge เตือนไว้เฉยๆ ให้บาริสต้าเห็นว่าคนนี้ครบแล้ว ไม่ต้องกดอะไรตรงนี้
         const wrap = document.createElement('span');
         wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
         wrap.appendChild(chip);
-        const giftBtn = document.createElement('button');
-        giftBtn.type = 'button';
-        giftBtn.textContent = `🎁 ครบ ${Math.floor(rewardProgress / 10) * 10} แก้ว — กดเมื่อแถมแล้ว`;
-        giftBtn.title = `${m.display_name} สะสมครบ ${rewardProgress} แก้ว — กดเมื่อชงแก้วฟรีให้แล้ว`;
-        giftBtn.style.cssText = 'padding:8px 12px;border-radius:999px;border:2px solid #E8863A;background:#FFF3E8;color:#E8863A;font-size:12px;font-weight:700;font-family:inherit;white-space:nowrap;';
-        giftBtn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          if (!confirm(`บันทึกว่าชงแก้วฟรีให้ ${m.display_name} แล้วใช่ไหม? (จะเริ่มนับรอบใหม่จาก 0)`)) return;
-          giftBtn.disabled = true;
-          giftBtn.textContent = 'กำลังบันทึก...';
-          const { error } = await sb.from('customer_reward_redemptions').insert([{
-            line_user_id: m.line_user_id,
-            cups_at_redemption: rewardProgress,
-          }]);
-          if (error) {
-            alert('บันทึกไม่สำเร็จ: ' + error.message);
-            giftBtn.disabled = false;
-            giftBtn.textContent = `🎁 ครบ ${Math.floor(rewardProgress / 10) * 10} แก้ว — กดเมื่อแถมแล้ว`;
-            return;
-          }
-          delete rewardEligibleMap[m.line_user_id];
-          wrap.replaceWith(chip);
-        });
-        wrap.appendChild(giftBtn);
+        const badge = document.createElement('span');
+        badge.textContent = `🎁 ครบ ${Math.floor(rewardProgress / 10) * 10} แก้ว`;
+        badge.title = `${m.display_name} สะสมครบ ${rewardProgress} แก้ว — เลือกประเภทออเดอร์ "แลกแต้ม (ฟรี)" ด้านบนตอนชงให้`;
+        badge.style.cssText = 'padding:6px 10px;border-radius:999px;border:2px solid #E8863A;background:#FFF3E8;color:#E8863A;font-size:11px;font-weight:700;white-space:nowrap;';
+        wrap.appendChild(badge);
         el.appendChild(wrap);
       } else {
         el.appendChild(chip);
@@ -5160,6 +5143,10 @@
   document.getElementById('orderTypeRow').addEventListener('click', (e) => {
     const btn = e.target.closest('.sweetness-btn');
     if (!btn) return;
+    if (btn.dataset.orderType === 'reward' && !redemptionEnabled) {
+      alert('การแลกแต้มถูกปิดใช้งานอยู่ที่ Admin panel');
+      return;
+    }
     orderType = btn.dataset.orderType;
     document.querySelectorAll('#orderTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b === btn));
     const hintEl = document.getElementById('orderTypeHint');
@@ -5426,6 +5413,26 @@
         await sb.from('preorders').update({ topping_cost: totalToppingCost }).eq('id', inserted[0].id);
       } else {
         statusEl.textContent = `บันทึกออเดอร์แล้ว แต่บันทึกท็อปปิ้งไม่สำเร็จ: ${toppingErr.message}`;
+        statusEl.className = 'status-msg error';
+        btn.disabled = false;
+        btn.textContent = 'บันทึกออเดอร์';
+        return;
+      }
+    }
+
+    // บันทึกการแลกแต้มจริง — สำคัญมาก ถ้าไม่ทำจุดนี้ ตัวนับ 10 แก้วจะไม่รีเซ็ตเลย ลูกค้าจะค้างสถานะ "ครบแล้ว" ตลอดไป
+    if (orderType === 'reward' && selectedMemberLineId && redemptionEnabled) {
+      const [{ count: totalCups }, { count: redeemedCount }] = await Promise.all([
+        sb.from('preorders').select('id', { count: 'exact', head: true }).eq('line_user_id', selectedMemberLineId).eq('order_type', 'customer'),
+        sb.from('customer_reward_redemptions').select('id', { count: 'exact', head: true }).eq('line_user_id', selectedMemberLineId),
+      ]);
+      const progressNow = (totalCups || 0) - (redeemedCount || 0) * 10;
+      const { error: redeemErr } = await sb.from('customer_reward_redemptions').insert([{
+        line_user_id: selectedMemberLineId,
+        cups_at_redemption: progressNow,
+      }]);
+      if (redeemErr) {
+        statusEl.textContent = `บันทึกออเดอร์แล้ว แต่บันทึกการแลกแต้มไม่สำเร็จ (ตัวนับจะไม่รีเซ็ต แจ้ง Claude ด้วย): ${redeemErr.message}`;
         statusEl.className = 'status-msg error';
         btn.disabled = false;
         btn.textContent = 'บันทึกออเดอร์';
@@ -6519,11 +6526,25 @@
     });
   });
 
+  let redemptionEnabled = true; // default เผื่อโหลด setting ไม่ทัน — ปลอดภัยกว่าไปบล็อกโดยไม่ตั้งใจ
+
+  async function loadRedemptionSetting() {
+    const { data } = await sb.from('system_settings').select('value').eq('key', 'passport.redemption_enabled').maybeSingle();
+    redemptionEnabled = data ? data.value !== false : true;
+    const rewardBtn = document.querySelector('#orderTypeRow [data-order-type="reward"]');
+    if (rewardBtn) {
+      rewardBtn.disabled = !redemptionEnabled;
+      rewardBtn.style.opacity = redemptionEnabled ? '1' : '0.35';
+      rewardBtn.title = redemptionEnabled ? '' : 'ปิดใช้งานอยู่ที่ Admin panel';
+    }
+  }
+
   async function init() {
     await loadMenuItems();
     loadAllergyReferenceData(); // ไม่ต้อง await — ไม่บล็อกการโหลดหน้าจอหลัก โหลดเสร็จแล้ว renderMenuGrid() รอบถัดไปจะได้ข้อมูล
     loadMilksForAddOrder(); // ไม่ต้อง await เช่นกัน — ถ้าโหลดช้ากว่าที่ user เลือกเมนู updateMilkRow ยังโชว์ row แต่ dropdown จะว่างจนกว่าจะโหลดเสร็จ (ไม่ block)
     loadMatchaForAddOrder(); // เช่นเดียวกับนม — โหลดพื้นหลัง ไม่ block
+    loadRedemptionSetting(); // ไม่ต้อง await — ปุ่มเริ่มต้นเปิดไว้ก่อน ถ้าปิดจะ disable ตามหลังไม่กี่ร้อย ms
     renderMenuGrid();
     renderDateRow();
     loadToday();
