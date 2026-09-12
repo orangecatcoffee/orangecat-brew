@@ -416,7 +416,7 @@
   </div>
 
   <div id="labSubtabResults" style="display:none;">
-    <div class="field-hint" style="margin-top:0;">แตะการ์ดที่ยังไม่ชิมเพื่อบันทึกว่าชิมวันนี้ แล้วให้คะแนน/โน้ต/สัดส่วนสุดท้ายต่อได้ในแผงรายละเอียดด้านบน</div>
+    <div class="field-hint" style="margin-top:0;">แสดงเฉพาะตัวที่ส่งไปชงจริงแล้ว — แตะการ์ดที่ยังไม่ชิมเพื่อบันทึกว่าชิมวันนี้ แล้วให้คะแนน/โน้ต/สัดส่วนสุดท้ายต่อได้ในแผงรายละเอียดด้านบน</div>
     <div class="chip-row" id="labTastedFilterRow" style="margin-bottom:10px;">
       <button type="button" class="chip selected" data-tasted="no">⏳ ยังไม่ชิม</button>
       <button type="button" class="chip" data-tasted="yes">✅ ชิมแล้ว</button>
@@ -3400,8 +3400,14 @@
   }
 
   // --- Lab sub-tabs: เลือกก่อนทำ / ผลการทดลอง ---
+  let labBrewedTrialIds = null;
+  async function loadLabBrewedTrialIds() {
+    const { data, error } = await sb.from('preorders').select('lab_trial_id').not('lab_trial_id', 'is', null);
+    if (error) { labBrewedTrialIds = new Set(); return; }
+    labBrewedTrialIds = new Set((data || []).map(r => r.lab_trial_id));
+  }
   document.querySelectorAll('#labSubtabRow .chip').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       document.querySelectorAll('#labSubtabRow .chip').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       const isResults = btn.dataset.labsubtab === 'results';
@@ -3409,7 +3415,13 @@
       document.getElementById('labSubtabResults').style.display = isResults ? '' : 'none';
       labActiveTrialId = null;
       document.getElementById('labDetailPanel').style.display = 'none';
-      if (isResults) renderLabResultsGrid();
+      if (isResults) {
+        if (!labBrewedTrialIds) {
+          document.getElementById('labResultsGrid').innerHTML = '<div class="loading">กำลังโหลด...</div>';
+          await loadLabBrewedTrialIds();
+        }
+        renderLabResultsGrid();
+      }
     });
   });
 
@@ -3447,8 +3459,10 @@
 
   function renderLabResultsGrid() {
     const gridEl = document.getElementById('labResultsGrid');
-    let trials = labTastedFilter === 'yes' ? labTrialsCache.filter(t => t.tasted_at) : labTrialsCache.filter(t => !t.tasted_at);
-    if (trials.length === 0) { gridEl.innerHTML = `<div class="empty-state">${labTastedFilter === 'yes' ? 'ยังไม่มีรายการที่ชิมแล้ว' : 'ชิมครบทุกตัวแล้ว 🎉'}</div>`; return; }
+    const brewedSet = labBrewedTrialIds || new Set();
+    let trials = labTrialsCache.filter(t => brewedSet.has(t.id));
+    trials = labTastedFilter === 'yes' ? trials.filter(t => t.tasted_at) : trials.filter(t => !t.tasted_at);
+    if (trials.length === 0) { gridEl.innerHTML = `<div class="empty-state">${labTastedFilter === 'yes' ? 'ยังไม่มีรายการที่ชิมแล้ว' : 'ไม่มีรายการที่ชงแล้วรอชิม'}</div>`; return; }
     const LAB_VERDICT_ICON = { go: '👍', not_yet: '🤔', cut: '❌', launched: '🎉' };
     gridEl.innerHTML = trials.map(trial => {
       const isActive = labActiveTrialId === trial.id;
@@ -3771,6 +3785,7 @@
     }
     const { error } = await sb.from('preorders').insert(insertPayload);
     if (error) { alert('เพิ่มคิวไม่สำเร็จ: ' + error.message); return; }
+    if (labBrewedTrialIds) labBrewedTrialIds.add(trial.id);
     const updates = { updated_at: new Date().toISOString(), planned_date: wantedDate };
     if (trial.status === 'idea') updates.status = 'in_progress';
     await sb.from('lab_trials').update(updates).eq('id', trial.id);
