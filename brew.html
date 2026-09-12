@@ -773,7 +773,7 @@
     if (name === 'members') { loadMembers(); loadPrograms(); loadRecurringOrders(); }
     if (name === 'menu') loadMenuContentList();
     if (name === 'recipe') loadMenuRecipeList();
-    if (name === 'lab') { loadLabTrials(); loadLabComponents(); }
+    if (name === 'lab') { loadLabTrials(); loadLabComponents(); loadLabBrewedTrialIds().then(() => renderLabResultsGrid()); }
   }
 
   function fmtDate(d) {
@@ -3469,7 +3469,7 @@
       const scoreBadge = trial.score != null ? `<span class="lab-chip-score">⭐${trial.score}</span>` : '';
       const verdictBadge = trial.verdict && LAB_VERDICT_ICON[trial.verdict] ? ` ${LAB_VERDICT_ICON[trial.verdict]}` : '';
       if (!trial.tasted_at) {
-        return `<div style="display:flex;align-items:center;gap:8px;"><button type="button" class="lab-ing-chip${isActive ? ' active' : ''}" data-lab-result-open="${trial.id}" style="flex:1;">${escapeHtml(trial.name)}</button><button type="button" class="lab-taste-btn" data-lab-taste-now="${trial.id}">🧪 ทดลองชิม</button></div>`;
+        return `<button type="button" class="lab-taste-btn" style="width:100%;text-align:left;" data-lab-taste-now="${trial.id}">🧪 ${escapeHtml(trial.name)} — แตะเพื่อบันทึกว่าชิมวันนี้</button>`;
       }
       return `<button type="button" class="lab-ing-chip${isActive ? ' active' : ''}" data-lab-result-open="${trial.id}">${escapeHtml(trial.name)}${scoreBadge}${verdictBadge} <span style="opacity:.55;font-size:11px;">· ${escapeHtml(trial.tasted_at)}</span></button>`;
     }).join('');
@@ -3525,6 +3525,7 @@
     const todayISO = toISODate(new Date());
     const maxDateISO = labAddDays(6);
     let defaultDate = trial.planned_date && trial.planned_date >= todayISO ? trial.planned_date : todayISO;
+    const alreadyBrewed = !!(labBrewedTrialIds && labBrewedTrialIds.has(trial.id));
 
     const LAB_VERDICT_CLASS = { go: 'lab-chip-verdict-go', not_yet: 'lab-chip-verdict-notyet', cut: 'lab-chip-verdict-cut', launched: 'lab-chip-verdict-launched' };
     const tastedSection = `
@@ -3595,6 +3596,7 @@
         <button type="button" class="chip lab-chip-weirdo${trial.source_type === 'weirdo' ? ' selected' : ''}" data-lab-sourcetype-btn="${trial.id}" data-sourcetype-val="weirdo">🤪 Weirdo</button>
       </div>
 
+      ${!alreadyBrewed ? `
       <div class="field-label" style="margin-top:0;">ส่งไปชงให้ใคร</div>
       <select id="labBrewCustomerSelect" style="width:100%;margin-bottom:8px;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:14px;font-family:inherit;">
         <option value="">🧪 ตัวเอง/สตาฟ (ไม่คิดเงิน)</option>
@@ -3610,6 +3612,9 @@
         <button type="button" class="btn-bean-cancel" style="flex:1;" data-lab-schedule="${trial.id}">📅 บันทึกวันตั้งใจทำ</button>
         <button type="button" class="btn-bean-confirm" style="flex:1;" data-lab-brew="${trial.id}">☕ ส่งไปชงจริง</button>
       </div>
+    ` : `
+      <div style="font-size:12.5px;color:#4A9B5C;font-weight:600;background:#EAF7EE;border-radius:10px;padding:10px 12px;margin-bottom:4px;">☕ ตัวนี้ส่งไปชงแล้ว — ใช้ปุ่มผลตัดสินด้านบนแทนถ้าจะให้ไปต่อหรือตัดทิ้ง</div>
+    `}
       <button type="button" class="btn-delete" style="margin-top:12px;width:100%;text-align:center;padding:8px;" data-lab-delete="${trial.id}">ลบไอเดียนี้</button>
     `;
     renderLabEditChipsList();
