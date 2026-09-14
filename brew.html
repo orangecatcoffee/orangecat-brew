@@ -5448,11 +5448,11 @@
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
-        price: isFree ? 0 : selectedMenu.price,
+        price: orderType === 'reward' ? Math.max(0, selectedMenu.price - REWARD_CAP_AMOUNT) : (isFree ? 0 : selectedMenu.price),
         wanted_date: selectedDate,
         line_user_id: selectedMemberLineId,
         order_type: orderType,
-        paid: isFree,
+        paid: orderType === 'reward' ? (selectedMenu.price - REWARD_CAP_AMOUNT <= 0) : isFree,
         sweetness: selectedSweetness,
         channel: 'walk-in-omakase-solo',
         notes: orderNotes,
@@ -5462,12 +5462,12 @@
       insertRows = omakaseSlots.map((item, i) => ({
         customer_name: name,
         menu_item_name: item.name,
-        price: isFree ? 0 : item.price,
+        price: orderType === 'reward' ? Math.max(0, item.price - REWARD_CAP_AMOUNT) : (isFree ? 0 : item.price),
         wanted_date: omakaseDates[i] || selectedDate,
         bean_name: item.bean ? computeBeanNameForSlot(i) : null,
         line_user_id: selectedMemberLineId,
         order_type: orderType,
-        paid: isFree,
+        paid: orderType === 'reward' ? (item.price - REWARD_CAP_AMOUNT <= 0) : isFree,
         sweetness: selectedSweetness,
         channel: 'walk-in',
         omakase_set_id: omakaseSetId,
@@ -5482,10 +5482,13 @@
       const matchaName = (selectedMenu.needsMatcha ? document.getElementById('matchaSelect').value : '') || null;
       const noCoffeeChecked = selectedMenu.coffeeFlexible && document.getElementById('noCoffeeCheckbox').checked;
       const beanSur = (isFree || noCoffeeChecked) ? 0 : beanSurchargeForSelection(blendPayload);
+      // แลกแต้ม (ฟรี): มูลค่าจริงของเมนู (รวม surcharge) ไม่เกิน cap = ฟรีเต็ม เกิน cap = เก็บส่วนต่าง
+      const rewardFullPrice = selectedMenu.price + milkSurchargeBrew(milkName) + (noCoffeeChecked ? 0 : beanSurchargeForSelection(blendPayload));
+      const rewardCharge = Math.max(0, rewardFullPrice - REWARD_CAP_AMOUNT);
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
-        price: isMaxCup ? 0 : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)),
+        price: isMaxCup ? 0 : (orderType === 'reward' ? rewardCharge : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur))),
         discount_amount: isMaxCup ? 0 : discount,
         wanted_date: selectedDate,
         bean_name: beanName,
@@ -5495,7 +5498,7 @@
         matcha_name: isMaxCup ? null : matchaName,
         line_user_id: selectedMemberLineId,
         order_type: orderType,
-        paid: isMaxCup ? false : isFree,
+        paid: isMaxCup ? false : (orderType === 'reward' ? rewardCharge <= 0 : isFree),
         sweetness: selectedSweetness,
         channel: isMaxCup ? 'liff-omakase-fullweek' : 'walk-in',
         no_coffee: selectedMenu.coffeeFlexible ? document.getElementById('noCoffeeCheckbox').checked : false,
@@ -6666,6 +6669,12 @@
   });
 
   let redemptionEnabled = true; // default เผื่อโหลด setting ไม่ทัน — ปลอดภัยกว่าไปบล็อกโดยไม่ตั้งใจ
+  let REWARD_CAP_AMOUNT = 70; // มูลค่าแก้วฟรีสูงสุด (แลกแต้ม) — เกินนี้เก็บส่วนต่าง ค่า default เผื่อโหลด setting ไม่ทัน
+
+  async function loadRewardCapSetting() {
+    const { data } = await sb.from('system_settings').select('value').eq('key', 'crm.reward_cap_amount').maybeSingle();
+    if (data && data.value != null) REWARD_CAP_AMOUNT = Number(data.value);
+  }
 
   async function loadRedemptionSetting() {
     const { data } = await sb.from('system_settings').select('value').eq('key', 'passport.redemption_enabled').maybeSingle();
@@ -6684,6 +6693,7 @@
     loadMilksForAddOrder(); // ไม่ต้อง await เช่นกัน — ถ้าโหลดช้ากว่าที่ user เลือกเมนู updateMilkRow ยังโชว์ row แต่ dropdown จะว่างจนกว่าจะโหลดเสร็จ (ไม่ block)
     loadMatchaForAddOrder(); // เช่นเดียวกับนม — โหลดพื้นหลัง ไม่ block
     loadRedemptionSetting(); // ไม่ต้อง await — ปุ่มเริ่มต้นเปิดไว้ก่อน ถ้าปิดจะ disable ตามหลังไม่กี่ร้อย ms
+    loadRewardCapSetting(); // ไม่ต้อง await — ใช้ค่า default 70 ไปก่อนถ้ายังโหลดไม่เสร็จ
     renderMenuGrid();
     renderDateRow();
     loadToday();
