@@ -6378,6 +6378,9 @@
         const cupLines = cups.map(c => `<div style="font-size:12.5px;color:#5a4433;margin-bottom:3px;">${c.is_secret_cup ? '🐱 แก้วลับ' : c.menu_item_name}${c.order_type === 'reward' ? ' <span style="color:#C9A44A;font-weight:600;">· รางวัลสะสมครบ</span>' : ' <span style="color:#E8863A;font-weight:600;">· แถมฟรี</span>'}</div>`).join('');
 
         const brewedCups = cups; // ทุกแก้วในนี้ผ่าน brewed=true มาจาก query แล้ว
+        // เจอบั๊กจริง 14 ก.ย.: แก้วแลกแต้มที่เกิน cap (เช่น จั๊ม 20 บาท) โผล่ในนี้แต่ปุ่ม "เคลียร์ออก" แค่ set paid=true เฉยๆ
+        // เผลอกดจะเคลียร์แบบไม่เก็บเงินจริง — แยกกรณีมีเงินต้องเก็บออกจากแก้วฟรีเต็ม ป้องกันเงินหาย
+        const totalOwed = cups.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
         const fbWidgetHtml = `
           <div class="fb-widget" data-line-ids="${cups.map(c => c.id).join(',')}" style="margin-top:10px;">
             <button type="button" class="fb-toggle-chip" style="font-size:11px;padding:5px 12px;border-radius:999px;border:1px solid #E8863A;background:#FFF3E8;color:#E8863A;font-family:inherit;">🐱 อยากรู้ผลชิม</button>
@@ -6394,13 +6397,21 @@
           </div>
         `;
 
+        const owedBannerHtml = totalOwed > 0
+          ? `<div style="background:#FFF3E8;border:2px solid #E8863A;border-radius:10px;padding:8px 12px;margin-top:10px;font-size:12.5px;color:#A85A1E;font-weight:700;">💰 มูลค่าเกินสิทธิ์แลกแต้ม (cap ${REWARD_CAP_AMOUNT}฿) — ต้องเก็บเงินเพิ่ม ${totalOwed}฿</div>`
+          : '';
+        const actionBtnHtml = totalOwed > 0
+          ? `<button type="button" class="btn-clear-free btn-collect-owed" data-ids="${cups.map(c => c.id).join(',')}" data-owed="${totalOwed}" style="width:100%;margin-top:12px;padding:10px;border-radius:9px;border:none;background:#E8863A;color:#fff;font-size:13px;font-weight:700;font-family:inherit;">✅ เก็บเงินแล้ว ${totalOwed}฿</button>`
+          : `<button type="button" class="btn-clear-free" data-ids="${cups.map(c => c.id).join(',')}" style="width:100%;margin-top:12px;padding:9px;border-radius:9px;border:1.5px solid #4A3428;background:#fff;color:#4A3428;font-size:12px;font-weight:700;font-family:inherit;">เคลียร์ออก</button>`;
+
         card.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <span style="font-size:15px;font-weight:700;color:#4A3428;">${name}${groupLineId ? ' 🔗' : ''}</span>
           </div>
           ${cupLines}
+          ${owedBannerHtml}
           ${groupLineId ? fbWidgetHtml : '<div style="font-size:10.5px;color:#A8876F;margin-top:8px;">ยังไม่ผูก LINE — ขอฟีดแบ็คอัตโนมัติไม่ได้</div>'}
-          <button type="button" class="btn-clear-free" data-ids="${cups.map(c => c.id).join(',')}" style="width:100%;margin-top:12px;padding:9px;border-radius:9px;border:1.5px solid #4A3428;background:#fff;color:#4A3428;font-size:12px;font-weight:700;font-family:inherit;">เคลียร์ออก</button>
+          ${actionBtnHtml}
         `;
 
         card.querySelectorAll('.fb-toggle-chip').forEach(chip => {
@@ -6448,13 +6459,15 @@
         card.querySelector('.btn-clear-free').addEventListener('click', async (e) => {
           const btn = e.target;
           const ids = btn.dataset.ids.split(',');
+          const owed = Number(btn.dataset.owed || 0);
+          if (owed > 0 && !confirm(`ยืนยันว่าเก็บเงิน ${owed}฿ จากลูกค้าจริงแล้วใช่ไหม?`)) return;
           btn.disabled = true;
-          btn.textContent = 'กำลังเคลียร์...';
+          btn.textContent = owed > 0 ? 'กำลังบันทึก...' : 'กำลังเคลียร์...';
           const { error: clearErr } = await sb.from('preorders').update({ paid: true }).in('id', ids);
           if (clearErr) {
-            alert('เคลียร์ไม่สำเร็จ: ' + clearErr.message);
+            alert('บันทึกไม่สำเร็จ: ' + clearErr.message);
             btn.disabled = false;
-            btn.textContent = 'เคลียร์ออก';
+            btn.textContent = owed > 0 ? `✅ เก็บเงินแล้ว ${owed}฿` : 'เคลียร์ออก';
             return;
           }
           loadBills();
