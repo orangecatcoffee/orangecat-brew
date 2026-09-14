@@ -6400,8 +6400,17 @@
         const owedBannerHtml = totalOwed > 0
           ? `<div style="background:#FFF3E8;border:2px solid #E8863A;border-radius:10px;padding:8px 12px;margin-top:10px;font-size:12.5px;color:#A85A1E;font-weight:700;">💰 มูลค่าเกินสิทธิ์แลกแต้ม (cap ${REWARD_CAP_AMOUNT}฿) — ต้องเก็บเงินเพิ่ม ${totalOwed}฿</div>`
           : '';
+        const alreadyRequestedFree = cups.some(c => c.payment_requested_at);
+        const lastRequestedAtFree = cups.map(c => c.payment_requested_at).filter(Boolean).sort().pop();
+        let requestBtnFreeHtml = '';
+        if (totalOwed > 0) {
+          requestBtnFreeHtml = groupLineId
+            ? `<button type="button" class="btn-request-free" style="width:100%;margin-top:10px;padding:9px;border-radius:9px;border:none;background:#4A3428;color:#fff;font-size:12.5px;font-weight:700;font-family:inherit;">🔔 ${alreadyRequestedFree ? 'แจ้งซ้ำ' : 'เรียกเก็บเงิน'}</button>
+               <div style="font-size:10.5px;color:${alreadyRequestedFree ? '#4A9B5C' : '#A8876F'};font-weight:${alreadyRequestedFree ? '600' : '400'};margin-top:4px;text-align:center;">${alreadyRequestedFree ? `📨 แจ้งไปแล้วเมื่อ ${fmtDateTime(lastRequestedAtFree)}` : '🔗 ผูก LINE แล้ว — กดแล้วส่งข้อความยอดเงินไปหาลูกค้าทันที'}</div>`
+            : `<div style="font-size:10.5px;color:#A8876F;margin-top:8px;">ยังไม่ผูก LINE — เรียกเก็บเงินอัตโนมัติไม่ได้ ต้องแจ้งเอง</div>`;
+        }
         const actionBtnHtml = totalOwed > 0
-          ? `<button type="button" class="btn-clear-free btn-collect-owed" data-ids="${cups.map(c => c.id).join(',')}" data-owed="${totalOwed}" style="width:100%;margin-top:12px;padding:10px;border-radius:9px;border:none;background:#E8863A;color:#fff;font-size:13px;font-weight:700;font-family:inherit;">✅ เก็บเงินแล้ว ${totalOwed}฿</button>`
+          ? `<button type="button" class="btn-clear-free btn-collect-owed" data-ids="${cups.map(c => c.id).join(',')}" data-owed="${totalOwed}" style="width:100%;margin-top:8px;padding:10px;border-radius:9px;border:none;background:#E8863A;color:#fff;font-size:13px;font-weight:700;font-family:inherit;">✅ เก็บเงินแล้ว ${totalOwed}฿</button>`
           : `<button type="button" class="btn-clear-free" data-ids="${cups.map(c => c.id).join(',')}" style="width:100%;margin-top:12px;padding:9px;border-radius:9px;border:1.5px solid #4A3428;background:#fff;color:#4A3428;font-size:12px;font-weight:700;font-family:inherit;">เคลียร์ออก</button>`;
 
         card.innerHTML = `
@@ -6410,6 +6419,7 @@
           </div>
           ${cupLines}
           ${owedBannerHtml}
+          ${requestBtnFreeHtml}
           ${groupLineId ? fbWidgetHtml : '<div style="font-size:10.5px;color:#A8876F;margin-top:8px;">ยังไม่ผูก LINE — ขอฟีดแบ็คอัตโนมัติไม่ได้</div>'}
           ${actionBtnHtml}
         `;
@@ -6456,6 +6466,29 @@
             }
           });
         });
+        const requestFreeBtn = card.querySelector('.btn-request-free');
+        if (requestFreeBtn) {
+          requestFreeBtn.addEventListener('click', async () => {
+            requestFreeBtn.disabled = true;
+            requestFreeBtn.textContent = 'กำลังส่ง...';
+            try {
+              const items = cups.map(c => `${c.is_secret_cup ? '🐱 แก้วลับ' : c.menu_item_name} (ส่วนเกินสิทธิ์แลกแต้ม) ${c.price}฿`);
+              const res = await fetch(REQUEST_PAYMENT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ line_user_id: groupLineId, customer_name: name, amount: totalOwed, items }),
+              });
+              const result = await res.json();
+              if (!res.ok || result.ok === false) throw new Error(result.error || 'ส่งไม่สำเร็จ');
+              await sb.from('preorders').update({ payment_requested_at: new Date().toISOString() }).in('id', cups.map(c => c.id));
+              loadBills();
+            } catch (err) {
+              alert('เรียกเก็บเงินไม่สำเร็จ: ' + err.message);
+              requestFreeBtn.disabled = false;
+              requestFreeBtn.textContent = '🔔 เรียกเก็บเงิน';
+            }
+          });
+        }
         card.querySelector('.btn-clear-free').addEventListener('click', async (e) => {
           const btn = e.target;
           const ids = btn.dataset.ids.split(',');
