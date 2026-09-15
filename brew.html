@@ -5782,10 +5782,15 @@
     // - เซ็ต Omakase เรียกเก็บได้ทั้งแพ็กเกจแม้ยังชงไม่ครบ 3 แก้ว (จ่ายล่วงหน้าได้) — ก่อนหน้านี้ query กรอง
     //   brewed=true กับทุกแถวรวมกัน ทำให้เซ็ตที่ชงยังไม่ครบถูกตัดแก้วที่ยังไม่ชงออกไป เหลือแค่แก้วที่ชงแล้ว
     //   แต่ยังคิดราคาเต็มแพ็กเกจ (270) ต่อการเคลียร์ 1 ครั้ง — กดจ่ายทีละแก้วที่ทยอยชงจะเท่ากับเรียกเก็บซ้ำเกินราคาแพ็กเกจจริง
-    const [{ data: unpaidRegular, error: err1 }, { data: unpaidOmakase, error: err2 }] = await Promise.all([
+    const [{ data: unpaidRegular, error: err1 }, { data: unpaidOmakaseRaw, error: err2 }] = await Promise.all([
       sb.from('preorders').select('*').eq('paid', false).eq('brewed', true).is('omakase_set_id', null).eq('order_type', 'customer'),
       sb.from('preorders').select('*').eq('paid', false).not('omakase_set_id', 'is', null).eq('order_type', 'customer'),
     ]);
+    // Fah แจ้ง 14 ก.ย.: เซ็ต Omakase ที่สั่งมาเป็นสัปดาห์แต่ยังไม่ชงสักแก้ว โผล่ในหน้าบิลรกไปหมด ไม่ควรขึ้นจนกว่าจะเริ่มชงจริง
+    // เปลี่ยนกฎ: ต้องมีอย่างน้อย 1 แก้วในเซ็ตชงแล้ว ถึงจะเรียกเก็บได้ (จากเดิมที่ขึ้นได้ทันทีที่สั่ง จ่ายล่วงหน้าได้)
+    const setsWithAnyBrewed = new Set();
+    (unpaidOmakaseRaw || []).forEach(o => { if (o.brewed) setsWithAnyBrewed.add(o.omakase_set_id); });
+    const unpaidOmakase = (unpaidOmakaseRaw || []).filter(o => setsWithAnyBrewed.has(o.omakase_set_id));
     const error = err1 || err2;
     const data = [...(unpaidRegular || []), ...(unpaidOmakase || [])];
     data.sort((a, b) => (a.customer_name || '').localeCompare(b.customer_name || ''));
