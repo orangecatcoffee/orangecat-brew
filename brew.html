@@ -725,7 +725,7 @@
   let menuRecipeIngredientsByItemId = {}; // menu_item_id -> Set(ingredient_id) โหลดครั้งเดียวตอน init
   let dairyMilkIngredientId = null; // ใช้เช็คว่าเมนูไหน "เปลี่ยนนมได้" (มี Dairy milk ในสูตรจริง)
   let availableMilksBrew = []; // นมทางเลือกที่มีสต็อก + upcharge > 0
-  let availableMatchaBrew = []; // มัทฉะทุกยี่ห้อที่มีสต็อก (category='base', ชื่อขึ้นต้น 'มัทฉะ')
+  let availableMatchaBrew = []; // มัทฉะทุกยี่ห้อที่มีสต็อก (category='base', ชื่อขึ้นต้น 'มัทฉะ' หรือ 'Matcha' — ตั้งค่า 30 ก.ย. 2569 ให้ "Matcha powder" เฉยๆ เป็นตัวเลือกด้วยและเป็นดีฟอลต์ (เรียงตามราคาต่อกรัมจากถูกไปแพง ตัวนี้ถูกสุด)
   // ⚠️ แพ้/ไม่กิน — สรุประดับ "แย่สุด" ต่อลูกค้า (line_user_id) ใช้โชว์ไอคอนเตือนในหน้า "วันนี้" ด้วย ไม่ใช่แค่ตอนเพิ่มออเดอร์
   let allergySummaryByLineId = {}; // line_user_id -> 'severe' | 'mild' | 'tolerate'
   let noCoffeeLineIdSet = new Set();
@@ -927,7 +927,7 @@
       .select('id, name, cost_per_base_unit, stock_quantity')
       .eq('category', 'base')
       .eq('active', true)
-      .ilike('name', 'มัทฉะ%')
+      .or('name.ilike.มัทฉะ%,name.ilike.Matcha%')
       .order('cost_per_base_unit');
     availableMatchaBrew = (!error && data) ? data : [];
     updateMatchaRow(selectedMenu);
@@ -1793,12 +1793,9 @@
     });
   }
 
-  const STAFF_DAILY_DEFAULTS = {
-    'Fah': { menu_item_name: 'Iced Latte', bean_name: 'Brazil Santos', sweetness: 'ไม่หวาน' },
-    'ซีเซีย': { menu_item_name: 'Strawberry Coffee Latte', bean_name: null, sweetness: 'หวานปกติ' },
-  };
+  const STAFF_DAILY_SWEETNESS_DEFAULT = { 'Fah': 'ไม่หวาน', 'ซีเซีย': 'หวานปกติ' };
 
-  // ใส่ออเดอร์สตาฟ (Fah + ซีเซีย) ให้อัตโนมัติทุกวันในหน้าเตรียมชง เพราะปกติชงทุกวันอยู่แล้ว — ถ้าวันไหนไม่ชงกด ✕ ออกเองได้เลย (ตั้งไว้ 16 ก.ย. 2569, ปรับ default เมนู/เมล็ดต่อคนให้กดยืนยันได้เลย 1 ต.ค. 2569)
+  // ใส่ออเดอร์สตาฟ (Fah + ซีเซีย) ให้อัตโนมัติทุกวันในหน้าเตรียมชง เพราะปกติชงทุกวันอยู่แล้ว — ถ้าวันไหนไม่ชงกด ✕ ออกเองได้เลย (ตั้งไว้ 16 ก.ย. 2569)
   async function ensureDailyStaffOrders() {
     const todayISO = toISODate(new Date());
     if (membersCache.length === 0) await loadMembers();
@@ -1812,15 +1809,13 @@
       const already = existingNames.some(n => n === staffName || n.startsWith(staffName));
       if (already) return;
       const matchedMember = membersCache.find(m => m.display_name === staffName || m.display_name.startsWith(staffName));
-      const defaults = STAFF_DAILY_DEFAULTS[staffName] || { menu_item_name: 'Iced Latte', bean_name: null, sweetness: 'ไม่หวาน' };
       toCreate.push({
         customer_name: matchedMember ? matchedMember.display_name : staffName,
         line_user_id: matchedMember ? matchedMember.line_user_id : null,
-        menu_item_name: defaults.menu_item_name,
-        bean_name: defaults.bean_name,
+        menu_item_name: 'Iced Latte',
         price: 0,
         wanted_date: todayISO,
-        sweetness: defaults.sweetness,
+        sweetness: STAFF_DAILY_SWEETNESS_DEFAULT[staffName] || 'ไม่หวาน',
         order_type: 'staff',
         channel: 'auto-staff',
       });
