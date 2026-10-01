@@ -1793,9 +1793,12 @@
     });
   }
 
-  const STAFF_DAILY_SWEETNESS_DEFAULT = { 'Fah': 'ไม่หวาน', 'ซีเซีย': 'หวานปกติ' };
+  const STAFF_DAILY_DEFAULTS = {
+    'Fah': { menu_item_name: 'Iced Latte', bean_name: 'Brazil Santos', sweetness: 'ไม่หวาน' },
+    'ซีเซีย': { menu_item_name: 'Strawberry Coffee Latte', bean_name: null, sweetness: 'หวานปกติ' },
+  };
 
-  // ใส่ออเดอร์สตาฟ (Fah + ซีเซีย) ให้อัตโนมัติทุกวันในหน้าเตรียมชง เพราะปกติชงทุกวันอยู่แล้ว — ถ้าวันไหนไม่ชงกด ✕ ออกเองได้เลย (ตั้งไว้ 16 ก.ย. 2569)
+  // ใส่ออเดอร์สตาฟ (Fah + ซีเซีย) ให้อัตโนมัติทุกวันในหน้าเตรียมชง เพราะปกติชงทุกวันอยู่แล้ว — ถ้าวันไหนไม่ชงกด ✕ ออกเองได้เลย (ตั้งไว้ 16 ก.ย. 2569, ปรับ default เมนู/เมล็ดต่อคนให้กดยืนยันได้เลย 1 ต.ค. 2569)
   async function ensureDailyStaffOrders() {
     const todayISO = toISODate(new Date());
     if (membersCache.length === 0) await loadMembers();
@@ -1809,13 +1812,15 @@
       const already = existingNames.some(n => n === staffName || n.startsWith(staffName));
       if (already) return;
       const matchedMember = membersCache.find(m => m.display_name === staffName || m.display_name.startsWith(staffName));
+      const defaults = STAFF_DAILY_DEFAULTS[staffName] || { menu_item_name: 'Iced Latte', bean_name: null, sweetness: 'ไม่หวาน' };
       toCreate.push({
         customer_name: matchedMember ? matchedMember.display_name : staffName,
         line_user_id: matchedMember ? matchedMember.line_user_id : null,
-        menu_item_name: 'Iced Latte',
+        menu_item_name: defaults.menu_item_name,
+        bean_name: defaults.bean_name,
         price: 0,
         wanted_date: todayISO,
-        sweetness: STAFF_DAILY_SWEETNESS_DEFAULT[staffName] || 'ไม่หวาน',
+        sweetness: defaults.sweetness,
         order_type: 'staff',
         channel: 'auto-staff',
       });
