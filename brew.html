@@ -1793,9 +1793,12 @@
     });
   }
 
-  const STAFF_DAILY_SWEETNESS_DEFAULT = { 'Fah': 'ไม่หวาน', 'ซีเซีย': 'หวานปกติ' };
+  const STAFF_DAILY_DEFAULTS = {
+    'Fah': { menu_item_name: 'Iced Latte', bean_name: 'Brazil Santos', sweetness: 'ไม่หวาน' },
+    'ซีเซีย': { menu_item_name: 'Strawberry Coffee Latte', bean_name: null, sweetness: 'หวานปกติ' },
+  };
 
-  // ใส่ออเดอร์สตาฟ (Fah + ซีเซีย) ให้อัตโนมัติทุกวันในหน้าเตรียมชง เพราะปกติชงทุกวันอยู่แล้ว — ถ้าวันไหนไม่ชงกด ✕ ออกเองได้เลย (ตั้งไว้ 16 ก.ย. 2569)
+  // ใส่ออเดอร์สตาฟ (Fah + ซีเซีย) ให้อัตโนมัติทุกวันในหน้าเตรียมชง เพราะปกติชงทุกวันอยู่แล้ว — ถ้าวันไหนไม่ชงกด ✕ ออกเองได้เลย จะไม่โผล่ซ้ำอีกในวันนั้น (เช็คจาก auto_staff_skips) (ตั้งไว้ 16 ก.ย. 2569, ปรับ default ต่อคน + เพิ่ม skip 1 ต.ค. 2569)
   async function ensureDailyStaffOrders() {
     const todayISO = toISODate(new Date());
     if (membersCache.length === 0) await loadMembers();
@@ -1804,18 +1807,25 @@
       .eq('wanted_date', todayISO)
       .eq('order_type', 'staff');
     const existingNames = (existing || []).map(r => r.customer_name || '');
+    const { data: skips } = await sb.from('auto_staff_skips')
+      .select('staff_name')
+      .eq('skip_date', todayISO);
+    const skippedNames = (skips || []).map(s => s.staff_name);
     const toCreate = [];
     ['Fah', 'ซีเซีย'].forEach(staffName => {
+      if (skippedNames.includes(staffName)) return;
       const already = existingNames.some(n => n === staffName || n.startsWith(staffName));
       if (already) return;
       const matchedMember = membersCache.find(m => m.display_name === staffName || m.display_name.startsWith(staffName));
+      const defaults = STAFF_DAILY_DEFAULTS[staffName] || { menu_item_name: 'Iced Latte', bean_name: null, sweetness: 'ไม่หวาน' };
       toCreate.push({
         customer_name: matchedMember ? matchedMember.display_name : staffName,
         line_user_id: matchedMember ? matchedMember.line_user_id : null,
-        menu_item_name: 'Iced Latte',
+        menu_item_name: defaults.menu_item_name,
+        bean_name: defaults.bean_name,
         price: 0,
         wanted_date: todayISO,
-        sweetness: STAFF_DAILY_SWEETNESS_DEFAULT[staffName] || 'ไม่หวาน',
+        sweetness: defaults.sweetness,
         order_type: 'staff',
         channel: 'auto-staff',
       });
@@ -2100,6 +2110,11 @@
         return;
       }
       await sb.from('order_log').delete().eq('source_preorder_id', order.id);
+      if (order.channel === 'auto-staff') {
+        // กันไม่ให้ ensureDailyStaffOrders() สร้างแก้วนี้ขึ้นมาใหม่ซ้ำในวันเดียวกัน
+        const staffKey = ['Fah', 'ซีเซีย'].find(n => (order.customer_name || '').startsWith(n));
+        if (staffKey) await sb.from('auto_staff_skips').upsert({ staff_name: staffKey, skip_date: order.wanted_date });
+      }
       div.style.opacity = '0';
       setTimeout(() => loadToday(), 200);
     });
