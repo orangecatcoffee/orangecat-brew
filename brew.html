@@ -855,7 +855,7 @@
           else warnings.push(`ไม่พบวัตถุดิบ "${order.milk_name}" ในระบบ — ตัดสต็อก Dairy milk แทนไปก่อน`);
         }
 
-        // เมนูใช้มัทฉะ → ตัดสต็อกจากมัทฉะยี่ห้อที่บาริสต้าเลือกจริง (4g/แก้ว ตามที่ Fah ตั้งไว้ 8 ก.ย. 2569) แทน Matcha powder เดิม
+        // เมนูใช้มัทฉะ → ตัดสต็อกจากมัทฉะยี่ห้อที่บาริสต้าเลือกจริง (4g/แก้ว ตามที่ อาบุ้ง ตั้งไว้ 8 ก.ย. 2569) แทน Matcha powder เดิม
         if (ing.name === 'Matcha powder' && order.matcha_name) {
           const { data: subIng } = await sb.from('ingredients')
             .select('id, name, category, stock_quantity, base_unit')
@@ -1002,7 +1002,7 @@
         return false;
       }
 
-      // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
+      // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ อาบุ้ง ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
       // ไม่จำเป็นสำหรับร้านที่ลูกค้ามารับหน้าร้าน/รอสดอยู่แล้ว ถ้าจะเปิดใช้อีกครั้งค่อย uncomment กลับ
       if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
       cardEl.style.opacity = '0';
@@ -1061,7 +1061,7 @@
         }
       }
 
-      // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ Fah ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
+      // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ อาบุ้ง ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
       if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
       cardEl.style.opacity = '0';
       setTimeout(() => loadToday(), 200);
@@ -1253,7 +1253,7 @@
   }
 
   // เลือกเมนูลับที่สร้างไว้ล่วงหน้าแล้ว (จากแท็บ "สูตร") มาใช้แทน placeholder — เป็นทางหลักตอนนี้
-  // (แทนที่การออกแบบสูตรแบบเร่งด่วนหน้างาน ย้ายไปให้ Fah เตรียมรายละเอียดครบๆ ไว้ก่อนในแท็บ "สูตร" แทน)
+  // (แทนที่การออกแบบสูตรแบบเร่งด่วนหน้างาน ย้ายไปให้ อาบุ้ง เตรียมรายละเอียดครบๆ ไว้ก่อนในแท็บ "สูตร" แทน)
   async function startSecretSwap(cardEl, order) {
     cardEl.innerHTML = '<div class="loading">กำลังโหลดเมนูลับ...</div>';
 
@@ -1688,8 +1688,9 @@
         .lte('brewed_at', todayISO + 'T23:59:59');
       const rows = data || [];
       const missing = [];
-      if (!rows.some(r => r.customer_name && r.customer_name.startsWith('Fah'))) missing.push('Fah');
-      if (!rows.some(r => r.customer_name === 'ซีเซีย')) missing.push('ซีเซีย');
+      Object.keys(STAFF_ALIASES).forEach(staffName => {
+        if (!rows.some(r => staffNameMatches(r.customer_name, staffName))) missing.push(staffName);
+      });
       bannerEl.innerHTML = missing.length
         ? `<div class="staff-reminder">⚠️ วันนี้ยังไม่ได้บันทึกแก้วของ: ${missing.join(', ')}</div>`
         : '';
@@ -1794,12 +1795,23 @@
     });
   }
 
+  // ชื่อบาริสต้า/สตาฟที่แสดงในระบบ → ชื่อเดิมที่ยังต้องจับคู่ให้ได้ (ข้อมูลเก่าใน DB และชื่อ LINE ของสมาชิก เช่น "Fah.H")
+  // จับแบบขึ้นต้นด้วย + case-sensitive เหมือนเดิม — ชื่อที่โชว์เปลี่ยนเป็น "อาบุ้ง" แต่แก้วเก่า/สมาชิกที่ผูก LINE ไว้ไม่หลุด
+  const STAFF_ALIASES = {
+    'อาบุ้ง': ['อาบุ้ง', 'Fah'],
+    'ซีเซีย': ['ซีเซีย'],
+  };
+  function staffNameMatches(candidate, staffName) {
+    const c = String(candidate || '');
+    return (STAFF_ALIASES[staffName] || [staffName]).some(a => c.startsWith(a));
+  }
+
   const STAFF_DAILY_DEFAULTS = {
-    'Fah': { menu_item_name: 'Iced Latte', bean_name: 'Brazil Santos', sweetness: 'ไม่หวาน' },
+    'อาบุ้ง': { menu_item_name: 'Iced Latte', bean_name: 'Brazil Santos', sweetness: 'ไม่หวาน' },
     'ซีเซีย': { menu_item_name: 'Strawberry Coffee Latte', bean_name: null, sweetness: 'หวานปกติ' },
   };
 
-  // ใส่ออเดอร์สตาฟ (Fah + ซีเซีย) ให้อัตโนมัติทุกวันในหน้าเตรียมชง เพราะปกติชงทุกวันอยู่แล้ว — ถ้าวันไหนไม่ชงกด ✕ ออกเองได้เลย จะไม่โผล่ซ้ำอีกในวันนั้น (เช็คจาก auto_staff_skips) (ตั้งไว้ 16 ก.ย. 2569, ปรับ default ต่อคน + เพิ่ม skip 1 ต.ค. 2569)
+  // ใส่ออเดอร์สตาฟ (อาบุ้ง + ซีเซีย) ให้อัตโนมัติทุกวันในหน้าเตรียมชง เพราะปกติชงทุกวันอยู่แล้ว — ถ้าวันไหนไม่ชงกด ✕ ออกเองได้เลย จะไม่โผล่ซ้ำอีกในวันนั้น (เช็คจาก auto_staff_skips) (ตั้งไว้ 16 ก.ย. 2569, ปรับ default ต่อคน + เพิ่ม skip 1 ต.ค. 2569)
   async function ensureDailyStaffOrders() {
     const todayISO = toISODate(new Date());
     if (membersCache.length === 0) await loadMembers();
@@ -1813,11 +1825,11 @@
       .eq('skip_date', todayISO);
     const skippedNames = (skips || []).map(s => s.staff_name);
     const toCreate = [];
-    ['Fah', 'ซีเซีย'].forEach(staffName => {
-      if (skippedNames.includes(staffName)) return;
-      const already = existingNames.some(n => n === staffName || n.startsWith(staffName));
+    Object.keys(STAFF_ALIASES).forEach(staffName => {
+      if (skippedNames.some(n => (STAFF_ALIASES[staffName] || []).includes(n))) return;
+      const already = existingNames.some(n => staffNameMatches(n, staffName));
       if (already) return;
-      const matchedMember = membersCache.find(m => m.display_name === staffName || m.display_name.startsWith(staffName));
+      const matchedMember = membersCache.find(m => staffNameMatches(m.display_name, staffName));
       const defaults = STAFF_DAILY_DEFAULTS[staffName] || { menu_item_name: 'Iced Latte', bean_name: null, sweetness: 'ไม่หวาน' };
       toCreate.push({
         customer_name: matchedMember ? matchedMember.display_name : staffName,
@@ -1984,7 +1996,7 @@
             <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
           </div>
         </div>
-        <div class="card-menu">ลูกค้าสั่ง Omakase ไว้แล้ว (${order.price}฿) — รอ Fah เลือก 3 เมนู</div>
+        <div class="card-menu">ลูกค้าสั่ง Omakase ไว้แล้ว (${order.price}฿) — รอ อาบุ้ง เลือก 3 เมนู</div>
         <button class="btn-done" style="background:#E8621A;color:#fff;">🎴 เลือก 3 เมนู →</button>
       `;
       div.querySelector('.btn-delete').addEventListener('click', async () => {
@@ -2113,7 +2125,7 @@
       await sb.from('order_log').delete().eq('source_preorder_id', order.id);
       if (order.channel === 'auto-staff') {
         // กันไม่ให้ ensureDailyStaffOrders() สร้างแก้วนี้ขึ้นมาใหม่ซ้ำในวันเดียวกัน
-        const staffKey = ['Fah', 'ซีเซีย'].find(n => (order.customer_name || '').startsWith(n));
+        const staffKey = Object.keys(STAFF_ALIASES).find(n => staffNameMatches(order.customer_name, n));
         if (staffKey) await sb.from('auto_staff_skips').upsert({ staff_name: staffKey, skip_date: order.wanted_date });
       }
       div.style.opacity = '0';
@@ -2177,7 +2189,7 @@
     grid.innerHTML = '';
     // โหมดสั่งปกติ: ซ่อนเมนู on_hold เสมอ, ซ่อน draft/pending เว้นแต่เปิด show_in_add_order ไว้ (เช่น secret ที่ตั้งชื่อจริงแล้วแต่ยังไม่ประกาศ)
     // โหมด Omakase เห็นครบเสมอ (ยกเว้น on_hold) เพราะต้องใช้เลือก 3 แก้วรวมของทดลอง
-    // โหมด Secret (1 แก้ว): เห็นเฉพาะเมนูที่เตรียมไว้ล่วงหน้าเป็นแก้วลับ (category=secret หรือ signature_item ที่ยัง draft อยู่) — ให้ฟ้าเลือกเองเสมอ ไม่ auto-pick
+    // โหมด Secret (1 แก้ว): เห็นเฉพาะเมนูที่เตรียมไว้ล่วงหน้าเป็นแก้วลับ (category=secret หรือ signature_item ที่ยัง draft อยู่) — ให้อาบุ้งเลือกเองเสมอ ไม่ auto-pick
     const visibleMenu = orderMode === 'omakase'
       ? MENU.filter(item => item.status !== 'on_hold')
       : orderMode === 'omakase_solo'
@@ -3014,7 +3026,7 @@
 
       const rewardProgress = rewardEligibleMap[m.line_user_id];
       if (rewardProgress) {
-        // ปุ่มแลกแต้มแบบ inline เดิมถูกตัดออกแล้ว (Fah ไม่ได้ใช้) — ใช้ปุ่ม "แลกแต้ม (ฟรี)" ที่ประเภทออเดอร์ด้านบนแทน
+        // ปุ่มแลกแต้มแบบ inline เดิมถูกตัดออกแล้ว (อาบุ้ง ไม่ได้ใช้) — ใช้ปุ่ม "แลกแต้ม (ฟรี)" ที่ประเภทออเดอร์ด้านบนแทน
         // ยังเก็บ badge เตือนไว้เฉยๆ ให้บาริสต้าเห็นว่าคนนี้ครบแล้ว ไม่ต้องกดอะไรตรงนี้
         const wrap = document.createElement('span');
         wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
@@ -3202,7 +3214,7 @@
     linePriceEl.addEventListener('input', refresh);
     others.forEach(ch => {
       host.querySelector(`.sm-ch-price[data-ch="${ch.channel_key}"]`).addEventListener('input', refresh);
-      // ราคาที่ทำให้ได้กำไรเป็นบาทเท่ากับ LINE: P x (1-GP) = ราคา LINE → ปัดขึ้นเป็นหลัก 5 (ราคาอ้างอิง ไม่ใช่คำแนะนำเชิงกลยุทธ์ — Fah ปรับเองได้)
+      // ราคาที่ทำให้ได้กำไรเป็นบาทเท่ากับ LINE: P x (1-GP) = ราคา LINE → ปัดขึ้นเป็นหลัก 5 (ราคาอ้างอิง ไม่ใช่คำแนะนำเชิงกลยุทธ์ — อาบุ้ง ปรับเองได้)
       host.querySelector(`.sm-ch-suggest[data-ch="${ch.channel_key}"]`).addEventListener('click', () => {
         const lp = Number(linePriceEl.value) || 0;
         if (!(lp > 0)) { alert('ตั้งราคา LINE ก่อน'); return; }
@@ -5477,8 +5489,8 @@
     }
   });
 
-  const STAFF_NAMES = ['Fah', 'ซีเซีย']; // แก้ตรงนี้ถ้ามีพนักงานเพิ่ม/เปลี่ยนชื่อ
-  const STAFF_SWEETNESS_DEFAULT = { 'Fah': 'ไม่หวาน', 'ซีเซีย': 'หวานปกติ' };
+  const STAFF_NAMES = Object.keys(STAFF_ALIASES); // แก้ที่ STAFF_ALIASES ด้านบนถ้ามีพนักงานเพิ่ม/เปลี่ยนชื่อ
+  const STAFF_SWEETNESS_DEFAULT = { 'อาบุ้ง': 'ไม่หวาน', 'ซีเซีย': 'หวานปกติ' };
 
   function selectMenuByName(name) {
     const idx = MENU.findIndex(m => m.name === name);
@@ -5504,11 +5516,11 @@
     STAFF_NAMES.forEach(staffName => {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'chip' + (customerName === staffName || (customerName || '').startsWith(staffName) ? ' selected' : '');
+      chip.className = 'chip' + (staffNameMatches(customerName, staffName) ? ' selected' : '');
       chip.textContent = staffName;
       chip.addEventListener('click', () => {
-        // หาสมาชิกจริงที่ตรงกับชื่อพนักงาน (ชื่อในระบบสมาชิกอาจไม่ตรงเป๊ะ เช่น "Fah" vs "Fah.H")
-        const matchedMember = membersCache.find(m => m.display_name === staffName || m.display_name.startsWith(staffName));
+        // หาสมาชิกจริงที่ตรงกับชื่อพนักงาน (ชื่อในระบบสมาชิกเป็นชื่อ LINE จึงอาจไม่ตรงกับชื่อที่โชว์ — จับคู่ผ่าน STAFF_ALIASES)
+        const matchedMember = membersCache.find(m => staffNameMatches(m.display_name, staffName));
 
         if (matchedMember) {
           // ตั้งเป็นสมาชิกที่ผูก LINE แล้วทันที ไม่ต้องกดเลือกซ้ำในลิสต์สมาชิกด้านล่างอีกที
@@ -5612,7 +5624,7 @@
     let insertRows;
     const isOmakaseSoloSubmit = orderMode === 'omakase_solo';
     if (isOmakaseSoloSubmit) {
-      // ฟ้าเลือกแก้วลับเองจาก list ที่เตรียมไว้ (ไม่ auto-pick current live signature อีกแล้ว) — เหมือน logic เดียวกับตอนเลือกแก้วลับใน Omakase 3 แก้ว
+      // อาบุ้งเลือกแก้วลับเองจาก list ที่เตรียมไว้ (ไม่ auto-pick current live signature อีกแล้ว) — เหมือน logic เดียวกับตอนเลือกแก้วลับใน Omakase 3 แก้ว
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
@@ -5954,7 +5966,7 @@
       sb.from('preorders').select('*').eq('paid', false).eq('brewed', true).is('omakase_set_id', null).eq('order_type', 'customer'),
       sb.from('preorders').select('*').eq('paid', false).not('omakase_set_id', 'is', null).eq('order_type', 'customer'),
     ]);
-    // Fah แจ้ง 14 ก.ย.: เซ็ต Omakase ที่สั่งมาเป็นสัปดาห์แต่ยังไม่ชงสักแก้ว โผล่ในหน้าบิลรกไปหมด ไม่ควรขึ้นจนกว่าจะเริ่มชงจริง
+    // อาบุ้ง แจ้ง 14 ก.ย.: เซ็ต Omakase ที่สั่งมาเป็นสัปดาห์แต่ยังไม่ชงสักแก้ว โผล่ในหน้าบิลรกไปหมด ไม่ควรขึ้นจนกว่าจะเริ่มชงจริง
     // เปลี่ยนกฎ: ต้องมีอย่างน้อย 1 แก้วในเซ็ตชงแล้ว ถึงจะเรียกเก็บได้ (จากเดิมที่ขึ้นได้ทันทีที่สั่ง จ่ายล่วงหน้าได้)
     const setsWithAnyBrewed = new Set();
     (unpaidOmakaseRaw || []).forEach(o => { if (o.brewed) setsWithAnyBrewed.add(o.omakase_set_id); });
