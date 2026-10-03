@@ -261,13 +261,13 @@
 
 <div class="screen" id="screen-menu">
   <div class="field-label" style="margin-top:0;">📋 เมนูทั้งหมด</div>
-  <div class="field-hint">ชื่อ ราคา รูป Story และหมวดหมู่ — แก้ไขเร็ว ไม่ต้องรอโหลดสูตร/ต้นทุน (ไปที่แท็บ "สูตร" สำหรับส่วนผสม/ต้นทุน)</div>
+  <div class="field-hint">ทุกอย่างที่ลูกค้าเห็น: ชื่อ ราคา (ทุกช่องทาง) สถานะ รูป Story และหมวดหมู่ — ส่วนผสม/ต้นทุนอยู่ที่แท็บ "สูตร"</div>
   <div id="allMenuList"></div>
 </div>
 
 <div class="screen" id="screen-recipe">
   <div class="field-label" style="margin-top:0;">🧾 สูตร / ต้นทุน</div>
-  <div class="field-hint">ส่วนผสม ต้นทุน และกำไรต่อแก้วของทุกเมนู — แยกจากแท็บ "เมนู" เพื่อให้แท็บนั้นโหลดเร็วขึ้น</div>
+  <div class="field-hint">หลังบ้าน: ส่วนผสม ปริมาณ และต้นทุนต่อแก้ว — ชื่อ ราคา สถานะ รูป และหมวดหมู่แก้ที่แท็บ "เมนู"</div>
   <div id="recipeMenuList"></div>
 
   <div class="field-label" style="margin-top:28px;">+ เพิ่มเมนูใหม่</div>
@@ -4254,12 +4254,10 @@
             <span class="card-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;">
-            ${statusBadgeHtml(item)}
             <span style="color:#E8863A;font-weight:700;">${item.price}฿ ▾</span>
             ${profitBadgeHtml(item)}
           </div>
         `;
-        wireStatusSelects(row);
         row.addEventListener('click', async () => {
           const fullCard = await renderRecipeCard(item);
           row.replaceWith(fullCard);
@@ -4618,7 +4616,7 @@
 
       <div class="sm-channel-block" style="margin-bottom:12px;"></div>
 
-      ${item.category === 'signature_item' ? `
+      ${(item.category === 'signature_item' || (item.chapter_number !== null && item.chapter_number !== undefined)) ? `
       <div style="display:flex;gap:8px;margin-bottom:8px;">
         <div style="flex:1;">
           <div class="field-label" style="margin-top:0;">Chapter #</div>
@@ -4645,6 +4643,10 @@
           <input type="date" class="sm-available-until" value="${item.available_until || ''}">
         </div>
       </div>
+
+      <div class="field-label" style="margin-top:0;">🔮 สัปดาห์ที่เคยเป็นแก้วลับ Omakase (ถ้ามี)</div>
+      <div class="field-hint">คนละอันกับเลข Chapter — ประวัติจริงว่าแก้วนี้เคยถูกเปิดเผยเป็นแก้วลับสัปดาห์ที่เท่าไหร่ ใช้โชว์ในลิสต์ "Omakase Chapters" ที่แท็บ Omakase ปล่อยว่างถ้าไม่เคยเป็นแก้วลับ</div>
+      <input type="number" min="1" step="1" class="sm-omakase-reveal-week" value="${item.omakase_reveal_week !== null && item.omakase_reveal_week !== undefined ? item.omakase_reveal_week : ''}" placeholder="เช่น 5" style="margin-bottom:14px;">
 
       <div class="field-label" style="margin-top:0;">🧡 Story — บรรทัดส่วนผสม (เช่น "Earl Grey · Marmalade · Citrus · Coffee")</div>
       <input type="text" class="sm-story-ing" value="${(item.story_ingredients || '').replace(/"/g,'&quot;')}" placeholder="ส่วนผสมหลัก คั่นด้วย ·" style="margin-bottom:8px;">
@@ -4735,8 +4737,9 @@
         made_from_scratch_images: mfsImages.length ? mfsImages : null,
         available_from: availableFrom,
         available_until: availableUntil,
+        omakase_reveal_week: (() => { const el = card.querySelector('.sm-omakase-reveal-week'); return el && el.value ? Number(el.value) : null; })(),
       };
-      if (item.category === 'signature_item') {
+      if (chapterInput || releaseDateInput) {
         updatePayload.chapter_number = chapterNumber;
         updatePayload.release_date = releaseDate;
       }
@@ -4890,11 +4893,10 @@
     card.innerHTML = `
       <div class="card-top">
         <span class="card-name">${catLabel}</span>
-        <button type="button" class="btn-delete" data-del-menu="${item.id}">✕</button>
+        <button type="button" class="btn-request sm-goto-menu" style="margin:0;padding:6px 10px;font-size:11px;">✏️ แก้ชื่อ/ราคา/รูปที่แท็บเมนู</button>
       </div>
 
-      <div class="field-label" style="margin-top:0;">ชื่อเมนู</div>
-      <input type="text" class="sm-name" value="${item.name.replace(/"/g,'&quot;')}" style="margin-bottom:14px;">
+      <div style="font-size:15px;font-weight:700;color:#4A3428;margin-bottom:12px;">${escapeHtml(item.name)}</div>
 
       <div style="display:flex;align-items:center;gap:8px;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
         <input type="checkbox" class="sm-needs-bean" ${item.needs_bean ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
@@ -4905,14 +4907,6 @@
         <input type="checkbox" class="sm-coffee-flexible" ${item.coffee_flexible ? 'checked' : ''} style="width:20px;height:20px;flex-shrink:0;">
         <label style="font-size:12px;color:#4A3428;font-weight:600;">เมนูนี้ทำแบบไม่ใส่กาแฟได้ (เช่น Amber Velvet) — เปิดแล้วจะมี checkbox "ไม่ใช้กาแฟแก้วนี้" ให้เลือกตอนเพิ่มออเดอร์</label>
       </div>
-
-      <div class="field-label" style="margin-top:0;">🍊 เลข Chapter ในแท็บ Signature (ถ้ามี)</div>
-      <div class="field-hint">ใส่เลขถ้าอยากให้เมนูนี้โชว์เป็น Chapter ในแท็บ Signature — ปล่อยว่างถ้าไม่ใช่ Signature</div>
-      <input type="number" min="1" step="1" class="sm-chapter-number" value="${item.chapter_number !== null && item.chapter_number !== undefined ? item.chapter_number : ''}" placeholder="เช่น 3" style="margin-bottom:14px;">
-
-      <div class="field-label" style="margin-top:0;">🔮 สัปดาห์ที่เคยเป็นแก้วลับ Omakase (ถ้ามี)</div>
-      <div class="field-hint">คนละอันกับเลข Chapter ด้านบน — นี่คือประวัติจริงว่าแก้วนี้เคยถูกเปิดเผยเป็นแก้วลับสัปดาห์ที่เท่าไหร่ ใช้โชว์ในลิสต์ "Omakase Chapters" ที่แท็บ Omakase ไม่เกี่ยวกับหมวดหมู่ปัจจุบันของเมนู ปล่อยว่างถ้าไม่เคยเป็นแก้วลับ</div>
-      <input type="number" min="1" step="1" class="sm-omakase-reveal-week" value="${item.omakase_reveal_week !== null && item.omakase_reveal_week !== undefined ? item.omakase_reveal_week : ''}" placeholder="เช่น 5" style="margin-bottom:14px;">
 
       <div class="sm-cost-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"></div>
 
@@ -4940,25 +4934,11 @@
       <div class="chip-row sm-add-chips" style="margin-top:8px;"></div>
       <div class="sm-add-qty-block"></div>
 
-      <div class="field-hint" style="margin-top:14px;">🗂️ ย้ายหมวดหมู่เมนูนี้ได้จากตรงนี้เลย (เช่น แก้วลับขายดี → ย้ายไป Signature)</div>
-      <div style="display:flex;gap:8px;margin-top:8px;margin-bottom:14px;">
-        <select class="sm-recipe-category-select" style="flex:1;padding:9px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;background:#fff;color:#4A3428;">
-          ${categoryOptionsHtml(item.category, false)}
-        </select>
-        <button type="button" class="btn-request sm-recipe-promote-btn" style="flex:1;margin-bottom:0;">💾 ย้ายหมวดหมู่</button>
-      </div>
-
       <button type="button" class="btn-bean-confirm sm-save-btn" style="width:100%;margin-top:12px;">บันทึกการแก้ไข</button>
       <div class="status-msg sm-status"></div>
     `;
 
-    card.querySelector('[data-del-menu]').addEventListener('click', async () => {
-      if (!confirm(`ลบเมนู "${item.name}" ทิ้งเลยไหม? (ลบสูตรที่ผูกไว้ด้วย ย้อนกลับไม่ได้)`)) return;
-      await sb.from('menu_recipes').delete().eq('menu_item_id', item.id);
-      const { error: delErr } = await sb.from('menu_items').delete().eq('id', item.id);
-      if (delErr) { alert('ลบไม่สำเร็จ: ' + delErr.message); return; }
-      loadMenuRecipeList();
-    });
+    card.querySelector('.sm-goto-menu').addEventListener('click', () => switchScreen('menu'));
 
     function updateCostSummary() {
       let existingCost = 0;
@@ -5067,20 +5047,14 @@
 
     card.querySelector('.sm-save-btn').addEventListener('click', async () => {
       const statusEl = card.querySelector('.sm-status');
-      const name = card.querySelector('.sm-name').value.trim();
       const miscVal = card.querySelector('.sm-misc').value;
       const needsBean = card.querySelector('.sm-needs-bean').checked;
       const coffeeFlexible = card.querySelector('.sm-coffee-flexible').checked;
-      const chapterVal = card.querySelector('.sm-chapter-number').value;
-      const revealWeekVal = card.querySelector('.sm-omakase-reveal-week').value;
 
       const { error: updErr } = await sb.from('menu_items').update({
-        name,
         needs_bean: needsBean,
         coffee_flexible: coffeeFlexible,
         default_misc_cost: miscVal ? Number(miscVal) : null,
-        chapter_number: chapterVal ? Number(chapterVal) : null,
-        omakase_reveal_week: revealWeekVal ? Number(revealWeekVal) : null,
       }).eq('id', item.id);
 
       const newRecipeRows = Object.values(localAdd)
@@ -5120,32 +5094,6 @@
         statusEl.textContent = '✅ บันทึกแล้ว';
         loadMenuRecipeList();
       }
-    });
-
-    card.querySelector('.sm-recipe-promote-btn').addEventListener('click', async () => {
-      const newCat = card.querySelector('.sm-recipe-category-select').value;
-      if (newCat === item.category) { alert('อยู่หมวดนี้อยู่แล้ว'); return; }
-
-      // ย้ายเข้า Signature โดยเฉพาะ — เตือนเช็คลิสต์ก่อน ไม่ใช่กฎบังคับ ตัดสินใจสุดท้ายคือฟ้าเสมอ
-      if (newCat === 'signature_item') {
-        const proceed = confirm(
-          `ก่อนย้าย "${item.name}" ไป Signature ลองเช็ค 3 อย่างนี้ก่อนนะ:\n\n` +
-          `1) ขายดีตอนเป็นแก้วลับจริงไหม (ไม่ใช่แค่ลองครั้งเดียว)\n` +
-          `2) ราคาที่เคยตั้งไว้ตอนเป็นแก้วลับ (มักคิดในกรอบ Omakase แบบ flat-rate) ยังคุ้มทุนไหมถ้าขายแยกราคาเต็ม\n` +
-          `3) เข้ากับตัวตนแบรนด์แมวส้มจริงไหม ไม่ใช่แค่ขายได้\n\n` +
-          `กด OK เพื่อย้ายต่อ หรือ Cancel เพื่อคิดอีกรอบ`
-        );
-        if (!proceed) return;
-      }
-
-      const isRealCat = newCat !== 'secret' && newCat !== 'omakase';
-      if (!confirm(`ยืนยันย้าย "${item.name}" ไปหมวด "${categoryLabelFor(newCat)}" เลยใช่ไหม?`)) return;
-      const { error: catErr } = await sb.from('menu_items').update({
-        category: newCat,
-        omakase_only: !isRealCat,
-      }).eq('id', item.id);
-      if (catErr) { alert('ย้ายไม่สำเร็จ: ' + catErr.message); return; }
-      loadMenuRecipeList();
     });
 
     return card;
