@@ -9,7 +9,24 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Brew Tracker">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: #FFF8F0; color: #4A3428; padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, #FFF3E8, #FFE4CC); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: #A8876F; letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: #4A3428; } .header .date { font-size: 13px; color: #E8863A; font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: #4A3428; color: #FFF8F0; border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid #E0D2C2; } .card.today { border-left-color: #E8863A; } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: #A8876F; cursor: pointer; border-bottom: 1px dotted #A8876F; padding-bottom: 1px; } .card-item-name { cursor: pointer; border-bottom: 1px dotted #6B5445; padding-bottom: 1px; } .card-menu { font-size: 13px; color: #6B5445; margin-bottom: 10px; } .card-menu .price { color: #E8863A; font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #F0E4D8; color: #4A3428; font-size: 13px; font-weight: 600; } .btn-done.checked { background: #4A9B5C; color: #fff; } .pkg-row { display: flex; gap: 4px; margin-bottom: 8px; } .pkg-btn { flex: 1; padding: 6px 1px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; font-size: 9.5px; color: #4A3428; font-family: inherit; white-space: nowrap; } .pkg-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; margin-bottom: 6px; background: #fff; color: #4A3428; } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #E8863A; color: #fff; font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: #D8C4B0; } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #A8876F; font-size: 12px; } .bean-empty-note { font-size: 11px; color: #D64545; } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: #D64545; font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: #6B5445; border-bottom: 1px solid #F5EEE5; } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: #D64545; font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: #A8876F; font-size: 14px; } .field-label { font-size: 12px; color: #8a6a4a; margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: #A8876F; margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: #E8863A; border-color: #E8863A; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; } .chip.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 15px; font-family: inherit; } input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #E8863A; } .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .menu-card { position: relative; border: 2px solid #F0E4D8; border-radius: 10px; padding: 4px 4px 6px; text-align: center; cursor: pointer; transition: all 0.15s; overflow: hidden; background: #fff; } .menu-card.selected { border-color: #E8863A; background: #FFF3E8; } .menu-card.allergy-severe { border-color: #D64545; background: #FFF0F0; } .menu-card.allergy-severe.selected { border-color: #D64545; background: #FFE0E0; } .menu-card.allergy-mild { border-color: #E8863A; background: #FFF6EC; } .menu-card.allergy-tolerate { border-color: #4A86D6; background: #F0F6FF; } .allergy-warn-badge { position: absolute; top: 2px; right: 2px; font-size: 13px; line-height: 1; z-index: 2; filter: drop-shadow(0 0 1px #fff); } .menu-card .icon { margin: -4px -4px 4px; font-size: 24px; line-height: 1.4; } .cup-icon { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px 8px 0 0; display: block; } .menu-card .name { font-size: 9.5px; font-weight: 600; line-height: 1.25; margin-bottom: 2px; min-height: 23px; } .menu-card .price { font-size: 9.5px; color: #E8863A; font-weight: 700; } .date-row-viewport { max-height: 152px; overflow-y: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: y proximity; } .date-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; } .date-btn { padding: 8px 2px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 11px; text-align: center; line-height: 1.3; scroll-snap-align: start; } .date-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: #E8863A; color: #fff; font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: #D8C4B0; } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: #4A9B5C; } .status-msg.error { color: #D64545; } .link-hint { font-size: 11px; color: #A8876F; margin-top: 6px; } .link-hint.linked { color: #4A9B5C; font-weight: 600; } .bill-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: #E8863A; } .bill-detail { font-size: 12px; color: #A8876F; margin-bottom: 12px; } .btn-paid { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px solid #4A3428; background: #fff; color: #4A3428; font-size: 12.5px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #E8863A; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: #D8C4B0; } .request-note { font-size: 11.5px; color: #A8876F; text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: #4A9B5C; font-weight: 600; } .bill-err { color: #D64545; font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: #E8863A; font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed #F0E4D8; border-radius: 10px; font-size: 12.5px; color: #8a6a4a; cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: #FFF3E8; } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid #F0E4D8; cursor: pointer; display: block; margin-bottom: 4px; background: #FFF8F0; } .slip-label { font-size: 11px; color: #4A9B5C; font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #F0E4D8; padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: #A8876F; font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: #E8863A; font-weight: 700; } .loading { text-align: center; color: #A8876F; font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFF3E8; border: 2px solid #F0E4D8; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: #4A3428; } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: #E8863A; margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: #A8876F; margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,#4A3428,#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; } .staff-reminder { background: #FFF3E8; border: 2px solid #E8863A; color: #A85A1E; font-size: 12.5px; font-weight: 600; text-align: center; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; } .cal-widget { margin-bottom: 4px; } .cal-week-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; } .cal-week-label { font-size: 11px; color: #A8876F; font-weight: 600; } .cal-today-link { font-size: 11px; color: #E8863A; font-weight: 700; cursor: pointer; border-bottom: 1px dotted #E8863A; padding-bottom: 1px; } .cal-row { display: flex; align-items: center; gap: 2px; } .cal-arrow { flex-shrink: 0; width: 20px; height: 36px; border: none; background: none; color: #A8876F; font-size: 18px; font-family: inherit; } .cal-arrow:active { color: #E8863A; } .cal-days { display: flex; flex: 1; gap: 5px; touch-action: pan-y; } .cal-day { flex: 1 1 0; aspect-ratio: 1 / 1; max-width: 42px; border-radius: 50%; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-family: inherit; font-weight: 700; font-size: 13px; color: #4A3428; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } .cal-day:active { transform: scale(0.92); } .cal-day.is-today { outline: 2px dashed #4A3428; outline-offset: 2px; } .cal-day.selected { border-color: #4A3428; box-shadow: 0 2px 4px rgba(0,0,0,0.18); } .menu-group-card { background: #fff; border-radius: 14px; padding: 12px 14px 4px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .menu-group-header { display: flex; justify-content: space-between; align-items: center; font-size: 14.5px; font-weight: 700; color: #4A3428; padding-bottom: 8px; border-bottom: 2px solid #F0E4D8; margin-bottom: 8px; } .menu-group-count { color: #E8863A; font-weight: 700; font-size: 13px; white-space: nowrap; } .menu-group-milk-breakdown { background: #FFF3E8; color: #A85A1E; font-size: 11.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; margin: -2px 0 10px; } .card.compact { box-shadow: none; border-radius: 10px; background: #FFFBF6; margin-bottom: 8px; padding: 10px 12px; border-left-width: 3px; } .coffee-toggle-btn { width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #8a6a4a; font-size: 11.5px; font-weight: 700; font-family: inherit; } .coffee-toggle-btn.no-coffee-active { border-color: #D64545; color: #D64545; background: #FFF3F3; } .coffee-toggle-btn:disabled { opacity: .5; } .lab-filter-label { font-size: 11px; font-weight: 700; color: #A8876F; margin: 14px 0 6px; } .lab-filter-label:first-of-type { margin-top: 4px; } .lab-chip-verdict-go.selected { border-color: #B87333; background: #B87333; color: #fff; } .lab-chip-verdict-launched.selected { border-color: #2E7D46; background: #2E7D46; color: #fff; } .lab-chip-verdict-notyet.selected { border-color: #A8876F; background: #A8876F; color: #fff; } .lab-chip-verdict-cut.selected { border-color: #D64545; background: #D64545; color: #fff; } .lab-tab-track { display: flex; background: #F0E4D8; border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 16px; } .lab-tab-btn { flex: 1; padding: 10px 4px; border: none; border-radius: 9px; background: transparent; color: #8a6a4a; font-size: 13.5px; font-weight: 600; font-family: inherit; } .lab-tab-btn.selected { background: #fff; color: #4A3428; box-shadow: 0 1px 4px rgba(74,52,40,0.15); font-weight: 700; } .lab-taste-btn { padding: 9px 12px; border-radius: 8px; border: none; background: #4A9B5C; color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; font-family: inherit; } .lab-filter-toggle-btn { padding: 8px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; color: #4A3428; font-size: 12.5px; font-weight: 700; font-family: inherit; } .lab-filter-toggle-btn.open { border-color: #E8863A; background: #FFF3E8; color: #E8863A; } .lab-clear-filters-link { font-size: 11.5px; color: #D64545; text-decoration: underline dotted; cursor: pointer; } .lab-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; } .lab-ing-chip { padding: 9px 14px; border-radius: 999px; border: 2px solid #E0D2C2; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; line-height: 1.3; display: inline-flex; align-items: center; gap: 5px; } .lab-ing-chip .lab-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; } .lab-ing-chip .lab-chip-score { font-size: 11px; color: #E8863A; font-weight: 700; } .lab-ing-chip.src-seven_eleven { border-color: #B8DFC4; background: #EAF7EE; color: #2E7D46; } .lab-ing-chip.src-crafting { border-color: #D3C0EC; background: #F4EEFC; color: #6B4E8A; } .lab-ing-chip.src-finish_drink { border-color: #EBD48C; background: #FFF8E6; color: #A87C1E; } .lab-ing-chip.src-sous_vide { border-color: #B8D4E0; background: #EAF4F8; color: #2E6B8A; } .lab-sv-ing-chip { padding: 8px 13px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 12.5px; color: #4A3428; font-family: inherit; } .lab-sv-ing-chip.selected { border-color: #2E6B8A; background: #EAF4F8; color: #2E6B8A; font-weight: 700; } .lab-ing-chip.active { outline: 2px solid #4A3428; outline-offset: 1px; } .lab-create-divider { border-top: 2px dashed #E0D2C2; margin: 28px 0 16px; } .lab-create-btn { width: 100%; padding: 16px; border: none; border-radius: 14px; background: #4A3428; color: #FFE4CC; font-size: 15px; font-weight: 700; font-family: inherit; } .lab-detail-panel { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 2px solid #F0E4D8; margin-top: 12px; } .lab-detail-title { font-size: 17px; font-weight: 700; color: #4A3428; margin-bottom: 4px; } .lab-detail-meta { font-size: 11.5px; color: #A8876F; margin-bottom: 10px; } .lab-detail-notes { font-size: 13px; color: #6B5445; white-space: pre-wrap; line-height: 1.6; background: #FFFBF6; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; } .lab-detail-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; } .lab-detail-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 16px; color: #A8876F; } .lab-detail-panel { position: relative; } .lab-field-autosaved { font-size: 10.5px; color: #4A9B5C; font-weight: 600; margin-top: -4px; margin-bottom: 6px; opacity: 0; transition: opacity 0.3s; } .lab-field-autosaved.show { opacity: 1; } .lab-filter-box { background: #F5EEE5; border: 1px solid #E8DCC8; border-radius: 14px; padding: 14px 14px 6px; margin-top: 10px; } .lab-list-header { font-size: 13px; font-weight: 700; color: #4A3428; margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 2px solid #F0E4D8; }</style>
+<style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: #FFF8F0; color: #4A3428; padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, #FFF3E8, #FFE4CC); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: #A8876F; letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: #4A3428; } .header .date { font-size: 13px; color: #E8863A; font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: #4A3428; color: #FFF8F0; border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid #E0D2C2; } .card.today { border-left-color: #E8863A; } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: #A8876F; cursor: pointer; border-bottom: 1px dotted #A8876F; padding-bottom: 1px; } .card-item-name { cursor: pointer; border-bottom: 1px dotted #6B5445; padding-bottom: 1px; } .card-menu { font-size: 13px; color: #6B5445; margin-bottom: 10px; } .card-menu .price { color: #E8863A; font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #F0E4D8; color: #4A3428; font-size: 13px; font-weight: 600; } .btn-done.checked { background: #4A9B5C; color: #fff; } .pkg-row { display: flex; gap: 4px; margin-bottom: 8px; } .pkg-btn { flex: 1; padding: 6px 1px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; font-size: 9.5px; color: #4A3428; font-family: inherit; white-space: nowrap; } .pkg-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; margin-bottom: 6px; background: #fff; color: #4A3428; } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: #E8863A; color: #fff; font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: #D8C4B0; } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #A8876F; font-size: 12px; } .bean-empty-note { font-size: 11px; color: #D64545; } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: #D64545; font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: #6B5445; border-bottom: 1px solid #F5EEE5; } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: #D64545; font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: #A8876F; font-size: 14px; } .field-label { font-size: 12px; color: #8a6a4a; margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: #A8876F; margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: #E8863A; border-color: #E8863A; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; } .chip.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid #F0E4D8; font-size: 15px; font-family: inherit; } input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #E8863A; } .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .menu-card { position: relative; border: 2px solid #F0E4D8; border-radius: 10px; padding: 4px 4px 6px; text-align: center; cursor: pointer; transition: all 0.15s; overflow: hidden; background: #fff; } .menu-card.selected { border-color: #E8863A; background: #FFF3E8; } .menu-card.allergy-severe { border-color: #D64545; background: #FFF0F0; } .menu-card.allergy-severe.selected { border-color: #D64545; background: #FFE0E0; } .menu-card.allergy-mild { border-color: #E8863A; background: #FFF6EC; } .menu-card.allergy-tolerate { border-color: #4A86D6; background: #F0F6FF; } .allergy-warn-badge { position: absolute; top: 2px; right: 2px; font-size: 13px; line-height: 1; z-index: 2; filter: drop-shadow(0 0 1px #fff); } .menu-card .icon { margin: -4px -4px 4px; font-size: 24px; line-height: 1.4; } .cup-icon { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px 8px 0 0; display: block; } .menu-card .name { font-size: 9.5px; font-weight: 600; line-height: 1.25; margin-bottom: 2px; min-height: 23px; } .menu-card .price { font-size: 9.5px; color: #E8863A; font-weight: 700; } .date-row-viewport { max-height: 152px; overflow-y: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: y proximity; } .date-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; } .date-btn { padding: 8px 2px; border-radius: 10px; border: 2px solid #F0E4D8; background: #fff; font-size: 11px; text-align: center; line-height: 1.3; scroll-snap-align: start; } .date-btn.selected { border-color: #E8863A; background: #FFF3E8; color: #E8863A; font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: #E8863A; color: #fff; font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: #D8C4B0; } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: #4A9B5C; } .status-msg.error { color: #D64545; } .link-hint { font-size: 11px; color: #A8876F; margin-top: 6px; } .link-hint.linked { color: #4A9B5C; font-weight: 600; } .bill-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: #E8863A; } .bill-detail { font-size: 12px; color: #A8876F; margin-bottom: 12px; } .btn-paid { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px solid #4A3428; background: #fff; color: #4A3428; font-size: 12.5px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #E8863A; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: #D8C4B0; } .request-note { font-size: 11.5px; color: #A8876F; text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: #4A9B5C; font-weight: 600; } .bill-err { color: #D64545; font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: #E8863A; font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed #F0E4D8; border-radius: 10px; font-size: 12.5px; color: #8a6a4a; cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: #FFF3E8; } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid #F0E4D8; cursor: pointer; display: block; margin-bottom: 4px; background: #FFF8F0; } .slip-label { font-size: 11px; color: #4A9B5C; font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #F0E4D8; padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: #A8876F; font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: #E8863A; font-weight: 700; } .loading { text-align: center; color: #A8876F; font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFF3E8; border: 2px solid #F0E4D8; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: #4A3428; } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid #F0E4D8; font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: #E8863A; margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: #A8876F; margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,#4A3428,#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; } .staff-reminder { background: #FFF3E8; border: 2px solid #E8863A; color: #A85A1E; font-size: 12.5px; font-weight: 600; text-align: center; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; } .cal-widget { margin-bottom: 4px; } .cal-week-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; } .cal-week-label { font-size: 11px; color: #A8876F; font-weight: 600; } .cal-today-link { font-size: 11px; color: #E8863A; font-weight: 700; cursor: pointer; border-bottom: 1px dotted #E8863A; padding-bottom: 1px; } .cal-row { display: flex; align-items: center; gap: 2px; } .cal-arrow { flex-shrink: 0; width: 20px; height: 36px; border: none; background: none; color: #A8876F; font-size: 18px; font-family: inherit; } .cal-arrow:active { color: #E8863A; } .cal-days { display: flex; flex: 1; gap: 5px; touch-action: pan-y; } .cal-day { flex: 1 1 0; aspect-ratio: 1 / 1; max-width: 42px; border-radius: 50%; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-family: inherit; font-weight: 700; font-size: 13px; color: #4A3428; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } .cal-day:active { transform: scale(0.92); } .cal-day.is-today { outline: 2px dashed #4A3428; outline-offset: 2px; } .cal-day.selected { border-color: #4A3428; box-shadow: 0 2px 4px rgba(0,0,0,0.18); } .menu-group-card { background: #fff; border-radius: 14px; padding: 12px 14px 4px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .menu-group-header { display: flex; justify-content: space-between; align-items: center; font-size: 14.5px; font-weight: 700; color: #4A3428; padding-bottom: 8px; border-bottom: 2px solid #F0E4D8; margin-bottom: 8px; } .menu-group-count { color: #E8863A; font-weight: 700; font-size: 13px; white-space: nowrap; } .menu-group-milk-breakdown { background: #FFF3E8; color: #A85A1E; font-size: 11.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; margin: -2px 0 10px; } .card.compact { box-shadow: none; border-radius: 10px; background: #FFFBF6; margin-bottom: 8px; padding: 10px 12px; border-left-width: 3px; } .coffee-toggle-btn { width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 8px; border: 2px solid #F0E4D8; background: #fff; color: #8a6a4a; font-size: 11.5px; font-weight: 700; font-family: inherit; } .coffee-toggle-btn.no-coffee-active { border-color: #D64545; color: #D64545; background: #FFF3F3; } .coffee-toggle-btn:disabled { opacity: .5; } .lab-filter-label { font-size: 11px; font-weight: 700; color: #A8876F; margin: 14px 0 6px; } .lab-filter-label:first-of-type { margin-top: 4px; } .lab-chip-verdict-go.selected { border-color: #B87333; background: #B87333; color: #fff; } .lab-chip-verdict-launched.selected { border-color: #2E7D46; background: #2E7D46; color: #fff; } .lab-chip-verdict-notyet.selected { border-color: #A8876F; background: #A8876F; color: #fff; } .lab-chip-verdict-cut.selected { border-color: #D64545; background: #D64545; color: #fff; } .lab-tab-track { display: flex; background: #F0E4D8; border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 16px; } .lab-tab-btn { flex: 1; padding: 10px 4px; border: none; border-radius: 9px; background: transparent; color: #8a6a4a; font-size: 13.5px; font-weight: 600; font-family: inherit; } .lab-tab-btn.selected { background: #fff; color: #4A3428; box-shadow: 0 1px 4px rgba(74,52,40,0.15); font-weight: 700; } .lab-taste-btn { padding: 9px 12px; border-radius: 8px; border: none; background: #4A9B5C; color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; font-family: inherit; } .lab-filter-toggle-btn { padding: 8px 16px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; color: #4A3428; font-size: 12.5px; font-weight: 700; font-family: inherit; } .lab-filter-toggle-btn.open { border-color: #E8863A; background: #FFF3E8; color: #E8863A; } .lab-clear-filters-link { font-size: 11.5px; color: #D64545; text-decoration: underline dotted; cursor: pointer; } .lab-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; } .lab-ing-chip { padding: 9px 14px; border-radius: 999px; border: 2px solid #E0D2C2; background: #fff; font-size: 13px; color: #4A3428; font-family: inherit; line-height: 1.3; display: inline-flex; align-items: center; gap: 5px; } .lab-ing-chip .lab-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; } .lab-ing-chip .lab-chip-score { font-size: 11px; color: #E8863A; font-weight: 700; } .lab-ing-chip.src-seven_eleven { border-color: #B8DFC4; background: #EAF7EE; color: #2E7D46; } .lab-ing-chip.src-crafting { border-color: #D3C0EC; background: #F4EEFC; color: #6B4E8A; } .lab-ing-chip.src-finish_drink { border-color: #EBD48C; background: #FFF8E6; color: #A87C1E; } .lab-ing-chip.src-sous_vide { border-color: #B8D4E0; background: #EAF4F8; color: #2E6B8A; } .lab-sv-ing-chip { padding: 8px 13px; border-radius: 999px; border: 2px solid #F0E4D8; background: #fff; font-size: 12.5px; color: #4A3428; font-family: inherit; } .lab-sv-ing-chip.selected { border-color: #2E6B8A; background: #EAF4F8; color: #2E6B8A; font-weight: 700; } .lab-ing-chip.active { outline: 2px solid #4A3428; outline-offset: 1px; } .lab-create-divider { border-top: 2px dashed #E0D2C2; margin: 28px 0 16px; } .lab-create-btn { width: 100%; padding: 16px; border: none; border-radius: 14px; background: #4A3428; color: #FFE4CC; font-size: 15px; font-weight: 700; font-family: inherit; } .lab-detail-panel { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 2px solid #F0E4D8; margin-top: 12px; } .lab-detail-title { font-size: 17px; font-weight: 700; color: #4A3428; margin-bottom: 4px; } .lab-detail-meta { font-size: 11.5px; color: #A8876F; margin-bottom: 10px; } .lab-detail-notes { font-size: 13px; color: #6B5445; white-space: pre-wrap; line-height: 1.6; background: #FFFBF6; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; } .lab-detail-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; } .lab-detail-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 16px; color: #A8876F; } .lab-detail-panel { position: relative; } .lab-field-autosaved { font-size: 10.5px; color: #4A9B5C; font-weight: 600; margin-top: -4px; margin-bottom: 6px; opacity: 0; transition: opacity 0.3s; } .lab-field-autosaved.show { opacity: 1; } .lab-filter-box { background: #F5EEE5; border: 1px solid #E8DCC8; border-radius: 14px; padding: 14px 14px 6px; margin-top: 10px; } .lab-list-header { font-size: 13px; font-weight: 700; color: #4A3428; margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 2px solid #F0E4D8; }  .lst-section{font-size:11px;font-weight:700;color:#8a6a4a;margin:12px 0 6px;letter-spacing:.3px;}
+  .lst-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+  .lst-card{background:#fff;border:2px solid #F0E4D8;border-radius:12px;padding:8px;text-align:center;font-size:11.5px;cursor:pointer;color:#4A3428;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+  .lst-card.selected{border-color:#00A244;background:#EAF6EC;}
+  .lst-card img{width:56px;height:56px;border-radius:8px;object-fit:cover;display:block;margin:0 auto 4px;}
+  .lst-card .lst-icon{font-size:28px;line-height:56px;height:56px;}
+  .lst-card .lst-name{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35;min-height:46px;}
+  .lst-card .lst-price{margin-top:4px;font-weight:700;}
+  .lst-card .lst-price s{color:#A8876F;font-weight:400;margin-right:4px;}
+  .lst-card .lst-promo{display:inline-block;font-size:10px;font-weight:700;color:#fff;background:#E8621A;border-radius:6px;padding:1px 6px;margin-left:4px;}
+  .lm-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #F0E4D8;font-size:12px;color:#4A3428;}
+  .lm-row input[type=checkbox]{width:20px;height:20px;flex-shrink:0;margin:0;}
+  .lm-main{flex:1;min-width:0;}
+  .lm-label{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35;font-weight:600;}
+  .lm-sub{font-size:10.5px;color:#A8876F;margin-top:2px;}
+  .lm-price{text-align:right;white-space:nowrap;}
+  .lm-chip{display:inline-block;font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 8px;border:1px solid;}
+</style>
 </head>
 <body>
 <div id="pinGateOverlay" style="position:fixed;inset:0;background:#FFF8F0;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px;font-family:-apple-system,'Segoe UI','Mitr',sans-serif;">
@@ -207,6 +224,9 @@
   </div>
 
   <div id="platformBlock" style="display:none;">
+    <div class="field-label">เลือกรายการตามที่เห็นในแอป</div>
+    <div class="field-hint">แตะรายการที่ลูกค้าสั่ง — ระบบเลือกเมนู เมล็ด และราคาหลังหักโปรให้เอง</div>
+    <div id="listingPicker"></div>
     <div class="field-label" id="platformPriceLabel">ราคาที่ลูกค้าจ่าย (บาท)</div>
     <input type="number" id="platformPrice" min="0" step="1" placeholder="ราคาที่เห็นในแอปแพลตฟอร์ม" style="margin-bottom:6px;">
     <div class="field-hint" id="platformPriceHint"></div>
@@ -281,6 +301,7 @@
 <div class="screen" id="screen-menu">
   <div class="field-label" style="margin-top:0;">📋 เมนูทั้งหมด</div>
   <div class="field-hint">ทุกอย่างที่ลูกค้าเห็น: ชื่อ ราคา (ทุกช่องทาง) สถานะ รูป Story และหมวดหมู่ — ส่วนผสม/ต้นทุนอยู่ที่แท็บ "สูตร"</div>
+  <div id="listingManager"></div>
   <div id="allMenuList"></div>
 </div>
 
@@ -764,6 +785,8 @@
   // ช่องทางขายของออเดอร์นี้: 'walk-in' = หน้าร้านปกติ, อย่างอื่น = แพลตฟอร์มที่หัก GP (อ่านจาก sales_channels ที่ gp_pct > 0 เช่น Grab)
   let orderChannel = 'walk-in';
   let platformChannels = [];
+  let platformListings = [];   // channel_listings (รายการบนแพลตฟอร์ม) ที่เปิดอยู่
+  let selectedListing = null;
   let platformPriceTouched = false;
   let platformCtxReady = false;
   let selectedSweetness = 'ไม่หวาน';
@@ -2703,7 +2726,7 @@
 
     const { data, error } = await sb
       .from('ingredients')
-      .select('id, name, stock_quantity, customer_bean_surcharge')
+      .select('id, name, stock_quantity, customer_bean_surcharge, cost_per_base_unit')
       .eq('category', 'coffee_bean')
       .eq('active', true)
       .order('name', { ascending: true });
@@ -3273,7 +3296,129 @@
     return error || null;
   }
 
+  // ===================== 🛵 รายการ Grab & โปรโมชั่น (แท็บเมนู) =====================
+  let listingMgr = { open: false, rows: [], menuById: {}, beanCost: {}, selected: new Set(), loading: false };
+
+  async function loadListingManager() {
+    const host = document.getElementById('listingManager');
+    if (!host) return;
+    try {
+      const [{ data: rows }, { data: menus }, { data: beans }] = await Promise.all([
+        sb.from('channel_listings').select('*').order('sort_order'),
+        sb.from('menu_items').select('id, name, needs_bean, default_misc_cost, image_url'),
+        sb.from('ingredients').select('id, cost_per_base_unit').eq('category', 'coffee_bean'),
+      ]);
+      listingMgr.rows = rows || [];
+      listingMgr.menuById = {}; (menus || []).forEach(m => listingMgr.menuById[m.id] = m);
+      listingMgr.beanCost = {}; (beans || []).forEach(b => listingMgr.beanCost[b.id] = Number(b.cost_per_base_unit) || 0);
+      await loadMenuChannelCtx();
+      renderListingManager();
+    } catch (e) { host.innerHTML = ''; }
+  }
+
+  function listingCost(l) {
+    const m = listingMgr.menuById[l.menu_item_id];
+    if (!m) return null;
+    const hasR = menuChannelCtx.hasRecipe[m.id];
+    if (!hasR && !m.needs_bean) return null;
+    let cost = (menuChannelCtx.ingCostByItem[m.id] || 0) + (Number(m.default_misc_cost) || 0);
+    if (m.needs_bean && !l.no_coffee) cost += (l.bean_ingredient_id && listingMgr.beanCost[l.bean_ingredient_id] > 0 ? listingMgr.beanCost[l.bean_ingredient_id] * BEAN_DOSE_G : FLAT_COFFEE_COST);
+    return cost;
+  }
+
+  function renderListingManager() {
+    const host = document.getElementById('listingManager');
+    const rows = listingMgr.rows;
+    if (!rows.length) { host.innerHTML = ''; return; }
+    const gpOf = (key) => { const c = menuChannelCtx.channels.find(x => x.channel_key === key); return c ? { gp: c.gp_pct, alert: c.margin_alert_pct } : { gp: 0, alert: 0 }; };
+    const promoCount = rows.filter(r => Number(r.discount_amount) > 0).length;
+    const sel = listingMgr.selected;
+    let html = `<div class="bill-card" style="border-left:4px solid #00A244;margin-bottom:14px;">
+      <div id="lmHead" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px;">
+        <div><div class="field-label" style="margin:0;">🛵 รายการ Grab & โปรโมชั่น</div><div class="field-hint" style="margin:2px 0 0;">${rows.length} รายการ · มีโปร ${promoCount} รายการ</div></div>
+        <span style="font-size:14px;color:#00A244;">${listingMgr.open ? '▲' : '▼'}</span>
+      </div>`;
+    if (listingMgr.open) {
+      html += `<div style="margin-top:10px;">
+        <div class="field-hint">ติ๊กรายการที่จะลดราคา แล้วใส่จำนวนบาทต่อแก้ว — ใช้กับออเดอร์ Grab ใหม่ทันที (ออเดอร์เก่าไม่เปลี่ยน) ราคา "ป้าย" คือราคาที่โชว์ในแอปก่อนลด</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">
+          <button type="button" class="chip" id="lmSelPromo">เลือกที่มีโปรอยู่</button>
+          <button type="button" class="chip" id="lmSelAll">เลือกทั้งหมด</button>
+          <button type="button" class="chip" id="lmSelNone">ล้างที่เลือก</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+          <input type="number" id="lmDiscount" min="0" step="1" placeholder="ลดกี่บาท/แก้ว" style="flex:1;margin:0;">
+          <button type="button" class="submit-btn" id="lmApply" style="margin:0;width:auto;padding:11px 14px;background:#00A244;">ใช้กับที่เลือก (${sel.size})</button>
+        </div>
+        <button type="button" class="chip" id="lmClear" style="margin-bottom:8px;color:#D64545;border-color:#D64545;">ล้างโปรของที่เลือก (ลด 0 บาท)</button>
+        <div class="status-msg" id="lmStatus"></div>`;
+      const sections = [];
+      rows.forEach(l => { const k = l.section || 'อื่นๆ'; let sec = sections.find(x => x.k === k); if (!sec) { sec = { k, rows: [] }; sections.push(sec); } sec.rows.push(l); });
+      sections.forEach(sec => {
+        html += `<div class="lst-section">${sec.k}</div>`;
+        sec.rows.forEach(l => {
+          const net = Number(l.list_price) - Number(l.discount_amount || 0);
+          const g = gpOf(l.channel_key);
+          const cost = listingCost(l);
+          let chip = '<span class="lm-chip" style="color:#A8876F;border-color:#D8CBBB;">ยังไม่รู้ต้นทุน</span>';
+          if (cost !== null) {
+            const profit = net * (1 - g.gp / 100) - cost, margin = net ? profit / net * 100 : 0;
+            const bad = profit < 0 || margin < g.alert;
+            chip = `<span class="lm-chip" style="color:${bad ? '#D64545' : '#2E7D46'};border-color:${bad ? '#D64545' : '#4A9B5C'};">กำไร ฿${profit.toFixed(0)} · ${margin.toFixed(0)}%${bad ? ' ⚠️' : ''}</span>`;
+          }
+          const warn = !l.menu_item_id ? '<span class="lm-chip" style="color:#D64545;border-color:#D64545;">⚠️ ยังไม่ผูกเมนู</span> ' : (!l.bean_ingredient_id && l.bean_hint ? `<span class="lm-chip" style="color:#8a6a4a;border-color:#D8CBBB;">เมล็ด ${l.bean_hint}: เลือกตอนสั่ง</span> ` : '');
+          html += `<div class="lm-row"><input type="checkbox" data-lm-id="${l.id}" ${sel.has(l.id) ? 'checked' : ''}>
+            <div class="lm-main"><div class="lm-label">${l.label}</div><div class="lm-sub">${warn}${chip}</div></div>
+            <div class="lm-price"><div style="font-weight:700;font-size:13.5px;">฿${net}</div>
+              <div class="lm-sub" style="margin-top:0;">${Number(l.discount_amount) > 0 ? `ป้าย ฿${Number(l.list_price)} · <b style="color:#E8621A;">โปร -${Number(l.discount_amount)}</b>` : `ป้าย ฿${Number(l.list_price)}`}</div>
+              <button type="button" data-lm-edit="${l.id}" style="background:none;border:none;color:#00A244;font-size:11px;padding:2px 0;font-family:inherit;">✎ แก้ราคาป้าย</button></div></div>`;
+        });
+      });
+      html += `<div class="field-hint" style="margin-top:10px;">กำไรคิดจาก: ราคาหลังโปร − GP ${menuChannelCtx.channels.filter(c => c.gp_pct > 0).map(c => c.label_th + ' ' + c.gp_pct + '%').join(', ')} (ค่าตุ๊กตา ปรับที่ Owner → Settings เมื่อรู้ตัวเลขจริง) − ต้นทุนสูตรและเมล็ดของรายการนั้น</div></div>`;
+    }
+    html += '</div>';
+    host.innerHTML = html;
+
+    document.getElementById('lmHead').addEventListener('click', () => { listingMgr.open = !listingMgr.open; renderListingManager(); });
+    if (!listingMgr.open) return;
+    host.querySelectorAll('[data-lm-id]').forEach(cb => cb.addEventListener('change', () => {
+      if (cb.checked) sel.add(cb.dataset.lmId); else sel.delete(cb.dataset.lmId);
+      document.getElementById('lmApply').textContent = `ใช้กับที่เลือก (${sel.size})`;
+    }));
+    document.getElementById('lmSelAll').addEventListener('click', () => { rows.forEach(r => sel.add(r.id)); renderListingManager(); });
+    document.getElementById('lmSelNone').addEventListener('click', () => { sel.clear(); renderListingManager(); });
+    document.getElementById('lmSelPromo').addEventListener('click', () => { sel.clear(); rows.filter(r => Number(r.discount_amount) > 0).forEach(r => sel.add(r.id)); renderListingManager(); });
+    const statusEl = document.getElementById('lmStatus');
+    async function applyDiscount(amount) {
+      const ids = [...sel];
+      if (!ids.length) { statusEl.className = 'status-msg error'; statusEl.textContent = 'ติ๊กรายการก่อน'; return; }
+      if (!(amount >= 0)) { statusEl.className = 'status-msg error'; statusEl.textContent = 'ใส่จำนวนบาทก่อน'; return; }
+      const tooBig = rows.filter(r => ids.includes(r.id) && amount > Number(r.list_price));
+      if (tooBig.length) { statusEl.className = 'status-msg error'; statusEl.textContent = 'ส่วนลดมากกว่าราคาป้ายของ: ' + tooBig[0].label; return; }
+      if (!confirm(amount > 0 ? `ลดราคา ฿${amount} ต่อแก้ว ให้ ${ids.length} รายการ?` : `ล้างโปรของ ${ids.length} รายการ?`)) return;
+      const { error } = await sb.from('channel_listings').update({ discount_amount: amount, updated_at: new Date().toISOString() }).in('id', ids);
+      if (error) { statusEl.className = 'status-msg error'; statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + error.message; return; }
+      await loadListingManager();
+      loadPlatformChannels();
+      const st = document.getElementById('lmStatus'); if (st) { st.className = 'status-msg success'; st.textContent = '✅ บันทึกแล้ว'; }
+    }
+    document.getElementById('lmApply').addEventListener('click', () => applyDiscount(Number(document.getElementById('lmDiscount').value)));
+    document.getElementById('lmClear').addEventListener('click', () => applyDiscount(0));
+    host.querySelectorAll('[data-lm-edit]').forEach(btn => btn.addEventListener('click', async () => {
+      const l = rows.find(r => r.id === btn.dataset.lmEdit);
+      const v = prompt(`ราคาป้ายในแอป (ก่อนลด) ของ\n${l.label}`, String(Number(l.list_price)));
+      if (v === null) return;
+      const p = Number(v);
+      if (!(p >= 0) || v.trim() === '') { alert('ราคาไม่ถูกต้อง'); return; }
+      const { error } = await sb.from('channel_listings').update({ list_price: p, updated_at: new Date().toISOString() }).eq('id', l.id);
+      if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+      await loadListingManager();
+      loadPlatformChannels();
+    }));
+  }
+
   async function loadMenuContentList() {
+    loadListingManager();
     const listEl = document.getElementById('allMenuList');
     listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
@@ -5521,7 +5666,9 @@
     try {
       const { data } = await sb.from('sales_channels').select('channel_key, label_th, gp_pct, margin_alert_pct').eq('active', true).gt('gp_pct', 0).order('sort_order');
       platformChannels = (data || []).map(c => ({ ...c, gp_pct: Number(c.gp_pct) || 0, margin_alert_pct: Number(c.margin_alert_pct) || 0 }));
-    } catch (e) { platformChannels = []; }
+      const { data: ls } = await sb.from('channel_listings').select('*').eq('is_active', true).order('sort_order');
+      platformListings = ls || [];
+    } catch (e) { platformChannels = []; platformListings = []; }
     renderChannelRow();
   }
 
@@ -5546,7 +5693,10 @@
     show('discountBlock', !isPlatform);
     show('maxCupBlock', !isPlatform, 'flex');
     show('platformBlock', isPlatform);
+    show('normalMenuPickBlock', !isPlatform);
+    selectedListing = null;
     if (isPlatform) {
+      renderListingPicker();
       // โหมดแพลตฟอร์ม: ไม่มีสมาชิก/ส่วนลด/Omakase — ออเดอร์เดียวต่อแก้ว ราคาตามที่ลูกค้าจ่ายจริง
       document.getElementById('memberPickerBlock').style.display = 'none';
       document.getElementById('guestNameBlock').style.display = 'none';
@@ -5573,6 +5723,64 @@
     updateSubmitState();
   }
 
+  function renderListingPicker() {
+    const el = document.getElementById('listingPicker');
+    if (!el) return;
+    const items = platformListings.filter(l => l.channel_key === orderChannel);
+    if (!items.length) { el.innerHTML = '<div class="field-hint">ยังไม่มีรายการของช่องทางนี้ — เพิ่มได้ที่แท็บเมนู → 🛵 รายการ Grab</div>'; return; }
+    const sections = [];
+    items.forEach(l => { const k = l.section || 'อื่นๆ'; let sec = sections.find(x => x.k === k); if (!sec) { sec = { k, rows: [] }; sections.push(sec); } sec.rows.push(l); });
+    el.innerHTML = sections.map(sec => `<div class="lst-section">${sec.k}</div><div class="lst-grid">` + sec.rows.map(l => {
+      const m = MENU.find(x => x.id === l.menu_item_id);
+      const net = Number(l.list_price) - Number(l.discount_amount || 0);
+      const img = m && m.image_url ? `<img src="${m.image_url}" alt="">` : `<div class="lst-icon">${(m && m.icon) || '☕'}</div>`;
+      return `<button type="button" class="lst-card${selectedListing && selectedListing.id === l.id ? ' selected' : ''}" data-listing="${l.id}">${img}<div class="lst-name">${l.label}</div>
+        <div class="lst-price">${Number(l.discount_amount) > 0 ? `<s>฿${Number(l.list_price)}</s>` : ''}฿${net}${Number(l.discount_amount) > 0 ? `<span class="lst-promo">-${Number(l.discount_amount)}</span>` : ''}</div></button>`;
+    }).join('') + '</div>').join('');
+  }
+
+  function selectListing(l) {
+    const item = MENU.find(m => m.id === l.menu_item_id);
+    if (!item) { alert('รายการนี้ยังไม่ผูกกับเมนูในระบบ — ผูกได้ที่แท็บเมนู → 🛵 รายการ Grab'); return; }
+    selectedListing = l;
+    selectedMenu = item;
+    document.querySelectorAll('.menu-card').forEach(c => c.classList.remove('selected'));
+    const noCoffeeRow = document.getElementById('noCoffeeRow');
+    noCoffeeRow.style.display = item.coffeeFlexible ? 'flex' : 'none';
+    document.getElementById('noCoffeeCheckbox').checked = !!(item.coffeeFlexible && l.no_coffee);
+    updateMilkRow(item);
+    updateMatchaRow(item);
+    // เมล็ด: ผูกไว้ชัดเจน → เลือกให้ · ไม่ชัด (เช่น Ethiopia หลายล็อต) → ล้างแล้วให้บาริสต้าเลือกเมล็ดเอง
+    selectedBeanIds = [];
+    document.querySelectorAll('#recentBeans .chip').forEach(c => c.classList.remove('selected'));
+    document.getElementById('blendGramsBlock').innerHTML = '';
+    if (l.bean_ingredient_id) {
+      const idx = beanOptionsCache.findIndex(b => b.id === l.bean_ingredient_id);
+      const chip = idx >= 0 ? document.querySelectorAll('#recentBeans .chip')[idx] : null;
+      if (chip && !chip.disabled) chip.click();
+      else alert('เมล็ดของรายการนี้หมดสต็อกหรือยังโหลดไม่เสร็จ — เลือกเมล็ดเองด้านล่าง');
+    }
+    platformPriceTouched = false;
+    renderListingPicker();
+    updateBeanNameField();
+    refreshPlatformBlock();
+  }
+
+  // ต้นทุนต่อแก้วแบบรู้เมล็ดจริง: สูตร (ไม่รวมกาแฟ) + โดสเมล็ด x ราคาเมล็ดที่เลือก (ไม่ได้เลือก/ไม่รู้ราคา = ใช้ค่าเหมาเดิม)
+  function platformCupCost() {
+    if (!selectedMenu || !platformCtxReady) return null;
+    const base = menuItemCost({ id: selectedMenu.id, needs_bean: false, default_misc_cost: 0 });
+    const noCoffee = !!(selectedMenu.coffeeFlexible && document.getElementById('noCoffeeCheckbox').checked);
+    if (base === null && !selectedMenu.bean) return null;
+    let cost = base || 0;
+    if (selectedMenu.bean && !noCoffee) {
+      const beans = selectedBeanIds.map(id => beanOptionsCache.find(b => b.id === id)).filter(Boolean);
+      if (beans.length === 1 && Number(beans[0].cost_per_base_unit) > 0) cost += Number(beans[0].cost_per_base_unit) * BEAN_DOSE_G;
+      else cost += FLAT_COFFEE_COST;
+    }
+    return cost;
+  }
+
   function refreshPlatformBlock() {
     if (orderChannel === 'walk-in') return;
     const ch = platformChannels.find(c => c.channel_key === orderChannel);
@@ -5582,15 +5790,21 @@
     const calcEl = document.getElementById('platformCalc');
     let suggested = null, baseTxt = '';
     if (selectedMenu) {
-      const cp = (menuChannelCtx.pricesByItem[selectedMenu.id] || {})[orderChannel];
-      const base = cp && cp.price > 0 ? cp.price : null;
       const milkName = (isMilkFlexible(selectedMenu) ? document.getElementById('milkSelect').value : '') || null;
       const milkSur = milkSurchargeBrew(milkName);
-      if (base !== null) { suggested = base + milkSur; baseTxt = `ราคา ${ch.label_th} ฿${base}${milkSur ? ` + นมทางเลือก ฿${milkSur}` : ''}`; }
+      if (selectedListing) {
+        const lp = Number(selectedListing.list_price) || 0, ds = Number(selectedListing.discount_amount) || 0;
+        suggested = lp - ds + milkSur;
+        baseTxt = `ราคาป้าย ฿${lp}${ds ? ` − โปร ฿${ds}` : ''}${milkSur ? ` + นมทางเลือก ฿${milkSur}` : ''}`;
+      } else {
+        const cp = (menuChannelCtx.pricesByItem[selectedMenu.id] || {})[orderChannel];
+        const base = cp && cp.price > 0 ? cp.price : null;
+        if (base !== null) { suggested = base + milkSur; baseTxt = `ราคา ${ch.label_th} ฿${base}${milkSur ? ` + นมทางเลือก ฿${milkSur}` : ''}`; }
+      }
     }
-    if (!selectedMenu) hintEl.textContent = 'เลือกเมนูก่อน แล้วระบบจะเสนอราคาให้ — แก้ได้ตามที่เห็นในแอป';
-    else if (suggested === null) hintEl.textContent = `เมนูนี้ยังไม่ได้ตั้งราคา ${ch.label_th} ในแท็บเมนู — กรอกราคาที่ลูกค้าจ่ายจริงจากแอป`;
-    else hintEl.textContent = `ราคาแนะนำ ฿${suggested} (${baseTxt}) — แก้ได้ตามที่ลูกค้าจ่ายจริง (เช่นมีโปรของแพลตฟอร์ม หรือเลือกเมล็ดพรีเมียม)`;
+    if (!selectedMenu) hintEl.textContent = 'เลือกรายการด้านบนก่อน แล้วระบบจะเสนอราคาให้ — แก้ได้ตามที่เห็นในแอป';
+    else if (suggested === null) hintEl.textContent = `ยังไม่มีราคา ${ch.label_th} ของเมนูนี้ — กรอกราคาที่ลูกค้าจ่ายจริงจากแอป`;
+    else hintEl.textContent = `ราคาแนะนำ ฿${suggested} (${baseTxt}) — แก้ได้ตามที่ลูกค้าจ่ายจริง`;
     if (suggested !== null && !platformPriceTouched) priceEl.value = suggested;
 
     const price = Number(priceEl.value) || 0;
@@ -5600,7 +5814,7 @@
     let line = `ลูกค้าจ่าย ฿${price.toFixed(0)} − GP ${ch.gp_pct}% (฿${fee.toFixed(0)}) = ได้สุทธิ ฿${net.toFixed(0)}`;
     let bad = false;
     if (selectedMenu && platformCtxReady) {
-      const cost = menuItemCost({ id: selectedMenu.id, needs_bean: selectedMenu.bean, default_misc_cost: 0 });
+      const cost = platformCupCost();
       if (cost !== null) {
         const profit = net - cost, margin = profit / price * 100;
         bad = profit < 0 || margin < ch.margin_alert_pct;
@@ -5614,6 +5828,12 @@
     updateSubmitState();
   }
 
+  document.getElementById('listingPicker').addEventListener('click', (e) => {
+    const card = e.target.closest('[data-listing]');
+    if (!card) return;
+    const l = platformListings.find(x => x.id === card.dataset.listing);
+    if (l) selectListing(l);
+  });
   document.getElementById('channelRow').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-channel]');
     if (!btn || btn.dataset.channel === orderChannel) return;
@@ -5813,7 +6033,7 @@
         customer_name: name,
         menu_item_name: selectedMenu.name,
         price: platformCh ? platformPriceVal : (isMaxCup ? 0 : (orderType === 'reward' ? rewardCharge : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)))),
-        discount_amount: (platformCh || isMaxCup) ? 0 : discount,
+        discount_amount: platformCh ? (selectedListing ? Number(selectedListing.discount_amount) || 0 : 0) : (isMaxCup ? 0 : discount),
         wanted_date: selectedDate,
         bean_name: beanName,
         bean_surcharge: (platformCh || isMaxCup) ? 0 : beanSur,
@@ -5828,7 +6048,7 @@
         platform_gp_pct: platformCh ? platformCh.gp_pct : null,
         external_ref: platformRefVal,
         no_coffee: selectedMenu.coffeeFlexible ? document.getElementById('noCoffeeCheckbox').checked : false,
-        notes: orderNotes,
+        notes: platformCh && selectedListing ? [orderNotes, 'รายการ: ' + selectedListing.label].filter(Boolean).join(' · ') : orderNotes,
         omakase_set_id: (!isMaxCup && pendingOmakaseSetId && pendingOmakaseSetLinked) ? pendingOmakaseSetId : null,
       }];
     }
