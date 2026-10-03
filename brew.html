@@ -94,7 +94,12 @@
   <div class="field-hint" id="orderTypeHint" style="display:none;"></div>
   <div class="chip-row" id="staffChips" style="display:none;margin-top:6px;"></div>
 
-  <div class="field-label">ลูกค้าคนนี้เป็นสมาชิกไหม?</div>
+  <div id="channelBlock" style="display:none;">
+    <div class="field-label">ช่องทาง</div>
+    <div class="sweetness-row" id="channelRow"></div>
+  </div>
+
+  <div class="field-label" id="customerTypeLabel">ลูกค้าคนนี้เป็นสมาชิกไหม?</div>
   <div class="sweetness-row" id="customerTypeRow">
     <button type="button" class="sweetness-btn" data-type="guest">ลูกค้าทั่วไป</button>
     <button type="button" class="sweetness-btn selected" data-type="member">สมาชิก</button>
@@ -117,11 +122,13 @@
   <div id="preferenceBanner" style="display:none;"></div>
   <div id="omakasePendingBanner" style="display:none;"></div>
 
+  <div id="orderModeBlock">
   <div class="field-label">โหมดสั่ง</div>
   <div class="sweetness-row" id="orderModeRow">
     <button type="button" class="sweetness-btn selected" data-order-mode="normal">ปกติ (1 แก้ว)</button>
     <button type="button" class="sweetness-btn" data-order-mode="omakase_solo">🔮 Secret (1 แก้ว)</button>
     <button type="button" class="sweetness-btn" data-order-mode="omakase">🎴 Omakase (3 แก้ว)</button>
+  </div>
   </div>
 
   <div id="omakaseSlotBlock" style="display:none;">
@@ -183,18 +190,29 @@
   <div id="toppingQtyBlock"></div>
   <div id="toppingCostPreview" style="display:none;font-size:12px;color:#4A9B5C;font-weight:700;background:#EAF6EC;border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
 
+  <div id="discountBlock">
   <div class="field-label">ส่วนลด (ไม่บังคับ)</div>
   <div class="field-hint" id="discountHint">ใส่จำนวนบาทที่ลด — ราคาสุทธิจะหักให้อัตโนมัติตอนบันทึก</div>
   <input type="number" id="discountAmount" placeholder="เช่น 20" min="0" step="1" style="margin-bottom:8px;">
+  </div>
 
   <div id="noCoffeeRow" style="display:none;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
     <input type="checkbox" id="noCoffeeCheckbox" style="width:20px;height:20px;flex-shrink:0;">
     <label for="noCoffeeCheckbox" style="font-size:12.5px;color:#4A3428;font-weight:600;">☕🚫 ไม่ใช้กาแฟแก้วนี้ (ไม่ตัดสต็อกเมล็ด/ไม่บวกต้นทุนกาแฟ — หลังบ้านเท่านั้น)</label>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+  <div id="maxCupBlock" style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
     <input type="checkbox" id="isMaxCup" style="width:20px;height:20px;flex-shrink:0;">
     <label for="isMaxCup" style="font-size:12.5px;color:#4A3428;font-weight:600;">🎴 นับเป็นแก้ว Omakase Max สัปดาห์นี้ (ไม่คิดเงินตอนนี้ ไปรวมเก็บทีหลัง)</label>
+  </div>
+
+  <div id="platformBlock" style="display:none;">
+    <div class="field-label" id="platformPriceLabel">ราคาที่ลูกค้าจ่าย (บาท)</div>
+    <input type="number" id="platformPrice" min="0" step="1" placeholder="ราคาที่เห็นในแอปแพลตฟอร์ม" style="margin-bottom:6px;">
+    <div class="field-hint" id="platformPriceHint"></div>
+    <div id="platformCalc" style="font-size:12.5px;font-weight:700;border-radius:10px;padding:10px 12px;background:#FFF3E8;color:#4A3428;margin-bottom:10px;line-height:1.6;">กรอกราคาเพื่อดูกำไรสุทธิหลังหัก GP</div>
+    <div class="field-label">เลขออเดอร์ / ชื่อลูกค้าบนแพลตฟอร์ม (ไม่บังคับ — ไว้เทียบกับรายงานโอนเงิน)</div>
+    <input type="text" id="platformRef" placeholder="เช่น ท้ายเลขออเดอร์ 4821" style="margin-bottom:8px;">
   </div>
 
   <button class="submit-btn" id="submitBtn" disabled>บันทึกออเดอร์</button>
@@ -202,6 +220,7 @@
 </div>
 
 <div class="screen" id="screen-bill">
+  <div id="platformPendingBlock" style="display:none;"></div>
   <div id="omakaseMaxBillBlock" style="display:none;">
     <div class="field-label">🎴 Omakase Max ค้างปิดยอด</div>
     <div class="field-hint">แก้จำนวนแก้ว/ยอดเงินได้ก่อนปิดบิล เผื่อสัปดาห์นั้นไม่ครบ 5 แก้ว</div>
@@ -742,6 +761,11 @@
   let customerName = '';
   let customerType = 'member';
   let orderType = 'customer';
+  // ช่องทางขายของออเดอร์นี้: 'walk-in' = หน้าร้านปกติ, อย่างอื่น = แพลตฟอร์มที่หัก GP (อ่านจาก sales_channels ที่ gp_pct > 0 เช่น Grab)
+  let orderChannel = 'walk-in';
+  let platformChannels = [];
+  let platformPriceTouched = false;
+  let platformCtxReady = false;
   let selectedSweetness = 'ไม่หวาน';
   let membersCache = [];
   let allGuestNamesCache = []; // ชื่อลูกค้าทั่วไปทั้งหมดที่เคยพิมพ์ (ไม่ใช่แค่ 20 แถวล่าสุด) — ใช้เช็คชื่อซ้ำ/คล้ายกัน
@@ -2019,13 +2043,15 @@
     const omakaseBadge = order.omakase_set_id ? ' <span style="color:#E8621A;">🎴 Omakase</span>' : '';
     const maxBadge = order.channel === 'liff-omakase-fullweek' ? ' <span style="color:#4A9B5C;">🎴 Max (รวมเก็บทีหลัง)</span>' : '';
     const recurringBadge = order.channel === 'recurring-auto' ? ' <span style="color:#7B4F9E;">🔁 ออเดอร์ประจำ</span>' : '';
+    const platformBadge = order.platform_gp_pct !== null && order.platform_gp_pct !== undefined
+      ? ` <span style="color:#00A244;font-weight:700;">🛵 ${(platformChannels.find(c => c.channel_key === order.channel) || {}).label_th || order.channel} · ฿${Number(order.price).toFixed(0)}</span>` : '';
     const div = document.createElement('div');
     div.className = 'card' + (isToday ? ' today' : '') + compactClass;
     const menuDef = MENU.find(m => m.name === order.menu_item_name);
     const isCoffeeFlexible = !!(menuDef && menuDef.coffeeFlexible);
     div.innerHTML = `
       <div class="card-top">
-        <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)}${typeBadge}${omakaseBadge}${maxBadge}${recurringBadge}</span>
+        <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)}${typeBadge}${omakaseBadge}${maxBadge}${recurringBadge}${platformBadge}</span>
         <div class="card-top-right">
           <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
           <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
@@ -2531,6 +2557,7 @@
       .from('preorders')
       .select('customer_name')
       .eq('order_type', 'customer')
+      .is('platform_gp_pct', null)
       .order('created_at', { ascending: false })
       .limit(500);
     allGuestNamesCache = data ? [...new Set(data.map(d => d.customer_name).filter(Boolean))] : [];
@@ -5489,6 +5516,118 @@
     }
   });
 
+  // ===================== 🛵 ช่องทางแพลตฟอร์ม (Grab) ในหน้าเพิ่มออเดอร์ =====================
+  async function loadPlatformChannels() {
+    try {
+      const { data } = await sb.from('sales_channels').select('channel_key, label_th, gp_pct, margin_alert_pct').eq('active', true).gt('gp_pct', 0).order('sort_order');
+      platformChannels = (data || []).map(c => ({ ...c, gp_pct: Number(c.gp_pct) || 0, margin_alert_pct: Number(c.margin_alert_pct) || 0 }));
+    } catch (e) { platformChannels = []; }
+    renderChannelRow();
+  }
+
+  function renderChannelRow() {
+    const block = document.getElementById('channelBlock');
+    const row = document.getElementById('channelRow');
+    if (!platformChannels.length || orderType !== 'customer') { block.style.display = 'none'; return; }
+    block.style.display = 'block';
+    row.innerHTML = `<button type="button" class="sweetness-btn${orderChannel === 'walk-in' ? ' selected' : ''}" data-channel="walk-in">🏪 หน้าร้าน</button>` +
+      platformChannels.map(c => `<button type="button" class="sweetness-btn${orderChannel === c.channel_key ? ' selected' : ''}" data-channel="${c.channel_key}">🛵 ${c.label_th}</button>`).join('');
+  }
+
+  function setOrderChannel(key) {
+    const wasPlatform = orderChannel !== 'walk-in';
+    orderChannel = key;
+    const isPlatform = key !== 'walk-in';
+    renderChannelRow();
+    const show = (id, on, disp) => { const el = document.getElementById(id); if (el) el.style.display = on ? (disp || 'block') : 'none'; };
+    show('customerTypeLabel', !isPlatform);
+    show('customerTypeRow', !isPlatform, 'flex');
+    show('orderModeBlock', !isPlatform);
+    show('discountBlock', !isPlatform);
+    show('maxCupBlock', !isPlatform, 'flex');
+    show('platformBlock', isPlatform);
+    if (isPlatform) {
+      // โหมดแพลตฟอร์ม: ไม่มีสมาชิก/ส่วนลด/Omakase — ออเดอร์เดียวต่อแก้ว ราคาตามที่ลูกค้าจ่ายจริง
+      document.getElementById('memberPickerBlock').style.display = 'none';
+      document.getElementById('guestNameBlock').style.display = 'none';
+      if (orderMode !== 'normal') { const nb = document.querySelector('#orderModeRow [data-order-mode="normal"]'); if (nb) nb.click(); }
+      document.getElementById('isMaxCup').checked = false;
+      document.getElementById('discountAmount').value = '';
+      const ch = platformChannels.find(c => c.channel_key === key);
+      selectedMemberLineId = null;
+      customerName = ch ? ch.label_th : key;
+      document.getElementById('platformPriceLabel').textContent = `ราคาที่ลูกค้าจ่ายใน ${ch ? ch.label_th : key} (บาท)`;
+      platformPriceTouched = false;
+      document.getElementById('platformPrice').value = '';
+      document.getElementById('platformRef').value = '';
+      updateLinkHint();
+      if (!platformCtxReady) { platformCtxReady = true; loadMenuChannelCtx().then(refreshPlatformBlock).catch(() => { platformCtxReady = false; }); }
+      refreshPlatformBlock();
+    } else if (wasPlatform) {
+      // กลับหน้าร้าน: คืนฟอร์มลูกค้าเป็นค่าเดิม (กดปุ่มประเภทลูกค้าที่เลือกอยู่เพื่อรีเซ็ตชื่อ/สมาชิก)
+      const cur = document.querySelector('#customerTypeRow .sweetness-btn.selected') || document.querySelector('#customerTypeRow .sweetness-btn');
+      if (cur) cur.click();
+      document.getElementById('platformPrice').value = '';
+      document.getElementById('platformRef').value = '';
+    }
+    updateSubmitState();
+  }
+
+  function refreshPlatformBlock() {
+    if (orderChannel === 'walk-in') return;
+    const ch = platformChannels.find(c => c.channel_key === orderChannel);
+    if (!ch) return;
+    const priceEl = document.getElementById('platformPrice');
+    const hintEl = document.getElementById('platformPriceHint');
+    const calcEl = document.getElementById('platformCalc');
+    let suggested = null, baseTxt = '';
+    if (selectedMenu) {
+      const cp = (menuChannelCtx.pricesByItem[selectedMenu.id] || {})[orderChannel];
+      const base = cp && cp.price > 0 ? cp.price : null;
+      const milkName = (isMilkFlexible(selectedMenu) ? document.getElementById('milkSelect').value : '') || null;
+      const milkSur = milkSurchargeBrew(milkName);
+      if (base !== null) { suggested = base + milkSur; baseTxt = `ราคา ${ch.label_th} ฿${base}${milkSur ? ` + นมทางเลือก ฿${milkSur}` : ''}`; }
+    }
+    if (!selectedMenu) hintEl.textContent = 'เลือกเมนูก่อน แล้วระบบจะเสนอราคาให้ — แก้ได้ตามที่เห็นในแอป';
+    else if (suggested === null) hintEl.textContent = `เมนูนี้ยังไม่ได้ตั้งราคา ${ch.label_th} ในแท็บเมนู — กรอกราคาที่ลูกค้าจ่ายจริงจากแอป`;
+    else hintEl.textContent = `ราคาแนะนำ ฿${suggested} (${baseTxt}) — แก้ได้ตามที่ลูกค้าจ่ายจริง (เช่นมีโปรของแพลตฟอร์ม หรือเลือกเมล็ดพรีเมียม)`;
+    if (suggested !== null && !platformPriceTouched) priceEl.value = suggested;
+
+    const price = Number(priceEl.value) || 0;
+    if (!(price > 0)) { calcEl.style.background = '#FFF3E8'; calcEl.style.color = '#4A3428'; calcEl.textContent = 'กรอกราคาเพื่อดูกำไรสุทธิหลังหัก GP'; updateSubmitState(); return; }
+    const fee = price * ch.gp_pct / 100;
+    const net = price - fee;
+    let line = `ลูกค้าจ่าย ฿${price.toFixed(0)} − GP ${ch.gp_pct}% (฿${fee.toFixed(0)}) = ได้สุทธิ ฿${net.toFixed(0)}`;
+    let bad = false;
+    if (selectedMenu && platformCtxReady) {
+      const cost = menuItemCost({ id: selectedMenu.id, needs_bean: selectedMenu.bean, default_misc_cost: 0 });
+      if (cost !== null) {
+        const profit = net - cost, margin = profit / price * 100;
+        bad = profit < 0 || margin < ch.margin_alert_pct;
+        line += `\nต้นทุนประมาณ ฿${cost.toFixed(0)} → กำไร ฿${profit.toFixed(0)} (margin ${margin.toFixed(0)}%)${bad ? ' ⚠️ ต่ำกว่าเกณฑ์ ' + ch.margin_alert_pct + '%' : ''}`;
+      }
+    }
+    calcEl.style.background = bad ? '#FDECEC' : '#EAF6EC';
+    calcEl.style.color = bad ? '#D64545' : '#2E7D46';
+    calcEl.style.whiteSpace = 'pre-line';
+    calcEl.textContent = line;
+    updateSubmitState();
+  }
+
+  document.getElementById('channelRow').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-channel]');
+    if (!btn || btn.dataset.channel === orderChannel) return;
+    setOrderChannel(btn.dataset.channel);
+  });
+  document.getElementById('platformPrice').addEventListener('input', () => { platformPriceTouched = true; refreshPlatformBlock(); });
+  // เมนู/นม/เมล็ดเปลี่ยน → คำนวณราคาแนะนำและกำไรใหม่ (listener ที่ต้นทางทำงานก่อน แล้วค่อยมาถึงตรงนี้)
+  ['click', 'change'].forEach(evt => document.getElementById('screen-add').addEventListener(evt, () => { if (orderChannel !== 'walk-in') setTimeout(refreshPlatformBlock, 0); }));
+  // เปลี่ยนประเภทออเดอร์เป็น Staff/Reward/Our Treat → ไม่ใช่การขายผ่านแพลตฟอร์ม กลับเป็นหน้าร้านและซ่อนตัวเลือกช่องทาง
+  document.getElementById('orderTypeRow').addEventListener('click', () => {
+    if (orderType !== 'customer' && orderChannel !== 'walk-in') setOrderChannel('walk-in');
+    renderChannelRow();
+  });
+
   const STAFF_NAMES = Object.keys(STAFF_ALIASES); // แก้ที่ STAFF_ALIASES ด้านบนถ้ามีพนักงานเพิ่ม/เปลี่ยนชื่อ
   const STAFF_SWEETNESS_DEFAULT = { 'อาบุ้ง': 'ไม่หวาน', 'ซีเซีย': 'หวานปกติ' };
 
@@ -5603,7 +5742,8 @@
     const menuOk = orderMode === 'omakase'
       ? omakaseSlots.every(s => s !== null)
       : !!selectedMenu;
-    btn.disabled = !(customerName && menuOk && selectedDate && blendOk);
+    const platformOk = orderChannel === 'walk-in' || Number(document.getElementById('platformPrice').value) > 0;
+    btn.disabled = !(customerName && menuOk && selectedDate && blendOk && platformOk);
   }
 
   document.getElementById('submitBtn').addEventListener('click', async () => {
@@ -5620,6 +5760,10 @@
     const isFree = orderType !== 'customer';
     const discountInput = Number(document.getElementById('discountAmount').value) || 0;
     const orderNotes = document.getElementById('orderNotes').value.trim() || null;
+    // ออเดอร์แพลตฟอร์ม (Grab ฯลฯ): price = ราคาที่ลูกค้าจ่ายจริงบนแพลตฟอร์ม (gross) · GP% ถูก snapshot ไว้กับออเดอร์ · paid=false จนกว่าจะบันทึกว่าแพลตฟอร์มโอนเงินแล้ว
+    const platformCh = (orderChannel !== 'walk-in' && orderType === 'customer' && orderMode === 'normal') ? platformChannels.find(c => c.channel_key === orderChannel) : null;
+    const platformPriceVal = platformCh ? Math.max(0, Number(document.getElementById('platformPrice').value) || 0) : 0;
+    const platformRefVal = platformCh ? (document.getElementById('platformRef').value.trim() || null) : null;
 
     let insertRows;
     const isOmakaseSoloSubmit = orderMode === 'omakase_solo';
@@ -5668,19 +5812,21 @@
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
-        price: isMaxCup ? 0 : (orderType === 'reward' ? rewardCharge : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur))),
-        discount_amount: isMaxCup ? 0 : discount,
+        price: platformCh ? platformPriceVal : (isMaxCup ? 0 : (orderType === 'reward' ? rewardCharge : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)))),
+        discount_amount: (platformCh || isMaxCup) ? 0 : discount,
         wanted_date: selectedDate,
         bean_name: beanName,
-        bean_surcharge: isMaxCup ? 0 : beanSur,
+        bean_surcharge: (platformCh || isMaxCup) ? 0 : beanSur,
         milk_name: isMaxCup ? null : milkName,
         milk_surcharge: isMaxCup ? 0 : milkSur,
         matcha_name: isMaxCup ? null : matchaName,
-        line_user_id: selectedMemberLineId,
+        line_user_id: platformCh ? null : selectedMemberLineId,
         order_type: orderType,
-        paid: isMaxCup ? false : (orderType === 'reward' ? rewardCharge <= 0 : isFree),
+        paid: platformCh ? false : (isMaxCup ? false : (orderType === 'reward' ? rewardCharge <= 0 : isFree)),
         sweetness: selectedSweetness,
-        channel: isMaxCup ? 'liff-omakase-fullweek' : 'walk-in',
+        channel: platformCh ? platformCh.channel_key : (isMaxCup ? 'liff-omakase-fullweek' : 'walk-in'),
+        platform_gp_pct: platformCh ? platformCh.gp_pct : null,
+        external_ref: platformRefVal,
         no_coffee: selectedMenu.coffeeFlexible ? document.getElementById('noCoffeeCheckbox').checked : false,
         notes: orderNotes,
         omakase_set_id: (!isMaxCup && pendingOmakaseSetId && pendingOmakaseSetLinked) ? pendingOmakaseSetId : null,
@@ -5782,8 +5928,9 @@
     document.getElementById('staffChips').style.display = 'none';
     orderType = 'customer';
     selectedSweetness = 'ไม่หวาน';
+    setOrderChannel('walk-in'); // กลับเป็นหน้าร้านทุกครั้งหลังบันทึก — กันกดแท็ก Grab ค้างไปโดนออเดอร์ถัดไป
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
-    if (name && !allGuestNamesCache.includes(name)) allGuestNamesCache.unshift(name); // เติมชื่อที่เพิ่งบันทึกเข้า cache ทันที ไม่ต้องรีโหลดหน้า
+    if (name && !platformCh && !allGuestNamesCache.includes(name)) allGuestNamesCache.unshift(name); // เติมชื่อที่เพิ่งบันทึกเข้า cache ทันที ไม่ต้องรีโหลดหน้า
     renderNameSuggestions('');
     updateLinkHint(); // เคลียร์ banner ⚠️ แพ้/ไม่กิน ของลูกค้าคนก่อนหน้าไปด้วย
     document.getElementById('noCoffeeRow').style.display = 'none';
@@ -5953,7 +6100,105 @@
     return { error: null };
   }
 
+  // ===================== 🛵 รอรับเงินจากแพลตฟอร์ม (Grab) =====================
+  // แก้ว Grab ที่ชงแล้วแต่ยังไม่บันทึกว่า Grab โอนเงิน — แยกจากบิลค้างจ่ายของลูกค้า (ไม่มีใครต้องตามเก็บ ไม่มีปุ่มส่ง LINE)
+  // พอ Grab โอนเงินมา (รายวัน/รายสัปดาห์ก็ได้) กดรับเงินเป็นก้อน ระบบเทียบ "ที่ควรได้" กับ "ที่โอนจริง" ให้เห็นว่า GP จริงต่างจากที่ตั้งไว้เท่าไหร่
+  async function loadPlatformPending() {
+    const block = document.getElementById('platformPendingBlock');
+    try {
+      const [{ data: pending }, { data: history }] = await Promise.all([
+        sb.from('preorders').select('id, menu_item_name, price, platform_gp_pct, channel, external_ref, brewed_at, wanted_date, milk_name').not('platform_gp_pct', 'is', null).eq('brewed', true).eq('paid', false).order('brewed_at', { ascending: true }),
+        sb.from('channel_settlements').select('*').order('settled_at', { ascending: false }).limit(5),
+      ]);
+      if ((!pending || !pending.length) && (!history || !history.length)) { block.style.display = 'none'; block.innerHTML = ''; return; }
+      block.style.display = 'block';
+      const labelOf = (key) => (platformChannels.find(c => c.channel_key === key) || {}).label_th || key;
+      const netOf = (o) => Number(o.price) * (1 - (Number(o.platform_gp_pct) || 0) / 100);
+      const money = (n) => '฿' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+      const byChannel = {};
+      (pending || []).forEach(o => { (byChannel[o.channel] = byChannel[o.channel] || []).push(o); });
+      let html = '';
+      Object.entries(byChannel).forEach(([chKey, orders]) => {
+        const gross = orders.reduce((s, o) => s + Number(o.price), 0);
+        const net = orders.reduce((s, o) => s + netOf(o), 0);
+        html += `<div class="bill-card" data-pending-channel="${chKey}" style="border-left:4px solid #00A244;">
+          <div class="field-label" style="margin-top:0;">🛵 ${labelOf(chKey)} — รอรับเงิน ${orders.length} แก้ว</div>
+          <div class="field-hint">ชงแล้วแต่ยังไม่ได้บันทึกว่าแพลตฟอร์มโอนเงินมา — ติ๊กแก้วที่อยู่ในยอดโอนรอบนี้ (ปกติติ๊กครบทั้งหมด)</div>
+          ${orders.map(o => `<label class="pp-row" style="display:flex;align-items:center;gap:8px;margin:0;padding:6px 0;border-bottom:1px solid #F0E4D8;font-size:12.5px;color:#4A3428;font-weight:400;">
+            <input type="checkbox" class="pp-check" data-id="${o.id}" data-gross="${o.price}" data-net="${netOf(o).toFixed(2)}" checked style="width:20px;height:20px;flex-shrink:0;">
+            <span style="flex:1;">${fmtDate(new Date(o.wanted_date))} · ${o.menu_item_name}${o.milk_name ? ' (' + o.milk_name + ')' : ''}${o.external_ref ? ' · #' + o.external_ref : ''}</span>
+            <span style="white-space:nowrap;">${money(o.price)} → <b>${money(netOf(o))}</b></span>
+          </label>`).join('')}
+          <div class="pp-summary" style="margin-top:10px;font-size:12.5px;font-weight:700;color:#4A3428;line-height:1.7;background:#EAF6EC;border-radius:10px;padding:10px 12px;"></div>
+          <div class="field-label">ยอดที่โอนเข้าบัญชีจริง (บาท)</div>
+          <input type="number" class="pp-received" min="0" step="0.01" placeholder="ใส่ตามรายงานโอนเงินของแพลตฟอร์ม" style="margin-bottom:6px;">
+          <div class="pp-diff field-hint"></div>
+          <input type="text" class="pp-note" placeholder="หมายเหตุ (ไม่บังคับ) เช่น รอบ 1-7 ต.ค." style="margin-bottom:8px;">
+          <button type="button" class="submit-btn pp-confirm" style="margin-top:4px;background:#00A244;">✅ รับเงินจาก ${labelOf(chKey)} แล้ว</button>
+          <div class="status-msg pp-status"></div>
+        </div>`;
+      });
+      if (history && history.length) {
+        html += `<div class="bill-card"><div class="field-label" style="margin-top:0;">🧾 รับเงินล่าสุด</div>` + history.map(h => {
+          const diff = Number(h.received_amount) - Number(h.expected_net);
+          const impliedGp = Number(h.gross_amount) ? (1 - Number(h.received_amount) / Number(h.gross_amount)) * 100 : 0;
+          return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px solid #F0E4D8;color:#4A3428;">
+            <span>${fmtDate(new Date(h.settled_at))} · ${labelOf(h.channel_key)} · ${h.order_count} แก้ว${h.note ? ' · ' + h.note : ''}</span>
+            <span style="text-align:right;white-space:nowrap;">ได้ <b>${money(h.received_amount)}</b> จาก ${money(h.gross_amount)}<br><span style="font-size:10.5px;color:${diff < -0.5 ? '#D64545' : '#4A9B5C'};">GP จริง ≈ ${impliedGp.toFixed(1)}% · เทียบที่คาด ${diff >= 0 ? '+' : ''}${diff.toFixed(0)}฿</span></span>
+          </div>`;
+        }).join('') + `</div>`;
+      }
+      block.innerHTML = html;
+
+      block.querySelectorAll('[data-pending-channel]').forEach(card => {
+        const chKey = card.dataset.pendingChannel;
+        const recvEl = card.querySelector('.pp-received');
+        const sumEl = card.querySelector('.pp-summary');
+        const diffEl = card.querySelector('.pp-diff');
+        let recvTouched = false;
+        function selected() { return [...card.querySelectorAll('.pp-check:checked')]; }
+        function totals() {
+          const sel = selected();
+          return { n: sel.length, gross: sel.reduce((s, c) => s + Number(c.dataset.gross), 0), net: sel.reduce((s, c) => s + Number(c.dataset.net), 0) };
+        }
+        function refresh() {
+          const t = totals();
+          sumEl.textContent = `เลือก ${t.n} แก้ว · ลูกค้าจ่าย ${money(t.gross)} · ควรได้สุทธิ ${money(t.net)} (หลังหัก GP ที่ตั้งไว้)`;
+          if (!recvTouched) recvEl.value = t.net ? t.net.toFixed(0) : '';
+          const rec = Number(recvEl.value);
+          if (rec > 0 && t.gross > 0) {
+            const diff = rec - t.net;
+            diffEl.textContent = `GP จริงจากยอดนี้ ≈ ${((1 - rec / t.gross) * 100).toFixed(1)}% · ${Math.abs(diff) < 0.5 ? 'ตรงกับที่คาดไว้' : (diff > 0 ? 'ได้มากกว่าที่คาด ' : 'ได้น้อยกว่าที่คาด ') + Math.abs(diff).toFixed(0) + '฿'}`;
+          } else diffEl.textContent = '';
+          card.querySelector('.pp-confirm').disabled = !(t.n > 0 && rec > 0);
+        }
+        card.querySelectorAll('.pp-check').forEach(c => c.addEventListener('change', refresh));
+        recvEl.addEventListener('input', () => { recvTouched = true; refresh(); });
+        refresh();
+        card.querySelector('.pp-confirm').addEventListener('click', async () => {
+          const t = totals();
+          const rec = Number(recvEl.value);
+          const statusEl = card.querySelector('.pp-status');
+          if (!(t.n > 0 && rec > 0)) return;
+          if (!confirm(`บันทึกว่า ${labelOf(chKey)} โอนเงิน ${money(rec)} สำหรับ ${t.n} แก้ว (ลูกค้าจ่าย ${money(t.gross)})?`)) return;
+          const btn = card.querySelector('.pp-confirm');
+          btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+          const ids = selected().map(c => c.dataset.id);
+          const settlementId = crypto.randomUUID();
+          const { error: sErr } = await sb.from('channel_settlements').insert([{ id: settlementId, channel_key: chKey, order_count: t.n, gross_amount: t.gross, expected_net: Math.round(t.net * 100) / 100, received_amount: rec, note: card.querySelector('.pp-note').value.trim() || null }]);
+          if (sErr) { statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + sErr.message; statusEl.className = 'status-msg error'; btn.disabled = false; btn.textContent = `✅ รับเงินจาก ${labelOf(chKey)} แล้ว`; return; }
+          const { error: uErr } = await sb.from('preorders').update({ paid: true, settlement_id: settlementId }).in('id', ids);
+          if (uErr) { statusEl.textContent = 'บันทึกรอบรับเงินแล้ว แต่ปิดแก้วไม่สำเร็จ แจ้ง Claude ด้วย: ' + uErr.message; statusEl.className = 'status-msg error'; return; }
+          loadPlatformPending();
+        });
+      });
+    } catch (e) {
+      block.style.display = 'none';
+    }
+  }
+
   async function loadBills() {
+    loadPlatformPending();
     const listEl = document.getElementById('billList');
     listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
 
@@ -5963,7 +6208,7 @@
     //   brewed=true กับทุกแถวรวมกัน ทำให้เซ็ตที่ชงยังไม่ครบถูกตัดแก้วที่ยังไม่ชงออกไป เหลือแค่แก้วที่ชงแล้ว
     //   แต่ยังคิดราคาเต็มแพ็กเกจ (270) ต่อการเคลียร์ 1 ครั้ง — กดจ่ายทีละแก้วที่ทยอยชงจะเท่ากับเรียกเก็บซ้ำเกินราคาแพ็กเกจจริง
     const [{ data: unpaidRegular, error: err1 }, { data: unpaidOmakaseRaw, error: err2 }] = await Promise.all([
-      sb.from('preorders').select('*').eq('paid', false).eq('brewed', true).is('omakase_set_id', null).eq('order_type', 'customer'),
+      sb.from('preorders').select('*').eq('paid', false).eq('brewed', true).is('omakase_set_id', null).eq('order_type', 'customer').is('platform_gp_pct', null),
       sb.from('preorders').select('*').eq('paid', false).not('omakase_set_id', 'is', null).eq('order_type', 'customer'),
     ]);
     // อาบุ้ง แจ้ง 14 ก.ย.: เซ็ต Omakase ที่สั่งมาเป็นสัปดาห์แต่ยังไม่ชงสักแก้ว โผล่ในหน้าบิลรกไปหมด ไม่ควรขึ้นจนกว่าจะเริ่มชงจริง
@@ -6933,6 +7178,7 @@
     loadMatchaForAddOrder(); // เช่นเดียวกับนม — โหลดพื้นหลัง ไม่ block
     loadRedemptionSetting(); // ไม่ต้อง await — ปุ่มเริ่มต้นเปิดไว้ก่อน ถ้าปิดจะ disable ตามหลังไม่กี่ร้อย ms
     loadRewardCapSetting(); // ไม่ต้อง await — ใช้ค่า default 70 ไปก่อนถ้ายังโหลดไม่เสร็จ
+    loadPlatformChannels(); // ไม่ต้อง await — ปุ่มช่องทาง Grab จะโผล่ในหน้าเพิ่มออเดอร์เมื่อโหลดเสร็จ
     renderMenuGrid();
     renderDateRow();
     loadToday();
