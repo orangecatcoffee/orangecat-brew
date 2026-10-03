@@ -827,7 +827,7 @@
 
     const { data: recipeRows } = await sb
       .from('menu_recipes')
-      .select('quantity, ingredients(id, name, category, stock_quantity, base_unit)')
+      .select('quantity, ingredients(id, name, category, stock_quantity, base_unit, track_stock)')
       .eq('menu_item_id', menuItem.id);
     if (!recipeRows) return warnings;
 
@@ -837,6 +837,7 @@
       try {
         let ing = row.ingredients;
         if (!ing || ing.category === 'coffee_bean') return;
+        if (ing.track_stock === false) return; // ของที่มีเสมอ (เช่น น้ำเปล่า) — ไม่ตัดสต็อก
 
         let deductQty = Number(row.quantity);
         const rule = SWEETNESS_RULES[ing.name];
