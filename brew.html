@@ -3374,7 +3374,7 @@
               <button type="button" data-lm-edit="${l.id}" style="background:none;border:none;color:#00A244;font-size:11px;padding:2px 0;font-family:inherit;">✎ แก้ราคาป้าย</button></div></div>`;
         });
       });
-      html += `<div class="field-hint" style="margin-top:10px;">กำไรคิดจาก: ราคาหลังโปร − GP ${menuChannelCtx.channels.filter(c => c.gp_pct > 0).map(c => c.label_th + ' ' + c.gp_pct + '%').join(', ')} (ค่าตุ๊กตา ปรับที่ Owner → Settings เมื่อรู้ตัวเลขจริง) − ต้นทุนสูตรและเมล็ดของรายการนั้น</div></div>`;
+      html += `<div class="field-hint" style="margin-top:10px;">กำไรคิดจาก: ราคาหลังโปร − GP ${menuChannelCtx.channels.filter(c => c.gp_pct > 0).map(c => c.label_th + ' ' + c.gp_pct + '%').join(', ')} (ค่าจริงจาก GrabMerchant = คอมมิชชั่น 30% + VAT 7% · ปรับที่ Owner → Settings) − ต้นทุนสูตรและเมล็ดของรายการนั้น</div></div>`;
     }
     html += '</div>';
     host.innerHTML = html;
