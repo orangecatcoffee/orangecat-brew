@@ -25,6 +25,11 @@
   .more-item:active{background:#FFF3E8}
   .toast{max-width:440px;background:#4A3428;color:#FFF8F0;font-size:13px;line-height:1.5;padding:10px 14px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.2);pointer-events:auto;white-space:pre-line;opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s}
   .toast.show{opacity:1;transform:none}
+  .opt-block{margin:14px 0 4px;background:#fff;border:2px solid #F0E4D8;border-radius:12px;padding:4px 12px}
+  .opt-block[open]{padding-bottom:10px}
+  .opt-block>summary{list-style:none;cursor:pointer;padding:10px 0;font-size:13px;font-weight:700;color:#8a6a4a}
+  .opt-block>summary::-webkit-details-marker{display:none}
+  #toppingCostPreview{display:none !important}
   .lst-section{font-size:11px;font-weight:700;color:#8a6a4a;margin:12px 0 6px;letter-spacing:.3px;}
   .lst-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   .lst-card{background:#fff;border:2px solid #F0E4D8;border-radius:12px;padding:8px;text-align:center;font-size:11.5px;cursor:pointer;color:#4A3428;font-family:inherit;-webkit-tap-highlight-color:transparent;}
@@ -165,13 +170,13 @@
 
   <div id="omakaseSlotBlock" style="display:none;">
     <button type="button" id="omakaseQuickDefaultBtn" style="width:100%;padding:12px;margin-bottom:12px;border-radius:12px;border:2px solid #E8621A;background:#FFF3E8;color:#E8621A;font-size:13px;font-weight:700;font-family:inherit;">⚡ ค่าเริ่มต้น: แก้วลับวันแรก + แมวส้มเลือก 2 วันถัดไป</button>
-    <div class="field-hint">แตะเลือกแก้วที่ 1/2/3 แล้วเลือกเมนูจากช่องด้านล่าง — จะให้แก้วไหนเป็น Secret ก็ได้ ไม่บังคับแก้วที่ 3 เสมอไป — เมนูทดลองรายสัปดาห์ (omakase_only) จะโผล่ในนี้ด้วย</div>
+    <div class="field-hint">แตะแก้ว 1/2/3 แล้วเลือกเมนูด้านล่าง</div>
     <div class="chip-row" id="omakaseSlotChips"></div>
     <div id="omakaseSecretHint" style="display:none;"></div>
-    <div class="field-hint" style="margin-top:8px;">วันที่ชงของแก้วที่กำลังเลือกอยู่ (แต่ละแก้วเลือกวันต่างกันได้)</div>
+    <div class="field-hint" style="margin-top:8px;">วันชงของแก้วนี้</div>
     <div class="date-row" id="omakaseCupDateRow"></div>
 
-    <div class="field-hint" style="margin-top:10px;" id="omakaseBeanHint">เมล็ดของแก้วที่กำลังเลือกอยู่ — เลือกได้มากกว่า 1 ตัวเพื่อทำเฮ้าส์เบลนด์ (สูงสุด 3 ตัว ต่างกันได้ทุกแก้ว)</div>
+    <div class="field-hint" style="margin-top:10px;" id="omakaseBeanHint">เลือกได้สูงสุด 3 ตัว (เบลนด์)</div>
     <div class="chip-row" id="omakaseBeanChips"></div>
     <div id="omakaseBlendGramsBlock"></div>
     <button type="button" class="submit-btn" id="omakaseUsePlaceholderBtn" style="margin-top:8px;background:#5A361B;">🔮 ใช้ "แก้วลับ (รอออกแบบ)" สำหรับแก้วที่กำลังเลือกอยู่ — ค่อยไปตั้งชื่อ/สูตรจริงทีหลังในแท็บ "สูตร"</button>
@@ -182,21 +187,21 @@
     <div class="menu-grid" id="menuGrid"></div>
   </div>
 
-  <div class="field-label">เมล็ดกาแฟ (ไม่บังคับ — ข้ามได้ถ้าเป็นเมนู Matcha)</div>
-  <div class="field-hint">เลือกจากสต็อกจริง — ตัวที่ขึ้น "หมด" คือของเหลือไม่พอกับ 1 โดส (20g) เลือกไม่ได้ · เลือกได้มากกว่า 1 ตัวเพื่อทำเฮ้าส์เบลนด์ (สูงสุด 3 ตัว)</div>
+  <div class="field-label">เมล็ดกาแฟ</div>
+  <div class="field-hint">ตัวเลข = กรัมที่เหลือ · เลือกได้สูงสุด 3 ตัว</div>
   <div class="chip-row" id="recentBeans"></div>
   <div id="blendGramsBlock"></div>
   <input type="hidden" id="beanName">
 
   <div id="milkRow" style="display:none;">
     <div class="field-label">🥛 เปลี่ยนนม (ไม่บังคับ)</div>
-    <div class="field-hint">เมนูนี้มีนมสดในสูตร — เปลี่ยนเป็นนมทางเลือกได้ ราคาจะบวก upcharge ให้อัตโนมัติ</div>
+    <div class="field-hint">นมทางเลือกบวกราคาให้อัตโนมัติ</div>
     <select id="milkSelect" style="width:100%;margin-bottom:8px;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;"></select>
   </div>
 
   <div id="matchaRow" style="display:none;">
     <div class="field-label">🍵 เลือกมัทฉะ</div>
-    <div class="field-hint">เมนูนี้ใช้มัทฉะ — เลือกตัวที่จะใช้จริง ต้นทุนจะคิดตามตัวที่เลือก (4g/แก้ว)</div>
+    <div class="field-hint">เลือกตัวที่ใช้จริง</div>
     <select id="matchaSelect" style="width:100%;margin-bottom:8px;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;"></select>
   </div>
 
@@ -212,25 +217,27 @@
     <div class="date-row" id="dateRow"></div>
   </div>
 
-  <div class="field-label">หมายเหตุ (ไม่บังคับ)</div>
-  <div class="field-hint">เช่น ลูกค้าขอหวานน้อยมากๆ, แพ้นมวัว, ขอน้ำแข็งน้อย ฯลฯ</div>
+  <details class="opt-block"><summary>＋ หมายเหตุ · ท็อปปิ้ง · ส่วนลด</summary>
+  <div class="field-label">หมายเหตุ</div>
+  <div class="field-hint">เช่น น้ำแข็งน้อย, แพ้นมวัว</div>
   <textarea id="orderNotes" rows="2" placeholder="พิมพ์หมายเหตุที่ลูกค้าบอก..." style="margin-bottom:8px;width:100%;padding:12px 14px;border-radius:10px;border:2px solid #F0E4D8;font-size:15px;font-family:inherit;resize:vertical;"></textarea>
 
-  <div class="field-label">🍓 ท็อปปิ้ง (ไม่บังคับ — บาริสต้าเลือกเอง ลูกค้าไม่เห็น)</div>
-  <div class="field-hint">แตะเลือกท็อปปิ้งที่ใช้ ใส่ปริมาณ ระบบคำนวณต้นทุนให้อัตโนมัติ ไม่ต้องคิดสัดส่วนเอง</div>
+  <div class="field-label">🍓 ท็อปปิ้ง</div>
+  <div class="field-hint">แตะท็อปปิ้งที่ใช้ แล้วใส่ปริมาณ</div>
   <div class="chip-row" id="toppingChips"></div>
   <div id="toppingQtyBlock"></div>
   <div id="toppingCostPreview" style="display:none;font-size:12px;color:#4A9B5C;font-weight:700;background:#EAF6EC;border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
 
   <div id="discountBlock">
-  <div class="field-label">ส่วนลด (ไม่บังคับ)</div>
-  <div class="field-hint" id="discountHint">ใส่จำนวนบาทที่ลด — ราคาสุทธิจะหักให้อัตโนมัติตอนบันทึก</div>
+  <div class="field-label">ส่วนลด</div>
+  <div class="field-hint" id="discountHint">จำนวนบาทที่ลด</div>
   <input type="number" id="discountAmount" placeholder="เช่น 20" min="0" step="1" style="margin-bottom:8px;">
   </div>
+  </details>
 
   <div id="noCoffeeRow" style="display:none;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
     <input type="checkbox" id="noCoffeeCheckbox" style="width:20px;height:20px;flex-shrink:0;">
-    <label for="noCoffeeCheckbox" style="font-size:12.5px;color:#4A3428;font-weight:600;">☕🚫 ไม่ใช้กาแฟแก้วนี้ (ไม่ตัดสต็อกเมล็ด/ไม่บวกต้นทุนกาแฟ — หลังบ้านเท่านั้น)</label>
+    <label for="noCoffeeCheckbox" style="font-size:12.5px;color:#4A3428;font-weight:600;">☕🚫 ไม่ใช้กาแฟแก้วนี้</label>
   </div>
 
   <div id="maxCupBlock" style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
@@ -240,13 +247,13 @@
 
   <div id="platformBlock" style="display:none;">
     <div class="field-label">เลือกรายการตามที่เห็นในแอป</div>
-    <div class="field-hint">แตะรายการที่ลูกค้าสั่ง — ระบบเลือกเมนู เมล็ด และราคาหลังหักโปรให้เอง</div>
+    <div class="field-hint">แตะรายการตามแอป ระบบใส่ราคาให้</div>
     <div id="listingPicker"></div>
     <div class="field-label" id="platformPriceLabel">ราคาที่ลูกค้าจ่าย (บาท)</div>
     <input type="number" id="platformPrice" min="0" step="1" placeholder="ราคาที่เห็นในแอปแพลตฟอร์ม" style="margin-bottom:6px;">
     <div class="field-hint" id="platformPriceHint"></div>
     <div id="platformCalc" style="font-size:12.5px;font-weight:700;border-radius:10px;padding:10px 12px;background:#FFF3E8;color:#4A3428;margin-bottom:10px;line-height:1.6;">กรอกราคาเพื่อดูกำไรสุทธิหลังหัก GP</div>
-    <div class="field-label">เลขออเดอร์ / ชื่อลูกค้าบนแพลตฟอร์ม (ไม่บังคับ — ไว้เทียบกับรายงานโอนเงิน)</div>
+    <div class="field-label">เลขออเดอร์ / ชื่อบนแอป</div>
     <input type="text" id="platformRef" placeholder="เช่น ท้ายเลขออเดอร์ 4821" style="margin-bottom:8px;">
   </div>
 
@@ -258,7 +265,7 @@
   <div id="platformPendingBlock" style="display:none;"></div>
   <div id="omakaseMaxBillBlock" style="display:none;">
     <div class="field-label">🎴 Omakase Max ค้างปิดยอด</div>
-    <div class="field-hint">แก้จำนวนแก้ว/ยอดเงินได้ก่อนปิดบิล เผื่อสัปดาห์นั้นไม่ครบ 5 แก้ว</div>
+    <div class="field-hint">แก้จำนวนแก้ว/ยอดได้ก่อนปิดบิล</div>
     <div id="omakaseMaxBillList"></div>
   </div>
   <div id="billList"></div>
@@ -266,14 +273,14 @@
 
 <div class="screen" id="screen-members">
   <div class="field-label">โปรแกรม Subscription</div>
-  <div class="field-hint">แตะการ์ดเพื่อแก้ไขข้อมูล badge หรือจัดการว่าใคร ON อยู่</div>
+  <div class="field-hint">แตะการ์ดเพื่อแก้ไขหรือเปิด/ปิด</div>
   <div id="programList"></div>
 
   <div class="field-label" style="margin-top:28px;">+ เพิ่มโปรแกรมใหม่</div>
   <input type="text" id="newProgramName" placeholder="ชื่อโปรแกรม เช่น Omakase" style="margin-bottom:8px;">
   <input type="text" id="newProgramImageUrl" placeholder="วาง URL รูป badge (จาก Supabase Storage)" style="margin-bottom:8px;">
   <input type="text" id="newProgramLabel" placeholder="ข้อความข้าง badge เช่น Omakase Subscription: ON" style="margin-bottom:8px;">
-  <div class="field-hint">ข้อความด้านหลัง badge (ตอนลูกค้าปัดหมุนดู) — 3 บรรทัด</div>
+  <div class="field-hint">ข้อความหลัง badge (3 บรรทัด)</div>
   <input type="text" id="newProgramLine1" placeholder="บรรทัด 1" style="margin-bottom:8px;">
   <input type="text" id="newProgramLine2" placeholder="บรรทัด 2" style="margin-bottom:8px;">
   <input type="text" id="newProgramLine3" placeholder="บรรทัด 3 (เช่น อิโมจิ)" style="margin-bottom:8px;">
@@ -281,7 +288,7 @@
   <div class="status-msg" id="programStatusMsg"></div>
 
   <div class="field-label" style="margin-top:28px;">🔁 ออเดอร์ประจำ (สร้างอัตโนมัติทุกสัปดาห์)</div>
-  <div class="field-hint">ระบบจะสร้างแก้วนี้ให้อัตโนมัติทุกวันที่ตั้งไว้ (เช้าก่อนเปิดร้าน) ขึ้นในคิว "วันนี้" รอชงเลย — ใช้ได้กับสมาชิกทุกคน</div>
+  <div class="field-hint">ระบบสร้างแก้วให้อัตโนมัติทุกเช้าตามวันที่ตั้ง</div>
   <div id="recurringOrdersList" style="margin-bottom:16px;"><div class="field-hint">กำลังโหลด...</div></div>
 
   <div class="field-label" style="margin-top:20px;">+ เพิ่มออเดอร์ประจำใหม่</div>
@@ -315,22 +322,22 @@
 
 <div class="screen" id="screen-menu">
   <div class="field-label" style="margin-top:0;">📋 เมนูทั้งหมด</div>
-  <div class="field-hint">ทุกอย่างที่ลูกค้าเห็น: ชื่อ ราคา (ทุกช่องทาง) สถานะ รูป Story และหมวดหมู่ — ส่วนผสม/ต้นทุนอยู่ที่แท็บ "สูตร"</div>
+  <div class="field-hint">ชื่อ ราคา สถานะ รูป หมวดหมู่ · ส่วนผสมอยู่ที่ "สูตร"</div>
   <div id="listingManager"></div>
   <div id="allMenuList"></div>
 </div>
 
 <div class="screen" id="screen-recipe">
   <div class="field-label" style="margin-top:0;">🧾 สูตร / ต้นทุน</div>
-  <div class="field-hint">หลังบ้าน: ส่วนผสม ปริมาณ และต้นทุนต่อแก้ว — ชื่อ ราคา สถานะ รูป และหมวดหมู่แก้ที่แท็บ "เมนู"</div>
+  <div class="field-hint">ส่วนผสม ปริมาณ ต้นทุน · ชื่อ/ราคาแก้ที่ "เมนู"</div>
   <div id="recipeMenuList"></div>
 
   <div class="field-label" style="margin-top:28px;">+ เพิ่มเมนูใหม่</div>
-  <div class="field-hint">ต้องกรอกครบ: ชื่อ, ราคา, หมวดหมู่, ต้องเลือกเมล็ดไหม, และสูตร (หรือติ๊ก "ไม่มีสูตร")</div>
+  <div class="field-hint">ต้องมี: ชื่อ ราคา หมวดหมู่ เมล็ด และสูตร (หรือติ๊ก "ไม่มีสูตร")</div>
   <div id="genericCreateBlock"></div>
 
   <div class="field-label" style="margin-top:28px;">🗂️ จัดการหมวดหมู่เมนู</div>
-  <div class="field-hint">เพิ่ม/แก้ไข/ย้ายหมวดหมู่เองได้เลย ไม่ต้องรอ Claude แก้โค้ด — หมวดใหม่ที่อยู่ใต้ Comfort / Playful Comfort / Paw-tein Twist จะโผล่ในเมนูลูกค้าทันทีที่มีเมนู status=Live อยู่ในหมวดนั้น (การเพิ่ม "แท็บใหญ่" ใหม่ทั้งอันยังต้องให้ Claude ช่วยแก้โค้ดอยู่)</div>
+  <div class="field-hint">เพิ่ม/แก้/ย้ายหมวดหมู่ได้เอง มีผลกับเมนูลูกค้าทันที</div>
   <div id="categoryAdminBlock"></div>
 
   <div class="field-label" style="margin-top:28px;">+ สร้างเมนูลับใหม่ (แบบเร็ว)</div>
@@ -339,7 +346,7 @@
 
 <div class="screen" id="screen-lab">
   <div class="field-label" style="margin-top:0;">🧪 แมวส้มแล็บ</div>
-  <div class="field-hint">แตะการ์ดเพื่อดูรายละเอียด แล้วตั้งวันไปชงจริงได้เลย</div>
+  <div class="field-hint">แตะการ์ดเพื่อดูและตั้งวันชง</div>
 
   <div class="lab-tab-track" id="labSubtabRow">
     <button type="button" class="lab-tab-btn selected" data-labsubtab="pick">🧪 เลือกก่อนทำ</button>
@@ -420,7 +427,7 @@
 
     <div id="labNewSousVideWrap" style="display:none;">
       <div class="field-label">วัตถุดิบซูวี (เลือกได้หลายตัว)</div>
-      <div class="field-hint">ดึงจากสต็อกจริง — เลือกตัวที่จะใช้ในแบชนี้ แตะซ้ำเพื่อเอาออก</div>
+      <div class="field-hint">เลือกจากสต็อก แตะซ้ำเพื่อเอาออก</div>
       <div class="chip-row" id="labNewSousVideChipsRow"><div class="loading">กำลังโหลด...</div></div>
     </div>
 
@@ -453,14 +460,14 @@
 
   <div class="lab-create-divider"></div>
   <div class="field-label" style="margin-top:0;">🧮 คำนวณสัดส่วนวัตถุดิบ (Batch Calculator)</div>
-  <div class="field-hint">แตะชื่อองค์ประกอบ ใส่เป้าหมายรวม แล้วระบบคำนวณสัดส่วนแต่ละอย่างให้อัตโนมัติ</div>
+  <div class="field-hint">ใส่เป้าหมายรวม ระบบคิดสัดส่วนให้</div>
   <div id="labComponentChips" class="lab-chip-grid"></div>
   <button type="button" class="btn-bean-cancel" id="labAddComponentBtn" style="width:100%;margin-top:10px;">＋ เพิ่มองค์ประกอบใหม่</button>
   <div id="labComponentPanel" style="display:none;margin-top:12px;"></div>
 
   <div class="lab-create-divider"></div>
   <div class="field-label" style="margin-top:0;">🍓 ทดลองวัตถุดิบผลไม้ (สกัดเย็น)</div>
-  <div class="field-hint">อ้างอิงว่าผลไม้ไหนเหมาะกับการทำอะไร — แตะหัวคอลัมน์เพื่อเรียงจากเหมาะมากไปน้อย เลือกตัวที่จะใช้แล้วกด "➕ สร้างเมนูใหม่" ด้านบนถ้าจะเริ่มทดลองจริง</div>
+  <div class="field-hint">ผลไม้ไหนเหมาะกับอะไร · แตะหัวคอลัมน์เพื่อเรียง</div>
   <table id="fruitRefTable" style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;">
     <thead>
       <tr>
@@ -477,7 +484,7 @@
   </div>
 
   <div id="labSubtabResults" style="display:none;">
-    <div class="field-hint" style="margin-top:0;">แสดงเฉพาะตัวที่ส่งไปชงจริงแล้ว — แตะการ์ดที่ยังไม่ชิมเพื่อบันทึกว่าชิมวันนี้ แล้วให้คะแนน/โน้ต/สัดส่วนสุดท้ายต่อได้ในแผงรายละเอียดด้านบน</div>
+    <div class="field-hint" style="margin-top:0;">เฉพาะที่ชงจริงแล้ว · แตะการ์ดเพื่อบันทึกผลชิม</div>
     <div class="chip-row" id="labTastedFilterRow" style="margin-bottom:10px;">
       <button type="button" class="chip selected" data-tasted="no">⏳ ยังไม่ชิม</button>
       <button type="button" class="chip" data-tasted="yes">✅ ชิมแล้ว</button>
@@ -508,7 +515,10 @@
   <button class="nav-btn" data-screen="bill" onclick="switchScreen('bill')">
     <span class="nav-icon">💰</span>บิล
   </button>
-  <button class="nav-btn" data-screen="members" onclick="switchScreen('members')">
+  <button class="nav-btn" data-screen="lab" onclick="switchScreen('lab')">
+    <span class="nav-icon">🧪</span>แล็บ
+  </button>
+  <button class="nav-btn" data-screen="members" onclick="switchScreen('members')" style="display:none;">
     <span class="nav-icon">🎫</span>สมาชิก
   </button>
   <button class="nav-btn" data-screen="menu" onclick="switchScreen('menu')" style="display:none;">
@@ -516,9 +526,6 @@
   </button>
   <button class="nav-btn" data-screen="recipe" onclick="switchScreen('recipe')" style="display:none;">
     <span class="nav-icon">🧾</span>สูตร
-  </button>
-  <button class="nav-btn" data-screen="lab" onclick="switchScreen('lab')" style="display:none;">
-    <span class="nav-icon">🧪</span>แล็บ
   </button>
   <button class="nav-btn" id="navMoreBtn" type="button" onclick="toggleMoreSheet()">
     <span class="nav-icon">⋯</span>อื่นๆ
@@ -528,7 +535,7 @@
   <div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #F0E4D8;border-radius:16px;box-shadow:0 -4px 18px rgba(74,52,40,.15);padding:8px;">
     <button type="button" class="more-item" onclick="openFromMore('menu')">📋 จัดการเมนู</button>
     <button type="button" class="more-item" onclick="openFromMore('recipe')">🧾 สูตร</button>
-    <button type="button" class="more-item" onclick="openFromMore('lab')">🧪 แมวส้มแล็บ</button>
+    <button type="button" class="more-item" onclick="openFromMore('members')">🎫 สมาชิก</button>
   </div>
 </div>
 <div id="toastBox" style="position:fixed;left:0;right:0;top:56px;z-index:80;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;padding:0 16px;"></div>
@@ -878,7 +885,7 @@
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`.nav-btn[data-screen="${name}"]`).classList.add('active');
     document.getElementById('screenTitle').textContent = TITLES[name];
-    document.getElementById('navMoreBtn').classList.toggle('active', ['menu','recipe','lab'].includes(name));
+    document.getElementById('navMoreBtn').classList.toggle('active', ['menu','recipe','members'].includes(name));
     document.getElementById('moreSheet').style.display = 'none';
     if (name === 'today') loadToday();
     if (name === 'bill') { loadBills(); loadOmakaseMaxBills(); }
@@ -5540,7 +5547,7 @@
           <input type="text" class="p-name" value="${escapeAttr(p.name)}" placeholder="ชื่อโปรแกรม" style="margin-bottom:8px;">
           <input type="text" class="p-image" value="${escapeAttr(p.badge_image_url)}" placeholder="URL รูป badge" style="margin-bottom:8px;">
           <input type="text" class="p-label" value="${escapeAttr(p.badge_label)}" placeholder="ข้อความข้าง badge" style="margin-bottom:8px;">
-          <div class="field-hint">ข้อความด้านหลัง badge (3 บรรทัด)</div>
+          <div class="field-hint">ข้อความหลัง badge (3 บรรทัด)</div>
           <input type="text" class="p-line1" value="${escapeAttr(p.back_line1)}" placeholder="บรรทัด 1" style="margin-bottom:8px;">
           <input type="text" class="p-line2" value="${escapeAttr(p.back_line2)}" placeholder="บรรทัด 2" style="margin-bottom:8px;">
           <input type="text" class="p-line3" value="${escapeAttr(p.back_line3)}" placeholder="บรรทัด 3" style="margin-bottom:8px;">
