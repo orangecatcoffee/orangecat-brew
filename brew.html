@@ -21,6 +21,10 @@
   .member-search{margin-bottom:8px}
   .last-order-btn{width:100%;margin-top:8px;padding:9px 12px;border-radius:10px;border:2px dashed #E8863A;background:#FFF8F0;color:#A85A1E;font-size:12.5px;font-weight:700;font-family:inherit;text-align:left}
   .sold-out-note{font-size:10.5px;color:#A8876F;margin-top:6px;width:100%}
+  .more-item{display:block;width:100%;text-align:left;padding:13px 14px;border:none;background:none;font-family:inherit;font-size:14px;color:#4A3428;font-weight:600;border-radius:10px}
+  .more-item:active{background:#FFF3E8}
+  .toast{max-width:440px;background:#4A3428;color:#FFF8F0;font-size:13px;line-height:1.5;padding:10px 14px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.2);pointer-events:auto;white-space:pre-line;opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s}
+  .toast.show{opacity:1;transform:none}
   .lst-section{font-size:11px;font-weight:700;color:#8a6a4a;margin:12px 0 6px;letter-spacing:.3px;}
   .lst-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   .lst-card{background:#fff;border:2px solid #F0E4D8;border-radius:12px;padding:8px;text-align:center;font-size:11.5px;cursor:pointer;color:#4A3428;font-family:inherit;-webkit-tap-highlight-color:transparent;}
@@ -507,21 +511,55 @@
   <button class="nav-btn" data-screen="members" onclick="switchScreen('members')">
     <span class="nav-icon">🎫</span>สมาชิก
   </button>
-  <button class="nav-btn" data-screen="menu" onclick="switchScreen('menu')">
+  <button class="nav-btn" data-screen="menu" onclick="switchScreen('menu')" style="display:none;">
     <span class="nav-icon">📋</span>เมนู
   </button>
-  <button class="nav-btn" data-screen="recipe" onclick="switchScreen('recipe')">
+  <button class="nav-btn" data-screen="recipe" onclick="switchScreen('recipe')" style="display:none;">
     <span class="nav-icon">🧾</span>สูตร
   </button>
-  <button class="nav-btn" data-screen="lab" onclick="switchScreen('lab')">
+  <button class="nav-btn" data-screen="lab" onclick="switchScreen('lab')" style="display:none;">
     <span class="nav-icon">🧪</span>แล็บ
   </button>
+  <button class="nav-btn" id="navMoreBtn" type="button" onclick="toggleMoreSheet()">
+    <span class="nav-icon">⋯</span>อื่นๆ
+  </button>
 </div>
+<div id="moreSheet" style="display:none;position:fixed;left:0;right:0;bottom:64px;z-index:60;padding:0 12px calc(8px + env(safe-area-inset-bottom));">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #F0E4D8;border-radius:16px;box-shadow:0 -4px 18px rgba(74,52,40,.15);padding:8px;">
+    <button type="button" class="more-item" onclick="openFromMore('menu')">📋 จัดการเมนู</button>
+    <button type="button" class="more-item" onclick="openFromMore('recipe')">🧾 สูตร</button>
+    <button type="button" class="more-item" onclick="openFromMore('lab')">🧪 แมวส้มแล็บ</button>
+  </div>
+</div>
+<div id="toastBox" style="position:fixed;left:0;right:0;top:56px;z-index:80;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;padding:0 16px;"></div>
 
 <script>
   const SUPABASE_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oempudXR2aXJqZ2ljbGtrZmd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMjc3NjEsImV4cCI6MjA5ODcwMzc2MX0.Bv2zsjmo3yd9YpmfxUAmXf-aaFy7SbY77fmM_k4f7eg";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Phase 3: in-app toast instead of blocking browser alert() (69 call sites)
+  window.alert = function (msg) {
+    const box = document.getElementById('toastBox');
+    if (!box) return;
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = String(msg);
+    t.addEventListener('click', () => t.remove());
+    box.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('show'));
+    const isError = /ไม่สำเร็จ|error|ผิดพลาด/i.test(String(msg));
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 250); }, isError ? 6000 : 3200);
+  };
+  function toggleMoreSheet() {
+    const s = document.getElementById('moreSheet');
+    s.style.display = s.style.display === 'none' ? 'block' : 'none';
+  }
+  function openFromMore(name) { switchScreen(name); }
+  document.addEventListener('click', (e) => {
+    const s = document.getElementById('moreSheet');
+    if (s && s.style.display !== 'none' && !e.target.closest('#moreSheet') && !e.target.closest('#navMoreBtn')) s.style.display = 'none';
+  });
   const REQUEST_PAYMENT_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/request-payment";
   const REQUEST_FEEDBACK_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/request-feedback";
   const PUSH_MENU_ANNOUNCEMENT_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/push-menu-announcement";
@@ -840,6 +878,8 @@
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`.nav-btn[data-screen="${name}"]`).classList.add('active');
     document.getElementById('screenTitle').textContent = TITLES[name];
+    document.getElementById('navMoreBtn').classList.toggle('active', ['menu','recipe','lab'].includes(name));
+    document.getElementById('moreSheet').style.display = 'none';
     if (name === 'today') loadToday();
     if (name === 'bill') { loadBills(); loadOmakaseMaxBills(); }
     // Phase 1 perf: stock, members, bills and today always reload (they change with every order).
