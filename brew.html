@@ -3134,6 +3134,23 @@
     const box = document.getElementById('lastOrderHint');
     box.innerHTML = '';
     if (!lineUserId) return;
+    if (rewardEligibleMap[lineUserId] && redemptionEnabled) {
+      const rb = document.createElement('button');
+      rb.type = 'button';
+      rb.className = 'last-order-btn';
+      rb.style.cssText = 'border-style:solid;background:#FFF3E8;color:#C2541A;';
+      const setRewardLabel = () => {
+        const on = orderType === 'reward';
+        rb.textContent = on ? `✓ ครั้งนี้ใช้สิทธิ์แก้วฟรีแล้ว (ฟรีไม่เกิน ${REWARD_CAP_AMOUNT}฿)` : '🎁 ครบ 10 แก้ว — แตะเพื่อใช้สิทธิ์แก้วฟรีครั้งนี้';
+      };
+      setRewardLabel();
+      rb.addEventListener('click', () => {
+        const typeBtn = document.querySelector(`#orderTypeRow [data-order-type="${orderType === 'reward' ? 'customer' : 'reward'}"]`);
+        if (typeBtn) typeBtn.click();
+        setRewardLabel();
+      });
+      box.appendChild(rb);
+    }
     const { data } = await sb.from('preorders').select('menu_item_name, sweetness')
       .eq('line_user_id', lineUserId).eq('order_type', 'customer').is('omakase_set_id', null)
       .order('created_at', { ascending: false }).limit(1);
@@ -3144,6 +3161,7 @@
     btn.type = 'button';
     btn.className = 'last-order-btn';
     btn.textContent = `↻ สั่งแก้วเดิม: ${last.menu_item_name}${last.sweetness ? ' · ' + last.sweetness : ''}`;
+    btn.style.marginTop = '6px';
     btn.addEventListener('click', () => {
       if (selectedMemberLineId !== lineUserId) { box.innerHTML = ''; return; }
       const card = [...document.querySelectorAll('#menuGrid .menu-card')].find(c => c.dataset.menuName === last.menu_item_name);
@@ -5776,7 +5794,7 @@
         ? '☕ ของกินเอง/ให้พนักงาน — ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ)'
         : orderType === 'our_treat'
         ? '🎁 Our Treat — ร้านเลี้ยงเอง (ต้อนรับลูกค้าใหม่/สมนาคุณ) ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ) แจ้งลูกค้าว่า "Enjoy Our Treat!"'
-        : '🎁 แลกฟรีจากแต้มสะสม — ตัดสต็อกตามจริง แต่ไม่นับเป็นยอดขาย (ราคา ฿0 อัตโนมัติ)';
+        : `🎁 แก้วฟรีจากแต้มสะสม — ฟรีไม่เกิน ${REWARD_CAP_AMOUNT}฿ ถ้าเมนูแพงกว่านั้นระบบเก็บส่วนต่าง · บันทึกแล้วป้าย 🎁 จะหายเอง`;
       if (orderType === 'staff') {
         renderStaffChips();
         staffChipsEl.style.display = 'flex';
@@ -6178,6 +6196,11 @@
       }];
     }
 
+    if (orderType === 'reward' && selectedMemberLineId && !rewardEligibleMap[selectedMemberLineId]
+        && !confirm('ลูกค้าคนนี้ยังสะสมไม่ครบ 10 แก้ว — ยืนยันแลกแก้วฟรีให้ไหม?')) {
+      btn.disabled = false; btn.textContent = 'บันทึกออเดอร์';
+      return;
+    }
     const { data: inserted, error } = await sb.from('preorders').insert(insertRows).select('id');
 
     if (error) {
@@ -6233,25 +6256,7 @@
       }
     }
 
-    // บันทึกการแลกแต้มจริง — สำคัญมาก ถ้าไม่ทำจุดนี้ ตัวนับ 10 แก้วจะไม่รีเซ็ตเลย ลูกค้าจะค้างสถานะ "ครบแล้ว" ตลอดไป
-    if (orderType === 'reward' && selectedMemberLineId && redemptionEnabled) {
-      const [{ count: totalCups }, { count: redeemedCount }] = await Promise.all([
-        sb.from('preorders').select('id', { count: 'exact', head: true }).eq('line_user_id', selectedMemberLineId).eq('order_type', 'customer'),
-        sb.from('customer_reward_redemptions').select('id', { count: 'exact', head: true }).eq('line_user_id', selectedMemberLineId),
-      ]);
-      const progressNow = (totalCups || 0) - (redeemedCount || 0) * 10;
-      const { error: redeemErr } = await sb.from('customer_reward_redemptions').insert([{
-        line_user_id: selectedMemberLineId,
-        cups_at_redemption: progressNow,
-      }]);
-      if (redeemErr) {
-        statusEl.textContent = `บันทึกออเดอร์แล้ว แต่บันทึกการแลกแต้มไม่สำเร็จ (ตัวนับจะไม่รีเซ็ต แจ้ง Claude ด้วย): ${redeemErr.message}`;
-        statusEl.className = 'status-msg error';
-        btn.disabled = false;
-        btn.textContent = 'บันทึกออเดอร์';
-        return;
-      }
-    }
+    // Redemption is recorded by the database trigger trg_sync_reward_redemption (works from every screen).
 
     if (pendingReplaceOrderId) {
       await sb.from('preorders').delete().eq('id', pendingReplaceOrderId);
