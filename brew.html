@@ -973,7 +973,14 @@
           const { data: subIng } = await sb.from('ingredients')
             .select('id, name, category, stock_quantity, base_unit')
             .eq('name', order.milk_name).maybeSingle();
-          if (subIng) ing = subIng;
+          // แพ็กเกจอื่นที่ขายในชื่อเดียวกัน (เช่น Oat milk กล่องเล็ก: 1 แก้ว = 1 กล่อง) — ถ้ามีสต็อกพอ ตัดจากตัวนี้ก่อน
+          const { data: variants } = await sb.from('ingredients')
+            .select('id, name, category, stock_quantity, base_unit, serving_qty')
+            .eq('sells_as', order.milk_name).eq('active', true).eq('track_stock', true)
+            .order('cost_per_base_unit');
+          const variant = (variants || []).find(v => Number(v.stock_quantity) >= Number(v.serving_qty || 1));
+          if (variant) { ing = variant; deductQty = Number(variant.serving_qty || 1); }
+          else if (subIng) ing = subIng;
           else warnings.push(`ไม่พบวัตถุดิบ "${order.milk_name}" ในระบบ — ตัดสต็อก Dairy milk แทนไปก่อน`);
         }
 
@@ -1001,15 +1008,18 @@
   let packagingCostCache = null; // { bag: 1.44, cup_small: 3.91, cup_large: 4.25, tumbler: 0 }
 
   async function loadMilksForAddOrder() {
-    const { data, error } = await sb
-      .from('ingredients')
-      .select('id, name, customer_bean_surcharge, stock_quantity')
-      .eq('category', 'milk')
-      .eq('active', true)
-      .gt('customer_bean_surcharge', 0)
-      .gt('stock_quantity', 0)
-      .order('customer_bean_surcharge');
-    availableMilksBrew = (!error && data) ? data : [];
+    // นมที่ขายต้องมีสต็อก > 0 หรือมีไอเทมแพ็กเกจอื่นที่ขายในชื่อเดียวกัน (sells_as เช่น Oat milk กล่องเล็ก) ที่สต็อกพอ 1 แก้ว
+    const [{ data, error }, { data: variants }] = await Promise.all([
+      sb.from('ingredients')
+        .select('id, name, customer_bean_surcharge, stock_quantity')
+        .eq('category', 'milk')
+        .eq('active', true)
+        .gt('customer_bean_surcharge', 0)
+        .order('customer_bean_surcharge'),
+      sb.from('ingredients').select('sells_as, stock_quantity, serving_qty').eq('active', true).not('sells_as', 'is', null),
+    ]);
+    const variantInStock = new Set((variants || []).filter(v => Number(v.stock_quantity) >= Number(v.serving_qty || 1)).map(v => v.sells_as));
+    availableMilksBrew = (!error && data) ? data.filter(m => Number(m.stock_quantity) > 0 || variantInStock.has(m.name)) : [];
     updateMilkRow(selectedMenu);
   }
 
