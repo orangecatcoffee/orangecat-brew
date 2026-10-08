@@ -1106,6 +1106,88 @@
     return costs;
   }
 
+  // ---------- แจ้งลูกค้าหลังชง (ปุ่มเลือกส่งเองทีละแก้ว — ไม่ auto เพราะโควตา LINE 300 ข้อความ/เดือน) ----------
+  // เปิด/ปิดและแก้ข้อความต้นแบบได้ที่ Admin → "แจ้งลูกค้าหลังชง" (system_settings: brew_notify.*)
+  const NOTIFY_BREWED_URL = "https://nhzjnutvirjgiclkkfgx.supabase.co/functions/v1/notify-brewed";
+  const BREW_NOTIFY_DEFAULT_TEMPLATE = "🐱 {{name}} คะ แก้วนี้ชงเสร็จแล้วนะคะ\n☕ วันนี้เป็น {{menu}}\nขอบคุณที่อุดหนุนกาแฟแมวส้มค่ะ 🧡";
+  const brewNotifyQueue = [];
+  let brewNotifyShowing = false;
+
+  function brewNotifyToast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#4A3428;color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:100000;font-family:inherit;';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2200);
+  }
+
+  async function offerBrewNotify(preorderId) {
+    try {
+      const { data: st } = await sb.from('system_settings').select('key,value').in('key', ['brew_notify.enabled', 'brew_notify.message_template']);
+      const cfg = {};
+      (st || []).forEach(r => { cfg[r.key] = r.value; });
+      if (cfg['brew_notify.enabled'] === false) return;
+      const { data: p } = await sb.from('preorders').select('id, customer_name, menu_item_name, line_user_id, brewed').eq('id', preorderId).maybeSingle();
+      // only customers with a real LINE binding can receive a push
+      if (!p || !p.brewed || !p.line_user_id || String(p.line_user_id).startsWith('walkin-')) return;
+      const tpl = (typeof cfg['brew_notify.message_template'] === 'string' && cfg['brew_notify.message_template'].trim())
+        ? cfg['brew_notify.message_template'] : BREW_NOTIFY_DEFAULT_TEMPLATE;
+      const text = tpl
+        .replace(/\{\{\s*name\s*\}\}/g, p.customer_name || '')
+        .replace(/\{\{\s*menu\s*\}\}/g, p.menu_item_name || '');
+      brewNotifyQueue.push({ id: p.id, customer: p.customer_name || '', menu: p.menu_item_name || '', text });
+      showNextBrewNotify();
+    } catch (e) { console.warn('offerBrewNotify skipped:', e); }
+  }
+
+  function showNextBrewNotify() {
+    if (brewNotifyShowing || !brewNotifyQueue.length) return;
+    brewNotifyShowing = true;
+    const item = brewNotifyQueue.shift();
+    const esc2 = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(40,26,18,.5);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
+    ov.innerHTML = `
+      <div style="width:100%;max-width:480px;background:#FFF8F0;border-radius:22px 22px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));font-family:inherit;color:#4A3428;">
+        <div style="font-size:17px;font-weight:600;margin-bottom:2px;">☕ ชงเสร็จแล้ว — แจ้งลูกค้าไหม?</div>
+        <div style="font-size:12px;color:#A8876F;margin-bottom:12px;">${esc2(item.customer)} · ${esc2(item.menu)}${brewNotifyQueue.length ? ' · รออีก ' + brewNotifyQueue.length + ' แก้ว' : ''}</div>
+        <textarea id="bnText" rows="5" maxlength="1000" style="width:100%;border:2px solid #F0E4D8;border-radius:12px;padding:11px 13px;font-size:16px;font-family:inherit;color:#4A3428;background:#fff;resize:vertical;"></textarea>
+        <div style="font-size:11px;color:#A8876F;margin:6px 0 14px;">ใช้โควตา LINE 1 ข้อความ · แก้ข้อความได้ก่อนส่ง · แก้ข้อความต้นแบบได้ที่ Admin</div>
+        <div id="bnErr" style="display:none;color:#D64545;font-size:12.5px;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:10px;">
+          <button id="bnSkip" type="button" style="flex:1;padding:13px;border-radius:999px;border:2px solid #F0E4D8;background:#fff;color:#4A3428;font-family:inherit;font-size:14px;">ไม่ต้องแจ้ง</button>
+          <button id="bnSend" type="button" style="flex:1.6;padding:13px;border-radius:999px;border:none;background:#E8863A;color:#fff;font-family:inherit;font-size:14px;font-weight:600;">ส่งเลย</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    const ta = ov.querySelector('#bnText'); ta.value = item.text;
+    const errEl = ov.querySelector('#bnErr');
+    const close = () => { ov.remove(); brewNotifyShowing = false; showNextBrewNotify(); };
+    ov.querySelector('#bnSkip').addEventListener('click', close);
+    const sendBtn = ov.querySelector('#bnSend');
+    sendBtn.addEventListener('click', async () => {
+      const text = ta.value.trim();
+      if (!text) { errEl.textContent = 'ข้อความว่างอยู่ค่ะ'; errEl.style.display = 'block'; return; }
+      sendBtn.disabled = true; sendBtn.textContent = 'กำลังส่ง...'; errEl.style.display = 'none';
+      try {
+        const res = await fetch(NOTIFY_BREWED_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ preorder_id: item.id, message: text }) });
+        const j = await res.json().catch(() => ({}));
+        if (j.ok) { brewNotifyToast('ส่งให้ลูกค้าแล้ว ✓'); close(); return; }
+        if (j.error === 'already_sent') { brewNotifyToast('แก้วนี้แจ้งลูกค้าไปแล้ว'); close(); return; }
+        const map = {
+          no_line: 'ลูกค้าคนนี้ยังไม่ได้ผูก LINE ส่งไม่ได้ค่ะ',
+          line_failed: 'LINE ไม่รับข้อความ (ลูกค้าอาจบล็อกบัญชี หรือโควตาเต็ม) ลองใหม่หรือกดไม่ต้องแจ้ง',
+          not_brewed: 'แก้วนี้ยังไม่ถูกบันทึกว่าชงแล้ว'
+        };
+        errEl.textContent = map[j.error] || ('ส่งไม่สำเร็จ: ' + (j.error || res.status));
+        errEl.style.display = 'block';
+      } catch (e) {
+        errEl.textContent = 'ส่งไม่สำเร็จ (เน็ตมีปัญหา) ลองอีกครั้งค่ะ'; errEl.style.display = 'block';
+      }
+      sendBtn.disabled = false; sendBtn.textContent = 'ส่งเลย';
+    });
+  }
+
   async function markBrewed(order, cardEl, beanIngredient, noCoffee) {
     try {
       const packagingType = cardEl.dataset.selectedPkg || 'bag';
@@ -1137,6 +1219,7 @@
       // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ อาบุ้ง ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
       // ไม่จำเป็นสำหรับร้านที่ลูกค้ามารับหน้าร้าน/รอสดอยู่แล้ว ถ้าจะเปิดใช้อีกครั้งค่อย uncomment กลับ
       if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
+      offerBrewNotify(order.id); // ปุ่มเลือกแจ้งลูกค้า (ไม่บล็อกการชง)
       cardEl.style.opacity = '0';
       setTimeout(() => loadToday(), 200);
       return true;
@@ -1195,6 +1278,7 @@
 
       // แจ้งลูกค้าว่าออเดอร์ชงเสร็จแล้ว — ปิดไว้ตามที่ อาบุ้ง ตัดสินใจ เพราะกินโควตา LINE 300 ข้อความฟรี/เดือน
       if (warnings.length) alert('⚠️ สต็อกติดลบ:\n' + warnings.join('\n'));
+      offerBrewNotify(order.id); // ปุ่มเลือกแจ้งลูกค้า (ไม่บล็อกการชง)
       cardEl.style.opacity = '0';
       setTimeout(() => loadToday(), 200);
       return true;
