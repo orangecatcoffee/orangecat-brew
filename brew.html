@@ -47,6 +47,16 @@
   .lm-sub{font-size:10.5px;color:#A8876F;margin-top:2px;}
   .lm-price{text-align:right;white-space:nowrap;}
   .lm-chip{display:inline-block;font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 8px;border:1px solid;}
+
+  /* ประเภทแก้ว — บรรทัดเล็กๆ กดค่อยกาง (minimal) */
+  .cup-type{margin:0 0 8px;}
+  .cup-type-link{background:none;border:none;padding:2px 0;font-family:inherit;font-size:11.5px;color:#A8876F;cursor:pointer;text-decoration:underline dotted;}
+  .cup-type-panel{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center;}
+  .cup-type-panel[hidden]{display:none;}
+  .cup-type-pill{font-family:inherit;font-size:11.5px;padding:5px 11px;border-radius:999px;border:1px solid #E4D5BE;background:#fff;color:#7A6350;cursor:pointer;}
+  .cup-type-pill.on{border-color:#E8863A;background:#FFF3E8;color:#E8863A;font-weight:600;}
+  .cup-type-pill:disabled{opacity:.4;}
+  .cup-type-note{flex-basis:100%;font-size:11px;color:#A8876F;}
 </style>
 </head>
 <body>
@@ -2269,6 +2279,17 @@
     div.className = 'card' + (isToday ? ' today' : '') + compactClass;
     const menuDef = MENU.find(m => m.name === order.menu_item_name);
     const isCoffeeFlexible = !!(menuDef && menuDef.coffeeFlexible);
+    // ประเภทแก้ว (ปกติ / ฟรี / แถม 10 แก้ว) — โชว์เฉพาะแก้วลูกค้าที่คิดราคาได้จากเมนู ไม่รวม staff / Omakase / ช่องทางแพลตฟอร์ม
+    const typeNow = order.order_type || 'customer';
+    const showTypeControl = !!menuDef && ['customer', 'our_treat', 'reward'].includes(typeNow)
+      && !order.omakase_set_id && !order.surprise_placeholder && (order.platform_gp_pct === null || order.platform_gp_pct === undefined)
+      && order.channel !== 'liff-omakase-fullweek';
+    const typeNowLabel = typeNow === 'our_treat' ? 'ฟรี' : typeNow === 'reward' ? 'แถม 10 แก้ว' : 'ปกติ';
+    const typeControlHtml = showTypeControl ? `
+      <div class="cup-type">
+        <button type="button" class="cup-type-link">ประเภทแก้ว: ${typeNowLabel} ▾</button>
+        <div class="cup-type-panel" hidden></div>
+      </div>` : '';
     div.innerHTML = `
       <div class="card-top">
         <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)}${typeBadge}${omakaseBadge}${maxBadge}${recurringBadge}${platformBadge}</span>
@@ -2292,6 +2313,7 @@
           ${availableMatchaBrew.map(mt => `<option value="${mt.name}" ${order.matcha_name === mt.name ? 'selected' : ''}>🍵 ${mt.name} (฿${(Number(mt.cost_per_base_unit) * MATCHA_DOSE_G).toFixed(1)}/แก้ว)</option>`).join('')}
         </select>
       ` : ''}
+      ${typeControlHtml}
       <div class="pkg-row">
         <button type="button" class="pkg-btn" data-pkg="tumbler">♻️ กระติก</button>
         <button type="button" class="pkg-btn selected" data-pkg="bag">🛍️ ถุง</button>
@@ -2321,6 +2343,68 @@
         }
         order.no_coffee = newVal; // อัปเดตในหน่วยความจำเลย ไม่ต้อง refetch จาก DB
         renderTodayList();
+      });
+    }
+    // ---- ประเภทแก้ว: ปกติ / ฟรี (Our Treat) / แถม 10 แก้ว ----
+    const cupTypeLink = div.querySelector('.cup-type-link');
+    if (cupTypeLink) {
+      const panel = div.querySelector('.cup-type-panel');
+      const fullPriceOf = () => Number(menuDef.price)
+        + (milkSurchargeBrew(order.milk_name) || Number(order.milk_surcharge) || 0)
+        + (Number(order.bean_surcharge) || 0);
+      const eligible = !!(order.line_user_id && rewardEligibleMap[order.line_user_id]);
+      const canReward = !!order.line_user_id && !String(order.line_user_id).startsWith('walkin-') && redemptionEnabled;
+
+      const saveType = async (patch) => {
+        panel.querySelectorAll('button').forEach(b => b.disabled = true);
+        const { error } = await sb.from('preorders').update(patch).eq('id', order.id);
+        if (error) {
+          alert('เปลี่ยนประเภทแก้วไม่สำเร็จ: ' + error.message);
+          panel.querySelectorAll('button').forEach(b => b.disabled = false);
+          return;
+        }
+        try { await loadMembers(); } catch (e) { /* รีเฟรชสิทธิ์สะสมไม่ได้ก็ไม่เป็นไร */ }
+        loadToday();
+      };
+
+      const renderPanel = () => {
+        const pill = (type, label, disabled) =>
+          `<button type="button" class="cup-type-pill${typeNow === type ? ' on' : ''}" data-type="${type}"${disabled ? ' disabled' : ''}>${label}</button>`;
+        panel.innerHTML = pill('customer', 'ปกติ')
+          + pill('our_treat', 'ฟรี')
+          + pill('reward', eligible ? 'แถม 10 แก้ว' : 'แถม 10 แก้ว (ยังไม่ครบ)', !canReward);
+        panel.querySelectorAll('.cup-type-pill').forEach(p => p.addEventListener('click', () => choose(p.dataset.type)));
+      };
+
+      const choose = async (type) => {
+        if (type === typeNow) return;
+        const full = fullPriceOf();
+        if (type === 'customer') {
+          await saveType({ order_type: 'customer', price: full, paid: false, discount_amount: 0, discount_reason: null });
+        } else if (type === 'our_treat') {
+          await saveType({ order_type: 'our_treat', price: 0, paid: true, discount_amount: 0, discount_reason: null });
+        } else {
+          if (!eligible && !confirm('ลูกค้าคนนี้ยังไม่ครบ 10 แก้ว — ยืนยันแถมแก้วนี้ไหม?')) return;
+          const due = Math.max(0, full - REWARD_CAP_AMOUNT);
+          if (due <= 0) {
+            await saveType({ order_type: 'reward', price: 0, paid: true, discount_amount: 0, discount_reason: null });
+          } else {
+            panel.innerHTML = `<span class="cup-type-note">แถมได้ ฿${REWARD_CAP_AMOUNT} — ส่วนเกิน ฿${due}</span>`
+              + `<button type="button" class="cup-type-pill on" data-r="collect">เก็บส่วนต่าง ฿${due}</button>`
+              + `<button type="button" class="cup-type-pill" data-r="waive">ไม่เก็บ (บันทึกเป็นส่วนลด)</button>`
+              + `<button type="button" class="cup-type-pill" data-r="back">ย้อนกลับ</button>`;
+            panel.querySelector('[data-r="collect"]').addEventListener('click', () =>
+              saveType({ order_type: 'reward', price: due, paid: false, discount_amount: 0, discount_reason: null }));
+            panel.querySelector('[data-r="waive"]').addEventListener('click', () =>
+              saveType({ order_type: 'reward', price: 0, paid: true, discount_amount: due, discount_reason: 'แถมครบ 10 แก้ว — ไม่เก็บส่วนต่าง' }));
+            panel.querySelector('[data-r="back"]').addEventListener('click', renderPanel);
+          }
+        }
+      };
+
+      cupTypeLink.addEventListener('click', () => {
+        if (panel.hidden) renderPanel();
+        panel.hidden = !panel.hidden;
       });
     }
     const milkSelectEl = div.querySelector('.card-milk-select');
