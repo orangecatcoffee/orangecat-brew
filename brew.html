@@ -2329,12 +2329,19 @@
         milkSelectEl.disabled = true;
         const newVal = milkSelectEl.value || null;
         // ไม่แตะ price/milk_surcharge — Omakase คิดราคาแบบแพ็ค ไม่ใช่ต่อแก้ว (ตามที่ตกลงไว้)
-        const { error } = await sb.from('preorders').update({ milk_name: newVal }).eq('id', order.id);
+        // เปลี่ยนนม → ปรับราคาตามส่วนต่างค่านม (เช่น Dairy → Oat +10฿) เฉพาะแก้วลูกค้าปกติที่มีราคา; เซ็ต Omakase/แก้วฟรี/สตาฟ ไม่แตะราคา
+        const priceAdjustable = (!order.order_type || order.order_type === 'customer') && !order.omakase_set_id && Number(order.price) > 0;
+        const newPrice = priceAdjustable
+          ? Math.max(0, Number(order.price) - milkSurchargeBrew(order.milk_name) + milkSurchargeBrew(newVal))
+          : null;
+        const updateBody = newPrice !== null ? { milk_name: newVal, price: newPrice } : { milk_name: newVal };
+        const { error } = await sb.from('preorders').update(updateBody).eq('id', order.id);
         milkSelectEl.disabled = false;
         if (error) {
           alert('บันทึกนมไม่สำเร็จ: ' + error.message);
           return;
         }
+        if (newPrice !== null) order.price = newPrice;
         order.milk_name = newVal; // อัปเดตในหน่วยความจำ ให้ deductRecipeIngredients ตอนกด "ชงแล้ว" เห็นค่าล่าสุดทันที
         renderTodayList();
       });
