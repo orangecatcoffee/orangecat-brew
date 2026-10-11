@@ -6430,6 +6430,14 @@
     const platformOrderDisc = platformCh ? Math.min(platformPriceVal, Math.max(0, Number(document.getElementById('platformOrderDiscount').value) || 0)) : 0;
     const platformBasketId = platformCh ? (platformBasket.id || crypto.randomUUID()) : null;
     const orderDiscForRow = platformCh && !platformBasket.discountUsed ? platformOrderDisc : 0; // ส่วนลดค่าส่งหักที่แก้วแรกของตะกร้าเท่านั้น
+    // กันบันทึกออเดอร์แพลตฟอร์มซ้ำ: เลขออเดอร์นี้เคยบันทึกแล้ว (ตอนเริ่มตะกร้าใหม่เท่านั้น)
+    if (platformCh && platformRefVal && !platformBasket.id) {
+      const { data: dup } = await sb.from('preorders').select('id').eq('channel', platformCh.channel_key).eq('external_ref', platformRefVal);
+      if (dup && dup.length && !confirm(`ออเดอร์ ${platformRefVal} มีในระบบแล้ว ${dup.length} แก้ว — บันทึกเพิ่มอีกใช่ไหม? (ถ้าเป็นออเดอร์เดิม กดยกเลิก)`)) {
+        btn.disabled = false; btn.textContent = 'บันทึกแก้วนี้ลงออเดอร์ Grab';
+        return;
+      }
+    }
 
     let insertRows;
     const isOmakaseSoloSubmit = orderMode === 'omakase_solo';
