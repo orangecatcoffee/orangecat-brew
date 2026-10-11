@@ -269,8 +269,10 @@
     </div>
     <div class="field-hint">ถ้าออเดอร์ Grab นี้ได้ส่วนลดค่าส่งที่ร้านออก (ดูบรรทัด "Discount" ท้ายบิลใน GrabMerchant) ใส่ที่แก้วใดแก้วหนึ่งของออเดอร์ — ครั้งเดียวต่อออเดอร์ ไม่ใช่ทุกแก้ว (ถ้ามีหลายแก้ว)</div>
     <div id="platformCalc" style="font-size:12.5px;font-weight:700;border-radius:10px;padding:10px 12px;background:#FFF3E8;color:#4A3428;margin-bottom:10px;line-height:1.6;">กรอกราคาเพื่อดูกำไรสุทธิหลังหัก GP</div>
-    <div class="field-label">เลขออเดอร์ / ชื่อบนแอป</div>
-    <input type="text" id="platformRef" placeholder="เช่น ท้ายเลขออเดอร์ 4821" style="margin-bottom:8px;">
+    <div class="field-label">ชื่อลูกค้าบนแพลตฟอร์ม (ไม่บังคับ — ปล่อยว่างได้)</div>
+    <input type="text" id="platformCustomer" placeholder="เช่น hon (ชื่อที่เห็นในแอป)" style="margin-bottom:8px;">
+    <div class="field-label">เลขออเดอร์บนแพลตฟอร์ม (ไม่บังคับ — ไว้เทียบกับรายงานโอนเงิน)</div>
+    <input type="text" id="platformRef" placeholder="เช่น GF-900" style="margin-bottom:8px;">
   </div>
 
   <button class="submit-btn" id="submitBtn" disabled>บันทึกออเดอร์</button>
@@ -6074,6 +6076,7 @@
       platformPriceTouched = false;
       document.getElementById('platformPrice').value = '';
       document.getElementById('platformOrderDiscount').value = '';
+      document.getElementById('platformCustomer').value = '';
       document.getElementById('platformRef').value = '';
       updateLinkHint();
       if (!platformCtxReady) { platformCtxReady = true; loadMenuChannelCtx().then(refreshPlatformBlock).catch(() => { platformCtxReady = false; }); }
@@ -6084,6 +6087,7 @@
       if (cur) cur.click();
       document.getElementById('platformPrice').value = '';
       document.getElementById('platformOrderDiscount').value = '';
+      document.getElementById('platformCustomer').value = '';
       document.getElementById('platformRef').value = '';
     }
     updateSubmitState();
@@ -6208,6 +6212,13 @@
     setOrderChannel(btn.dataset.channel);
   });
   document.getElementById('platformPrice').addEventListener('input', () => { platformPriceTouched = true; refreshPlatformBlock(); });
+  function platformCustomerLabel() {
+    const ch = platformChannels.find(c => c.channel_key === orderChannel);
+    const base = ch ? ch.label_th : orderChannel;
+    const typed = document.getElementById('platformCustomer').value.trim();
+    return typed ? `${base} · ${typed}` : base; // มีชื่อ = "Grab · hon" · ไม่ใส่ = "Grab" (ขึ้นต้นด้วย Grab กันชื่อชนกับพนักงาน/สมาชิก และไม่ปนรายชื่อลูกค้าประจำ)
+  }
+  document.getElementById('platformCustomer').addEventListener('input', () => { if (orderChannel !== 'walk-in') { customerName = platformCustomerLabel(); updateSubmitState(); } });
   document.getElementById('platformOrderDiscount').addEventListener('input', refreshPlatformBlock);
   document.getElementById('platformOrderDiscount10').addEventListener('click', () => { document.getElementById('platformOrderDiscount').value = 10; refreshPlatformBlock(); });
   // เมนู/นม/เมล็ดเปลี่ยน → คำนวณราคาแนะนำและกำไรใหม่ (listener ที่ต้นทางทำงานก่อน แล้วค่อยมาถึงตรงนี้)
@@ -6687,7 +6698,7 @@
     const block = document.getElementById('platformPendingBlock');
     try {
       const [{ data: pending }, { data: history }] = await Promise.all([
-        sb.from('preorders').select('id, menu_item_name, price, order_discount_share, platform_gp_pct, channel, external_ref, brewed_at, wanted_date, milk_name').not('platform_gp_pct', 'is', null).eq('brewed', true).eq('paid', false).order('brewed_at', { ascending: true }),
+        sb.from('preorders').select('id, customer_name, menu_item_name, price, order_discount_share, platform_gp_pct, channel, external_ref, brewed_at, wanted_date, milk_name').not('platform_gp_pct', 'is', null).eq('brewed', true).eq('paid', false).order('brewed_at', { ascending: true }),
         sb.from('channel_settlements').select('*').order('settled_at', { ascending: false }).limit(5),
       ]);
       if ((!pending || !pending.length) && (!history || !history.length)) { block.style.display = 'none'; block.innerHTML = ''; return; }
@@ -6707,7 +6718,7 @@
           <div class="field-hint">ชงแล้วแต่ยังไม่ได้บันทึกว่าแพลตฟอร์มโอนเงินมา — ติ๊กแก้วที่อยู่ในยอดโอนรอบนี้ (ปกติติ๊กครบทั้งหมด)</div>
           ${orders.map(o => `<label class="pp-row" style="display:flex;align-items:center;gap:8px;margin:0;padding:6px 0;border-bottom:1px solid #F0E4D8;font-size:12.5px;color:#4A3428;font-weight:400;">
             <input type="checkbox" class="pp-check" data-id="${o.id}" data-gross="${salesOf(o).toFixed(2)}" data-net="${netOf(o).toFixed(2)}" checked style="width:20px;height:20px;flex-shrink:0;">
-            <span style="flex:1;">${fmtDate(new Date(o.wanted_date))} · ${o.menu_item_name}${o.milk_name ? ' (' + o.milk_name + ')' : ''}${o.external_ref ? ' · #' + o.external_ref : ''}</span>
+            <span style="flex:1;">${fmtDate(new Date(o.wanted_date))} · ${o.menu_item_name}${o.milk_name ? ' (' + o.milk_name + ')' : ''}${(o.customer_name || '').includes(' · ') ? ' · ' + o.customer_name.split(' · ').slice(1).join(' · ') : ''}${o.external_ref ? ' · #' + o.external_ref : ''}</span>
             <span style="white-space:nowrap;">${money(salesOf(o))} → <b>${money(netOf(o))}</b></span>
           </label>`).join('')}
           <div class="pp-summary" style="margin-top:10px;font-size:12.5px;font-weight:700;color:#4A3428;line-height:1.7;background:#EAF6EC;border-radius:10px;padding:10px 12px;"></div>
