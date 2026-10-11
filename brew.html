@@ -6786,7 +6786,7 @@
     const block = document.getElementById('platformPendingBlock');
     try {
       const [{ data: pending }, { data: history }] = await Promise.all([
-        sb.from('preorders').select('id, customer_name, menu_item_name, price, order_discount_share, platform_gp_pct, channel, external_ref, brewed_at, wanted_date, milk_name').not('platform_gp_pct', 'is', null).eq('brewed', true).eq('paid', false).order('brewed_at', { ascending: true }),
+        sb.from('preorders').select('id, customer_name, menu_item_name, price, order_discount_share, platform_gp_pct, channel, external_ref, platform_order_id, brewed_at, wanted_date, milk_name').not('platform_gp_pct', 'is', null).eq('brewed', true).eq('paid', false).order('brewed_at', { ascending: true }),
         sb.from('channel_settlements').select('*').order('settled_at', { ascending: false }).limit(5),
       ]);
       if ((!pending || !pending.length) && (!history || !history.length)) { block.style.display = 'none'; block.innerHTML = ''; return; }
@@ -6801,14 +6801,28 @@
       Object.entries(byChannel).forEach(([chKey, orders]) => {
         const gross = orders.reduce((s, o) => s + salesOf(o), 0);
         const net = orders.reduce((s, o) => s + netOf(o), 0);
+        const orderCount = new Set(orders.map(o => o.platform_order_id || (o.external_ref ? chKey + ':' + o.external_ref : 'single:' + o.id))).size;
         html += `<div class="bill-card" data-pending-channel="${chKey}" style="border-left:4px solid #00A244;">
-          <div class="field-label" style="margin-top:0;">🛵 ${labelOf(chKey)} — รอรับเงิน ${orders.length} แก้ว</div>
-          <div class="field-hint">ชงแล้วแต่ยังไม่ได้บันทึกว่าแพลตฟอร์มโอนเงินมา — ติ๊กแก้วที่อยู่ในยอดโอนรอบนี้ (ปกติติ๊กครบทั้งหมด)</div>
-          ${orders.map(o => `<label class="pp-row" style="display:flex;align-items:center;gap:8px;margin:0;padding:6px 0;border-bottom:1px solid #F0E4D8;font-size:12.5px;color:#4A3428;font-weight:400;">
-            <input type="checkbox" class="pp-check" data-id="${o.id}" data-gross="${salesOf(o).toFixed(2)}" data-net="${netOf(o).toFixed(2)}" checked style="width:20px;height:20px;flex-shrink:0;">
-            <span style="flex:1;">${fmtDate(new Date(o.wanted_date))} · ${o.menu_item_name}${o.milk_name ? ' (' + o.milk_name + ')' : ''}${(o.customer_name || '').includes(' · ') ? ' · ' + o.customer_name.split(' · ').slice(1).join(' · ') : ''}${o.external_ref ? ' · #' + o.external_ref : ''}</span>
-            <span style="white-space:nowrap;">${money(salesOf(o))} → <b>${money(netOf(o))}</b></span>
-          </label>`).join('')}
+          <div class="field-label" style="margin-top:0;">🛵 ${labelOf(chKey)} — รอรับเงิน ${orderCount} ออเดอร์ · ${orders.length} แก้ว</div>
+          <div class="field-hint">ชงแล้วแต่ยังไม่ได้บันทึกว่าแพลตฟอร์มโอนเงินมา — ติ๊กออเดอร์ที่อยู่ในยอดโอนรอบนี้ (ปกติติ๊กครบทั้งหมด) · แต่ละออเดอร์รวมทุกแก้วในตะกร้าเดียวกัน</div>
+          <div style="display:flex;gap:6px;margin:6px 0;"><button type="button" class="chip pp-all">เลือกทั้งหมด</button><button type="button" class="chip pp-none">ล้างที่เลือก</button></div>
+          ${(() => {
+            const groups = {};
+            orders.forEach(o => { const gk = o.platform_order_id || (o.external_ref ? chKey + ':' + o.external_ref : 'single:' + o.id); (groups[gk] = groups[gk] || []).push(o); });
+            return Object.values(groups).sort((a, b) => new Date(a[0].brewed_at || a[0].wanted_date) - new Date(b[0].brewed_at || b[0].wanted_date)).map(g => {
+              const gGross = g.reduce((t, o) => t + salesOf(o), 0), gNet = g.reduce((t, o) => t + netOf(o), 0);
+              const ref = g[0].external_ref;
+              const who = (g[0].customer_name || '').includes(' · ') ? g[0].customer_name.split(' · ').slice(1).join(' · ') : '';
+              return `<div class="pp-order" style="border-bottom:1px solid #F0E4D8;padding:8px 0;">
+                <label style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:#4A3428;font-weight:600;">
+                  <input type="checkbox" class="pp-check" data-ids='${JSON.stringify(g.map(o => o.id))}' data-cups="${g.length}" data-gross="${gGross.toFixed(2)}" data-net="${gNet.toFixed(2)}" checked style="width:20px;height:20px;flex-shrink:0;">
+                  <span style="flex:1;">${ref ? '#' + ref : 'ออเดอร์'}${who ? ' · ' + who : ''} · ${g.length} แก้ว<br><span style="font-size:10.5px;font-weight:400;color:#A8876F;">${fmtDate(new Date(g[0].wanted_date))}</span></span>
+                  <span style="white-space:nowrap;">${money(gGross)} → <b>${money(gNet)}</b></span>
+                </label>
+                <div style="padding-left:28px;font-size:11px;color:#8a6a4a;line-height:1.7;">${g.map(o => `${o.menu_item_name}${o.milk_name ? ' (' + o.milk_name + ')' : ''} ${money(salesOf(o))}`).join(' · ')}</div>
+              </div>`;
+            }).join('');
+          })()}
           <div class="pp-summary" style="margin-top:10px;font-size:12.5px;font-weight:700;color:#4A3428;line-height:1.7;background:#EAF6EC;border-radius:10px;padding:10px 12px;"></div>
           <div class="field-label">ยอดที่โอนเข้าบัญชีจริง (บาท)</div>
           <input type="number" class="pp-received" min="0" step="0.01" placeholder="ใส่ตามรายงานโอนเงินของแพลตฟอร์ม" style="margin-bottom:6px;">
@@ -6839,11 +6853,11 @@
         function selected() { return [...card.querySelectorAll('.pp-check:checked')]; }
         function totals() {
           const sel = selected();
-          return { n: sel.length, gross: sel.reduce((s, c) => s + Number(c.dataset.gross), 0), net: sel.reduce((s, c) => s + Number(c.dataset.net), 0) };
+          return { orders: sel.length, n: sel.reduce((s, c) => s + Number(c.dataset.cups), 0), gross: sel.reduce((s, c) => s + Number(c.dataset.gross), 0), net: sel.reduce((s, c) => s + Number(c.dataset.net), 0) };
         }
         function refresh() {
           const t = totals();
-          sumEl.textContent = `เลือก ${t.n} แก้ว · ลูกค้าจ่าย ${money(t.gross)} · ควรได้สุทธิ ${money(t.net)} (หลังหัก GP ที่ตั้งไว้)`;
+          sumEl.textContent = `เลือก ${t.orders} ออเดอร์ (${t.n} แก้ว) · ลูกค้าจ่าย ${money(t.gross)} · ควรได้สุทธิ ${money(t.net)} (หลังหัก GP ที่ตั้งไว้)`;
           if (!recvTouched) recvEl.value = t.net ? t.net.toFixed(0) : '';
           const rec = Number(recvEl.value);
           if (rec > 0 && t.gross > 0) {
@@ -6853,6 +6867,8 @@
           card.querySelector('.pp-confirm').disabled = !(t.n > 0 && rec > 0);
         }
         card.querySelectorAll('.pp-check').forEach(c => c.addEventListener('change', refresh));
+        card.querySelector('.pp-all').addEventListener('click', () => { card.querySelectorAll('.pp-check').forEach(c => { c.checked = true; }); refresh(); });
+        card.querySelector('.pp-none').addEventListener('click', () => { card.querySelectorAll('.pp-check').forEach(c => { c.checked = false; }); refresh(); });
         recvEl.addEventListener('input', () => { recvTouched = true; refresh(); });
         refresh();
         card.querySelector('.pp-confirm').addEventListener('click', async () => {
@@ -6860,10 +6876,10 @@
           const rec = Number(recvEl.value);
           const statusEl = card.querySelector('.pp-status');
           if (!(t.n > 0 && rec > 0)) return;
-          if (!confirm(`บันทึกว่า ${labelOf(chKey)} โอนเงิน ${money(rec)} สำหรับ ${t.n} แก้ว (ลูกค้าจ่าย ${money(t.gross)})?`)) return;
+          if (!confirm(`บันทึกว่า ${labelOf(chKey)} โอนเงิน ${money(rec)} สำหรับ ${t.orders} ออเดอร์ (${t.n} แก้ว) ลูกค้าจ่าย ${money(t.gross)}?`)) return;
           const btn = card.querySelector('.pp-confirm');
           btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-          const ids = selected().map(c => c.dataset.id);
+          const ids = selected().flatMap(c => JSON.parse(c.dataset.ids));
           const settlementId = crypto.randomUUID();
           const { error: sErr } = await sb.from('channel_settlements').insert([{ id: settlementId, channel_key: chKey, order_count: t.n, gross_amount: t.gross, expected_net: Math.round(t.net * 100) / 100, received_amount: rec, note: card.querySelector('.pp-note').value.trim() || null }]);
           if (sErr) { statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + sErr.message; statusEl.className = 'status-msg error'; btn.disabled = false; btn.textContent = `✅ รับเงินจาก ${labelOf(chKey)} แล้ว`; return; }
