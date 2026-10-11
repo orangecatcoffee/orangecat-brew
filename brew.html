@@ -256,23 +256,29 @@
   </div>
 
   <div id="platformBlock" style="display:none;">
-    <div class="field-label">เลือกรายการตามที่เห็นในแอป</div>
-    <div class="field-hint">แตะรายการตามแอป ระบบใส่ราคาให้</div>
+    <div id="basketCard" style="background:#EAF6EC;border:2px solid #00A244;border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+      <div id="basketBanner" style="font-size:13px;font-weight:700;color:#00703A;line-height:1.6;">🧺 ออเดอร์ Grab ใหม่</div>
+      <div id="basketFields">
+        <div class="field-label">ชื่อลูกค้าบนแพลตฟอร์ม (ไม่บังคับ — ปล่อยว่างได้)</div>
+        <input type="text" id="platformCustomer" placeholder="เช่น hon (ชื่อที่เห็นในแอป)" style="margin-bottom:6px;">
+        <div class="field-label">เลขออเดอร์บนแพลตฟอร์ม (ไม่บังคับ — ไว้เทียบกับรายงานโอนเงิน)</div>
+        <input type="text" id="platformRef" placeholder="เช่น GF-900" style="margin-bottom:6px;">
+        <div class="field-label">ส่วนลดค่าส่งที่ร้านออก (ทั้งออเดอร์ — ไม่บังคับ)</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
+          <input type="number" id="platformOrderDiscount" min="0" step="0.01" placeholder="0" style="flex:1;margin:0;">
+          <button type="button" class="chip" id="platformOrderDiscount10">฿10 ค่าส่ง</button>
+        </div>
+        <div class="field-hint">ดูบรรทัด "Discount" ท้ายบิลใน GrabMerchant — กรอกครั้งเดียวต่อออเดอร์ ระบบหักที่แก้วแรกให้ ข้อมูลชุดนี้กรอกก่อนเลือกแก้วแรก เพิ่มแก้วถัดไปในออเดอร์เดียวกันได้เลย</div>
+      </div>
+      <button type="button" class="chip" id="basketClose" style="display:none;margin-top:8px;background:#00A244;color:#fff;border-color:#00A244;">✅ จบออเดอร์นี้ → ไปที่คิว</button>
+    </div>
+    <div class="field-label">เพิ่มแก้ว: เลือกรายการตามที่เห็นในแอป</div>
+    <div class="field-hint">แตะรายการตามแอป ระบบใส่ราคาให้ — บันทึกทีละแก้ว แก้วที่สั่งมาในออเดอร์เดียวกันจะรวมเป็นตะกร้าเดียว</div>
     <div id="listingPicker"></div>
     <div class="field-label" id="platformPriceLabel">ราคาที่ลูกค้าจ่าย (บาท)</div>
     <input type="number" id="platformPrice" min="0" step="1" placeholder="ราคาที่เห็นในแอปแพลตฟอร์ม" style="margin-bottom:6px;">
     <div class="field-hint" id="platformPriceHint"></div>
-    <div class="field-label">ส่วนลดระดับออเดอร์ที่ร้านออก เช่น ส่วนลดค่าส่ง (บาท — ไม่บังคับ)</div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
-      <input type="number" id="platformOrderDiscount" min="0" step="0.01" placeholder="0" style="flex:1;margin:0;">
-      <button type="button" class="chip" id="platformOrderDiscount10">฿10 ค่าส่ง</button>
-    </div>
-    <div class="field-hint">ถ้าออเดอร์ Grab นี้ได้ส่วนลดค่าส่งที่ร้านออก (ดูบรรทัด "Discount" ท้ายบิลใน GrabMerchant) ใส่ที่แก้วใดแก้วหนึ่งของออเดอร์ — ครั้งเดียวต่อออเดอร์ ไม่ใช่ทุกแก้ว (ถ้ามีหลายแก้ว)</div>
     <div id="platformCalc" style="font-size:12.5px;font-weight:700;border-radius:10px;padding:10px 12px;background:#FFF3E8;color:#4A3428;margin-bottom:10px;line-height:1.6;">กรอกราคาเพื่อดูกำไรสุทธิหลังหัก GP</div>
-    <div class="field-label">ชื่อลูกค้าบนแพลตฟอร์ม (ไม่บังคับ — ปล่อยว่างได้)</div>
-    <input type="text" id="platformCustomer" placeholder="เช่น hon (ชื่อที่เห็นในแอป)" style="margin-bottom:8px;">
-    <div class="field-label">เลขออเดอร์บนแพลตฟอร์ม (ไม่บังคับ — ไว้เทียบกับรายงานโอนเงิน)</div>
-    <input type="text" id="platformRef" placeholder="เช่น GF-900" style="margin-bottom:8px;">
   </div>
 
   <button class="submit-btn" id="submitBtn" disabled>บันทึกออเดอร์</button>
@@ -867,6 +873,8 @@
   let platformChannels = [];
   let platformListings = [];   // channel_listings (รายการบนแพลตฟอร์ม) ที่เปิดอยู่
   let selectedListing = null;
+  // ตะกร้า/ออเดอร์ของแพลตฟอร์ม: แก้วหลายแก้วที่สั่งมาในออเดอร์เดียวกันใช้ platform_order_id ร่วมกัน (รู้ว่าตะกร้าละกี่แก้ว กี่บาท)
+  let platformBasket = { id: null, cups: 0, gross: 0, deliveryDiscount: 0, discountUsed: false };
   let platformPriceTouched = false;
   let platformCtxReady = false;
   let selectedSweetness = 'ไม่หวาน';
@@ -898,6 +906,7 @@
   const DAY_LABELS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
 
   function switchScreen(name) {
+    if (name !== 'add' && typeof orderChannel !== 'undefined' && orderChannel !== 'walk-in') { closeBasket(); setOrderChannel('walk-in'); } // ออกจากหน้าเพิ่มออเดอร์ = จบตะกร้า Grab (กันค้างไปโดนออเดอร์หน้าร้านถัดไป)
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-' + name).classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -6060,6 +6069,7 @@
     show('maxCupBlock', !isPlatform, 'flex');
     show('platformBlock', isPlatform);
     show('normalMenuPickBlock', !isPlatform);
+    document.getElementById('submitBtn').textContent = isPlatform ? 'บันทึกแก้วนี้ลงออเดอร์ Grab' : 'บันทึกออเดอร์';
     selectedListing = null;
     if (isPlatform) {
       renderListingPicker();
@@ -6075,9 +6085,7 @@
       document.getElementById('platformPriceLabel').textContent = `ราคาที่ลูกค้าจ่ายใน ${ch ? ch.label_th : key} (บาท)`;
       platformPriceTouched = false;
       document.getElementById('platformPrice').value = '';
-      document.getElementById('platformOrderDiscount').value = '';
-      document.getElementById('platformCustomer').value = '';
-      document.getElementById('platformRef').value = '';
+      closeBasket(); // เริ่มตะกร้าใหม่ทุกครั้งที่เข้าโหมดแพลตฟอร์ม
       updateLinkHint();
       if (!platformCtxReady) { platformCtxReady = true; loadMenuChannelCtx().then(refreshPlatformBlock).catch(() => { platformCtxReady = false; }); }
       refreshPlatformBlock();
@@ -6086,9 +6094,7 @@
       const cur = document.querySelector('#customerTypeRow .sweetness-btn.selected') || document.querySelector('#customerTypeRow .sweetness-btn');
       if (cur) cur.click();
       document.getElementById('platformPrice').value = '';
-      document.getElementById('platformOrderDiscount').value = '';
-      document.getElementById('platformCustomer').value = '';
-      document.getElementById('platformRef').value = '';
+      closeBasket();
     }
     updateSubmitState();
   }
@@ -6151,6 +6157,61 @@
     return cost;
   }
 
+  function renderBasketBanner() {
+    const el = document.getElementById('basketBanner');
+    const closeBtn = document.getElementById('basketClose');
+    const b = platformBasket;
+    if (!b.cups) {
+      el.textContent = '🧺 ออเดอร์ Grab ใหม่ — ใส่ชื่อ/เลขออเดอร์/ส่วนลดค่าส่งก่อน (ถ้ามี) แล้วเลือกแก้วด้านล่าง';
+      closeBtn.style.display = 'none';
+      return;
+    }
+    const ref = document.getElementById('platformRef').value.trim();
+    const who = document.getElementById('platformCustomer').value.trim();
+    const net = b.gross - b.deliveryDiscount;
+    el.textContent = `🧺 ออเดอร์${ref ? ' ' + ref : ''}${who ? ' · ' + who : ''} — ${b.cups} แก้ว · ลูกค้าจ่าย ฿${b.gross.toFixed(0)}${b.deliveryDiscount ? ` − ค่าส่ง ฿${b.deliveryDiscount.toFixed(0)} = Net ฿${net.toFixed(0)}` : ''} · เพิ่มแก้วถัดไปได้เลย`;
+    closeBtn.style.display = 'inline-block';
+  }
+
+  function setBasketFieldsLocked(locked) {
+    ['platformCustomer', 'platformRef', 'platformOrderDiscount'].forEach(id => { const e = document.getElementById(id); e.readOnly = locked; e.style.opacity = locked ? '0.6' : '1'; });
+    document.getElementById('platformOrderDiscount10').disabled = locked;
+  }
+
+  // จบออเดอร์: ล้างตะกร้า + ปลดล็อกช่อง (ไม่เปลี่ยนหน้า) — ใช้ทั้งตอนกด "จบออเดอร์" และตอนออกจากหน้าเพิ่มออเดอร์
+  function closeBasket() {
+    platformBasket = { id: null, cups: 0, gross: 0, deliveryDiscount: 0, discountUsed: false };
+    ['platformCustomer', 'platformRef', 'platformOrderDiscount'].forEach(id => { document.getElementById(id).value = ''; });
+    setBasketFieldsLocked(false);
+    if (orderChannel !== 'walk-in') customerName = platformCustomerLabel();
+    renderBasketBanner();
+  }
+
+  // ล้างเฉพาะข้อมูลของ "แก้ว" (เมนู/เมล็ด/นม/ความหวาน/ราคา) เพื่อเพิ่มแก้วถัดไปในตะกร้าเดิม — คงช่องทาง วันที่ และข้อมูลระดับออเดอร์ไว้
+  function resetPlatformCup() {
+    selectedListing = null; selectedMenu = null; selectedBeanIds = [];
+    document.getElementById('beanName').value = '';
+    document.getElementById('blendGramsBlock').innerHTML = '';
+    document.querySelectorAll('.menu-card, #recentBeans .chip').forEach(b => b.classList.remove('selected'));
+    document.getElementById('noCoffeeRow').style.display = 'none';
+    document.getElementById('noCoffeeCheckbox').checked = false;
+    document.getElementById('milkRow').style.display = 'none';
+    document.getElementById('milkSelect').value = '';
+    document.getElementById('matchaRow').style.display = 'none';
+    document.getElementById('matchaSelect').value = '';
+    selectedSweetness = 'ไม่หวาน';
+    document.querySelectorAll('#sweetnessRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.sweet === 'ไม่หวาน'));
+    document.getElementById('orderNotes').value = '';
+    selectedToppings = {}; renderToppingChips();
+    document.getElementById('toppingQtyBlock').innerHTML = '';
+    document.getElementById('toppingCostPreview').style.display = 'none';
+    platformPriceTouched = false;
+    document.getElementById('platformPrice').value = '';
+    renderListingPicker();
+    refreshPlatformBlock();
+    updateSubmitState();
+  }
+
   function refreshPlatformBlock() {
     if (orderChannel === 'walk-in') return;
     const ch = platformChannels.find(c => c.channel_key === orderChannel);
@@ -6179,7 +6240,7 @@
 
     const price = Number(priceEl.value) || 0;
     if (!(price > 0)) { calcEl.style.background = '#FFF3E8'; calcEl.style.color = '#4A3428'; calcEl.textContent = 'กรอกราคาเพื่อดูกำไรสุทธิหลังหัก GP'; updateSubmitState(); return; }
-    const od = Math.max(0, Number(document.getElementById('platformOrderDiscount').value) || 0);
+    const od = platformBasket.discountUsed ? 0 : Math.max(0, Number(document.getElementById('platformOrderDiscount').value) || 0);
     const base = Math.max(0, price - od); // Net sales ตามที่แพลตฟอร์มนับ (หลังส่วนลดค่าส่งที่ร้านออก)
     const fee = base * ch.gp_pct / 100;
     const net = base - fee;
@@ -6219,6 +6280,7 @@
     return typed ? `${base} · ${typed}` : base; // มีชื่อ = "Grab · hon" · ไม่ใส่ = "Grab" (ขึ้นต้นด้วย Grab กันชื่อชนกับพนักงาน/สมาชิก และไม่ปนรายชื่อลูกค้าประจำ)
   }
   document.getElementById('platformCustomer').addEventListener('input', () => { if (orderChannel !== 'walk-in') { customerName = platformCustomerLabel(); updateSubmitState(); } });
+  document.getElementById('basketClose').addEventListener('click', () => { closeBasket(); setOrderChannel('walk-in'); switchScreen('today'); });
   document.getElementById('platformOrderDiscount').addEventListener('input', refreshPlatformBlock);
   document.getElementById('platformOrderDiscount10').addEventListener('click', () => { document.getElementById('platformOrderDiscount').value = 10; refreshPlatformBlock(); });
   // เมนู/นม/เมล็ดเปลี่ยน → คำนวณราคาแนะนำและกำไรใหม่ (listener ที่ต้นทางทำงานก่อน แล้วค่อยมาถึงตรงนี้)
@@ -6366,6 +6428,8 @@
     const platformPriceVal = platformCh ? Math.max(0, Number(document.getElementById('platformPrice').value) || 0) : 0;
     const platformRefVal = platformCh ? (document.getElementById('platformRef').value.trim() || null) : null;
     const platformOrderDisc = platformCh ? Math.min(platformPriceVal, Math.max(0, Number(document.getElementById('platformOrderDiscount').value) || 0)) : 0;
+    const platformBasketId = platformCh ? (platformBasket.id || crypto.randomUUID()) : null;
+    const orderDiscForRow = platformCh && !platformBasket.discountUsed ? platformOrderDisc : 0; // ส่วนลดค่าส่งหักที่แก้วแรกของตะกร้าเท่านั้น
 
     let insertRows;
     const isOmakaseSoloSubmit = orderMode === 'omakase_solo';
@@ -6429,7 +6493,8 @@
         channel: platformCh ? platformCh.channel_key : (isMaxCup ? 'liff-omakase-fullweek' : 'walk-in'),
         platform_gp_pct: platformCh ? platformCh.gp_pct : null,
         external_ref: platformRefVal,
-        order_discount_share: platformOrderDisc,
+        order_discount_share: orderDiscForRow,
+        platform_order_id: platformBasketId,
         no_coffee: selectedMenu.coffeeFlexible ? document.getElementById('noCoffeeCheckbox').checked : false,
         notes: platformCh && selectedListing ? [orderNotes, 'รายการ: ' + selectedListing.label].filter(Boolean).join(' · ') : orderNotes,
         omakase_set_id: (!isMaxCup && pendingOmakaseSetId && pendingOmakaseSetLinked) ? pendingOmakaseSetId : null,
@@ -6504,6 +6569,21 @@
       pendingReplaceOrderId = null;
     }
 
+    if (platformCh) {
+      // เพิ่มแก้วลงตะกร้า Grab — อยู่หน้าเดิมเพื่อเพิ่มแก้วถัดไป (กด "จบออเดอร์" เมื่อครบ)
+      platformBasket.id = platformBasketId;
+      platformBasket.cups += 1;
+      platformBasket.gross += platformPriceVal;
+      if (!platformBasket.discountUsed) { platformBasket.discountUsed = true; platformBasket.deliveryDiscount = orderDiscForRow; }
+      setBasketFieldsLocked(true);
+      resetPlatformCup();
+      renderBasketBanner();
+      statusEl.textContent = `✅ เพิ่มแก้วแล้ว (ออเดอร์นี้ ${platformBasket.cups} แก้ว) — เลือกแก้วถัดไป หรือกด "จบออเดอร์"`;
+      statusEl.className = 'status-msg success';
+      btn.textContent = 'บันทึกแก้วนี้ลงออเดอร์ Grab';
+      document.getElementById('basketCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     statusEl.textContent = '✅ บันทึกแล้ว';
     statusEl.className = 'status-msg success';
     document.getElementById('customerName').value = '';
