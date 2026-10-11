@@ -6893,6 +6893,24 @@
     }
   }
 
+  // เปลี่ยนแก้วค้างจ่ายเป็น Our Treat (เจ้าของเลี้ยง): ราคา 0 · จ่ายแล้ว · ไม่เป็นรายได้ · ไม่นับแต้มสะสม · ต้นทุนยังนับเป็นแก้วชงฟรี
+  // อัปเดต order_type + paid ใน statement เดียวกันเสมอ — ทริกเกอร์ขอรีวิวทาง LINE จะเห็น order_type ใหม่แล้วข้ามไป ไม่ส่งข้อความหาลูกค้า
+  async function markOurTreat(rows, contextLabel) {
+    const targets = rows.filter(o => !o.omakase_set_id);
+    if (!targets.length) { alert('เซ็ต Omakase เปลี่ยนเป็น Our Treat ด้วยปุ่มนี้ไม่ได้'); return false; }
+    const orig = targets.reduce((t, o) => t + Number(o.price || 0) + Number(o.bean_surcharge || 0), 0);
+    if (!confirm(`เปลี่ยน ${contextLabel} เป็น Our Treat (เจ้าของเลี้ยง)?\n\nเดิมคิดเงิน ${orig}฿ → 0฿ · ไม่ค้างจ่าย · ไม่นับเป็นรายได้และแต้มสะสมของลูกค้า\nต้นทุนวัตถุดิบยังนับเป็นแก้วชงฟรี`)) return false;
+    const today = fmtDate(new Date());
+    const results = await Promise.all(targets.map(o => {
+      const was = Number(o.price || 0) + Number(o.bean_surcharge || 0);
+      const note = `${(o.notes || '').trim()} [Our Treat: เดิมคิดเงิน ฿${was} → เจ้าของเลี้ยง ปรับเมื่อ ${today}]`.trim();
+      return sb.from('preorders').update({ order_type: 'our_treat', price: 0, bean_surcharge: 0, paid: true, notes: note }).eq('id', o.id);
+    }));
+    const failed = results.find(r => r.error);
+    if (failed) { alert('เปลี่ยนเป็น Our Treat ไม่สำเร็จ: ' + failed.error.message); return false; }
+    return true;
+  }
+
   async function loadBills() {
     loadPlatformPending();
     const listEl = document.getElementById('billList');
@@ -7016,7 +7034,10 @@
               : l.label}
             — ${l.price}฿
           </span>
-          <button class="btn-item-delete" data-ids="${l.ids.join(',')}" title="ลบรายการนี้">✕</button>
+          <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            ${l.isOmakaseSet ? '' : `<button type="button" class="btn-item-treat" data-ids="${l.ids.join(',')}" title="เจ้าของเลี้ยงแก้วนี้ (Our Treat)" style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid #E8863A;background:#FFF3E8;color:#E8863A;font-family:inherit;white-space:nowrap;">🎁 Treat</button>`}
+            <button class="btn-item-delete" data-ids="${l.ids.join(',')}" title="ลบรายการนี้">✕</button>
+          </span>
         </div>
         <details class="line-actions"><summary>⋯ จัดการแก้วนี้ (เคลียร์ · ส่วนลด · ขอผลชิม)</summary>
         <button type="button" class="btn-item-paid" data-ids="${l.ids.join(',')}" data-label="${l.label.replace(/"/g,'&quot;')}" data-price="${l.price}" style="width:100%;padding:7px;margin-bottom:8px;border-radius:8px;border:1px solid #4A9B5C;background:#F0FAF3;color:#4A9B5C;font-size:11.5px;font-weight:700;font-family:inherit;">✅ เคลียร์บิลรายการนี้ (${l.price}฿)</button>
@@ -7078,6 +7099,7 @@
           <span class="bill-total">${total}฿</span>
         </div>
         <div class="bill-items">${itemsHtml}</div>
+        ${orders.some(o => !o.omakase_set_id) ? `<div style="text-align:right;margin:-2px 0 8px;"><button type="button" class="btn-bill-treat" style="font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid #E8863A;background:#fff;color:#E8863A;font-family:inherit;">🎁 เลี้ยงทั้งบิล (Our Treat)</button></div>` : ''}
         <div style="display:flex;align-items:center;gap:6px;background:#FFF3E8;border-radius:10px;padding:8px 10px;margin-bottom:10px;">
           <input type="number" min="0" step="1" placeholder="ส่วนลดรวมทั้งบิลนี้ (บาท)" class="bill-discount-input" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;background:#fff;">
           <button type="button" class="bill-discount-btn" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:11px;font-weight:700;">ใช้ส่วนลดทั้งบิล</button>
@@ -7170,6 +7192,23 @@
           }
         });
       }
+
+      div.querySelectorAll('.btn-item-treat').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const ids = btn.dataset.ids.split(',');
+          const line = billingLines.find(l => l.ids.join(',') === btn.dataset.ids);
+          btn.disabled = true;
+          const ok = await markOurTreat(orders.filter(o => ids.includes(o.id)), `"${line ? line.label : 'แก้วนี้'}" ของ ${name}`);
+          if (ok) loadBills(); else btn.disabled = false;
+        });
+      });
+      const billTreatBtn = div.querySelector('.btn-bill-treat');
+      if (billTreatBtn) billTreatBtn.addEventListener('click', async () => {
+        billTreatBtn.disabled = true;
+        const targets = orders.filter(o => !o.omakase_set_id);
+        const ok = await markOurTreat(targets, `ทุกแก้วที่ค้างของ ${name} (${targets.length} แก้ว)`);
+        if (ok) loadBills(); else billTreatBtn.disabled = false;
+      });
 
       div.querySelectorAll('.btn-item-delete').forEach(btn => {
         btn.addEventListener('click', async () => {
