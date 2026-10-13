@@ -870,6 +870,10 @@
   let orderType = 'customer';
   // ช่องทางขายของออเดอร์นี้: 'walk-in' = หน้าร้านปกติ, อย่างอื่น = แพลตฟอร์มที่หัก GP (อ่านจาก sales_channels ที่ gp_pct > 0 เช่น Grab)
   let orderChannel = 'walk-in';
+  // ช่องทางของออเดอร์ที่ไม่ใช่แพลตฟอร์ม: 'office' = ชิดลม (ราคากลาง - ส่วนลดกลุ่ม) · 'standard' = Standard Price · null = ยังไม่เลือก (บาริสต้าต้องกดเลือกทุกออเดอร์ ไม่มีค่าเริ่มต้น กันบันทึกผิดช่องทาง)
+  let ownChannel = null;
+  let priceGroups = {};
+  let autoDiscountOn = false; // true = ช่องส่วนลดถูกเติมโดยปุ่มชิดลม (ปุ่ม Standard จะเคลียร์ให้ ไม่แตะส่วนลดที่บาริสต้าพิมพ์เอง)
   let platformChannels = [];
   let platformListings = [];   // channel_listings (รายการบนแพลตฟอร์ม) ที่เปิดอยู่
   let selectedListing = null;
@@ -3168,7 +3172,7 @@
   async function loadMembers() {
     const { data, error } = await sb
       .from('members')
-      .select('line_user_id, display_name')
+      .select('line_user_id, display_name, price_group')
       .order('display_name', { ascending: true });
     membersCache = (!error && data) ? data : [];
 
@@ -3443,6 +3447,8 @@
         if (omkLabel) chip.style.outline = '3px solid #4A3428';
         customerName = m.display_name;
         selectedMemberLineId = m.line_user_id;
+        // สมาชิกที่มีกลุ่มราคา → เลือกช่องทางให้ (ชิดลม/Standard) บาริสต้ากดเปลี่ยนได้ · ลูกค้าไม่รู้จัก = ต้องเลือกเอง
+        if (orderType === 'customer' && orderMode === 'normal' && orderChannel === 'walk-in') chooseOwnChannel(m.price_group === 'chidlom' ? 'office' : 'standard');
         updateLinkHint();
         updateSubmitState();
         checkPendingOmakaseSet(selectedMemberLineId);
@@ -6043,6 +6049,8 @@
       platformChannels = (data || []).map(c => ({ ...c, gp_pct: Number(c.gp_pct) || 0, margin_alert_pct: Number(c.margin_alert_pct) || 0 }));
       const { data: ls } = await sb.from('channel_listings').select('*').eq('is_active', true).order('sort_order');
       platformListings = ls || [];
+      const { data: pgs } = await sb.from('price_groups').select('key, label_th, discount_per_cup').eq('active', true);
+      priceGroups = {}; (pgs || []).forEach(g => { priceGroups[g.key] = { ...g, discount_per_cup: Number(g.discount_per_cup) || 0 }; });
     } catch (e) { platformChannels = []; platformListings = []; }
     renderChannelRow();
   }
@@ -6050,9 +6058,11 @@
   function renderChannelRow() {
     const block = document.getElementById('channelBlock');
     const row = document.getElementById('channelRow');
-    if (!platformChannels.length || orderType !== 'customer') { block.style.display = 'none'; return; }
+    if (orderType !== 'customer') { block.style.display = 'none'; return; }
     block.style.display = 'block';
-    row.innerHTML = `<button type="button" class="sweetness-btn${orderChannel === 'walk-in' ? ' selected' : ''}" data-channel="walk-in">🏪 หน้าร้าน</button>` +
+    const gd = (priceGroups.chidlom && priceGroups.chidlom.discount_per_cup) || 0;
+    row.innerHTML = `<button type="button" class="sweetness-btn${orderChannel === 'walk-in' && ownChannel === 'office' ? ' selected' : ''}" data-channel="office">🏢 ชิดลม${gd ? ' (−' + gd + ')' : ''}</button>` +
+      `<button type="button" class="sweetness-btn${orderChannel === 'walk-in' && ownChannel === 'standard' ? ' selected' : ''}" data-channel="standard">💼 Standard Price</button>` +
       platformChannels.map(c => `<button type="button" class="sweetness-btn${orderChannel === c.channel_key ? ' selected' : ''}" data-channel="${c.channel_key}">🛵 ${c.label_th}</button>`).join('');
   }
 
@@ -6269,9 +6279,28 @@
   });
   document.getElementById('channelRow').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-channel]');
-    if (!btn || btn.dataset.channel === orderChannel) return;
-    setOrderChannel(btn.dataset.channel);
+    if (!btn) return;
+    const key = btn.dataset.channel;
+    if (key === 'office' || key === 'standard') { chooseOwnChannel(key); return; }
+    if (key === orderChannel) return;
+    setOrderChannel(key);
   });
+
+  // เลือกช่องทางที่ไม่ใช่แพลตฟอร์ม: ชิดลม = เติมส่วนลดกลุ่มให้ในช่องส่วนลด · Standard Price = ราคากลาง (เคลียร์ส่วนลดที่ปุ่มชิดลมเติมไว้)
+  function chooseOwnChannel(key) {
+    if (orderChannel !== 'walk-in') setOrderChannel('walk-in');
+    ownChannel = key;
+    const dEl = document.getElementById('discountAmount');
+    const gd = (priceGroups.chidlom && priceGroups.chidlom.discount_per_cup) || 0;
+    if (key === 'office') {
+      if (!dEl.value || autoDiscountOn) { dEl.value = gd || ''; autoDiscountOn = true; }
+    } else if (autoDiscountOn) {
+      dEl.value = ''; autoDiscountOn = false;
+    }
+    renderChannelRow();
+    updateSubmitState();
+  }
+  document.getElementById('discountAmount').addEventListener('input', () => { autoDiscountOn = false; }); // พิมพ์เอง = เป็นของบาริสต้า ปุ่มช่องทางไม่เขียนทับ
   document.getElementById('platformPrice').addEventListener('input', () => { platformPriceTouched = true; refreshPlatformBlock(); });
   function platformCustomerLabel() {
     const ch = platformChannels.find(c => c.channel_key === orderChannel);
@@ -6406,7 +6435,8 @@
       ? omakaseSlots.every(s => s !== null)
       : !!selectedMenu;
     const platformOk = orderChannel === 'walk-in' || Number(document.getElementById('platformPrice').value) > 0;
-    btn.disabled = !(customerName && menuOk && selectedDate && blendOk && platformOk);
+    const ownChannelOk = !(orderChannel === 'walk-in' && orderType === 'customer' && orderMode === 'normal') || !!ownChannel;
+    btn.disabled = !(customerName && menuOk && selectedDate && blendOk && platformOk && ownChannelOk);
   }
 
   document.getElementById('submitBtn').addEventListener('click', async () => {
@@ -6498,7 +6528,7 @@
         order_type: orderType,
         paid: platformCh ? false : (isMaxCup ? false : (orderType === 'reward' ? rewardCharge <= 0 : isFree)),
         sweetness: selectedSweetness,
-        channel: platformCh ? platformCh.channel_key : (isMaxCup ? 'liff-omakase-fullweek' : 'walk-in'),
+        channel: platformCh ? platformCh.channel_key : (isMaxCup ? 'liff-omakase-fullweek' : ((orderType === 'customer' && orderMode === 'normal' && ownChannel) ? ownChannel : 'walk-in')),
         platform_gp_pct: platformCh ? platformCh.gp_pct : null,
         external_ref: platformRefVal,
         order_discount_share: orderDiscForRow,
@@ -6607,6 +6637,7 @@
     orderType = 'customer';
     selectedSweetness = 'ไม่หวาน';
     setOrderChannel('walk-in'); // กลับเป็นหน้าร้านทุกครั้งหลังบันทึก — กันกดแท็ก Grab ค้างไปโดนออเดอร์ถัดไป
+    ownChannel = null; autoDiscountOn = false; renderChannelRow(); // ช่องทางต้องเลือกใหม่ทุกออเดอร์
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
     document.getElementById('lastOrderHint').innerHTML = '';
     if (name && !platformCh && !allGuestNamesCache.includes(name)) allGuestNamesCache.unshift(name); // เติมชื่อที่เพิ่งบันทึกเข้า cache ทันที ไม่ต้องรีโหลดหน้า
