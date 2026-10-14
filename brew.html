@@ -178,6 +178,7 @@
     <div class="field-label">🛵 ค่าส่งที่ร้านออก (บาท — ไม่บังคับ)</div>
     <input type="number" id="deliverySubsidy" min="0" step="1" placeholder="เช่น 55" style="margin-bottom:4px;">
     <div class="field-hint">ตัวแทนคือชื่อลูกค้าด้านบน (เช่น Sommmmm) · ค่าส่งบันทึกเป็นค่าการตลาด (ร้านซับซิไดซ์ค่าส่ง) ของช่องทางที่เลือกให้อัตโนมัติ — กรอกครั้งเดียวต่อรอบส่งที่แก้วแรก</div>
+    <label style="display:flex;align-items:center;gap:10px;font-size:13px;margin:8px 0 4px;color:#4A3428;"><input type="checkbox" id="groupOrderFlag" style="width:22px;height:22px;flex-shrink:0;"><span>ออเดอร์กลุ่ม — <b>ไม่ส่งขอรีวิวทาง LINE</b> (แต้มสะสมยังนับให้ตัวแทนตามเดิม)</span></label>
   </div>
 
   <div id="orderModeBlock">
@@ -3194,7 +3195,7 @@
   async function loadMembers() {
     const { data, error } = await sb
       .from('members')
-      .select('line_user_id, display_name, price_group')
+      .select('line_user_id, display_name, price_group, is_group_rep')
       .order('display_name', { ascending: true });
     membersCache = (!error && data) ? data : [];
 
@@ -6447,6 +6448,9 @@
   });
 
   let lastDrinkerSuggestFor = '';
+  let groupFlagTouched = false;
+  document.getElementById('groupOrderFlag').addEventListener('change', () => { groupFlagTouched = true; });
+  document.getElementById('drinkerName').addEventListener('input', () => updateSubmitState());
   async function loadDrinkerSuggestions(repName) {
     const { data } = await sb.from('preorders').select('drinker_name').eq('customer_name', repName).not('drinker_name', 'is', null).limit(200);
     const names = [...new Set((data || []).map(r => r.drinker_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
@@ -6457,6 +6461,10 @@
     // ออเดอร์กลุ่ม + ค่าส่งที่ร้านออก: โชว์เมื่อเป็นออเดอร์ลูกค้าปกติของช่องทางขายเอง (ชิดลม/Standard) ที่เลือกช่องทางแล้ว
     const groupVisible = orderType === 'customer' && orderMode === 'normal' && orderChannel === 'walk-in' && !!ownChannel;
     const gb = document.getElementById('groupOrderBlock'); if (gb) gb.style.display = groupVisible ? 'block' : 'none';
+    if (groupVisible && !groupFlagTouched) { // ติ๊กให้เองเมื่อเป็นตัวแทนกลุ่ม หรือพิมพ์ชื่อผู้ดื่ม · บาริสต้าติ๊กเองได้
+      const m = membersCache.find(x => x.line_user_id === selectedMemberLineId);
+      document.getElementById('groupOrderFlag').checked = !!(m && m.is_group_rep) || !!document.getElementById('drinkerName').value.trim();
+    }
     if (groupVisible && customerName && customerName !== lastDrinkerSuggestFor) { lastDrinkerSuggestFor = customerName; loadDrinkerSuggestions(customerName); }
     const btn = document.getElementById('submitBtn');
     updateBeanNameField();
@@ -6558,6 +6566,7 @@
         price: platformCh ? platformPriceVal : (isMaxCup ? 0 : (orderType === 'reward' ? rewardCharge : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)))),
         discount_amount: platformCh ? (selectedListing ? Number(selectedListing.discount_amount) || 0 : 0) : (isMaxCup ? 0 : discount),
         drinker_name: (!platformCh && orderType === 'customer' && document.getElementById('drinkerName').value.trim()) || null,
+        is_group_order: !platformCh && orderType === 'customer' && document.getElementById('groupOrderFlag').checked,
         wanted_date: selectedDate,
         bean_name: beanName,
         bean_surcharge: (platformCh || isMaxCup) ? 0 : beanSur,
@@ -6684,7 +6693,7 @@
     selectedSweetness = 'ไม่หวาน';
     setOrderChannel('walk-in'); // กลับเป็นหน้าร้านทุกครั้งหลังบันทึก — กันกดแท็ก Grab ค้างไปโดนออเดอร์ถัดไป
     ownChannel = null; autoDiscountOn = false; renderChannelRow(); // ช่องทางต้องเลือกใหม่ทุกออเดอร์
-    document.getElementById('drinkerName').value = ''; document.getElementById('deliverySubsidy').value = ''; lastDrinkerSuggestFor = '';
+    document.getElementById('drinkerName').value = ''; document.getElementById('deliverySubsidy').value = ''; lastDrinkerSuggestFor = ''; document.getElementById('groupOrderFlag').checked = false; groupFlagTouched = false;
     updateSubmitState();
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
     document.getElementById('lastOrderHint').innerHTML = '';
