@@ -171,6 +171,15 @@
   <div id="preferenceBanner" style="display:none;"></div>
   <div id="omakasePendingBanner" style="display:none;"></div>
 
+  <div id="groupOrderBlock" style="display:none;">
+    <div class="field-label">👥 ออเดอร์กลุ่ม — ชื่อผู้ดื่ม (ไม่บังคับ)</div>
+    <input type="text" id="drinkerName" list="drinkerNameList" placeholder="ชื่อคนที่ดื่มจริง (ถ้าตัวแทนสั่งให้เพื่อน)" style="margin-bottom:8px;">
+    <datalist id="drinkerNameList"></datalist>
+    <div class="field-label">🛵 ค่าส่งที่ร้านออก (บาท — ไม่บังคับ)</div>
+    <input type="number" id="deliverySubsidy" min="0" step="1" placeholder="เช่น 55" style="margin-bottom:4px;">
+    <div class="field-hint">ตัวแทนคือชื่อลูกค้าด้านบน (เช่น Sommmmm) · ค่าส่งบันทึกเป็นค่าการตลาด (ร้านซับซิไดซ์ค่าส่ง) ของช่องทางที่เลือกให้อัตโนมัติ — กรอกครั้งเดียวต่อรอบส่งที่แก้วแรก</div>
+  </div>
+
   <div id="orderModeBlock">
   <div class="field-label">โหมดสั่ง</div>
   <div class="sweetness-row" id="orderModeRow">
@@ -2315,7 +2324,7 @@
       </div>` : '';
     div.innerHTML = `
       <div class="card-top">
-        <span class="card-name">${order.customer_name}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)}${typeBadge}${omakaseBadge}${maxBadge}${recurringBadge}${platformBadge}</span>
+        <span class="card-name">${order.customer_name}${order.drinker_name ? ` <span style="color:#00703A;font-weight:600;">→ ${order.drinker_name}</span>` : ''}${order.line_user_id ? ' 🔗' : ''}${allergyBadgeFor(order.line_user_id)}${typeBadge}${omakaseBadge}${maxBadge}${recurringBadge}${platformBadge}</span>
         <div class="card-top-right">
           <span class="card-date" data-id="${order.id}" data-date="${order.wanted_date}" title="แตะเพื่อแก้วันที่">${isToday ? 'วันนี้' : fmtDate(new Date(order.wanted_date))}</span>
           <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
@@ -3039,7 +3048,7 @@
 
     const { data, error } = await sb
       .from('ingredients')
-      .select('id, name, stock_quantity, customer_bean_surcharge, cost_per_base_unit')
+      .select('id, name, stock_quantity, customer_bean_surcharge, cost_per_base_unit, must_have')
       .eq('category', 'coffee_bean')
       .eq('active', true)
       .order('name', { ascending: true });
@@ -3053,18 +3062,28 @@
       return;
     }
 
+    // เรียงเมล็ด: ประจำร้าน (must_have) ก่อน → ที่ใช้บ่อยใน 60 วัน → ชื่อ
+    const sinceIso = new Date(Date.now() - 60 * 86400000).toISOString();
+    const { data: useRows } = await sb.from('preorders').select('bean_name').not('bean_name', 'is', null).gte('created_at', sinceIso).limit(2000);
+    const uses = {}; (useRows || []).forEach(r => String(r.bean_name).split(/[+,]/).forEach(n => { n = n.trim(); if (n) uses[n] = (uses[n] || 0) + 1; }));
+    data.sort((a, b) => ((b.must_have ? 1 : 0) - (a.must_have ? 1 : 0)) || ((uses[b.name] || 0) - (uses[a.name] || 0)) || a.name.localeCompare(b.name, 'th'));
     beanOptionsCache = data;
     el.innerHTML = '';
     document.getElementById('beanName').value = '';
     const soldOutNames = [];
+    let dividerShown = false;
     data.forEach(bean => {
       const stock = Number(bean.stock_quantity);
       const low = stock < BEAN_DOSE_G;
       if (low) { soldOutNames.push(bean.name); return; } // Phase 2: sold-out beans no longer take up chip space
       const sur = Number(bean.customer_bean_surcharge) || 0;
+      if (!bean.must_have && !dividerShown && el.children.length) {
+        const dv = document.createElement('div'); dv.style.cssText = 'flex-basis:100%;font-size:11px;color:#A8876F;margin:4px 0 0;'; dv.textContent = 'เมล็ดอื่นๆ'; el.appendChild(dv); dividerShown = true;
+      }
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'chip';
+      chip.dataset.beanId = bean.id;
       chip.textContent = low ? `${bean.name} (หมด)` : `${bean.name} (${stock}g)${sur > 0 ? ` +${sur}฿` : ''}`;
       chip.disabled = low;
       chip.addEventListener('click', () => {
@@ -6151,8 +6170,7 @@
     document.querySelectorAll('#recentBeans .chip').forEach(c => c.classList.remove('selected'));
     document.getElementById('blendGramsBlock').innerHTML = '';
     if (l.bean_ingredient_id) {
-      const idx = beanOptionsCache.findIndex(b => b.id === l.bean_ingredient_id);
-      const chip = idx >= 0 ? document.querySelectorAll('#recentBeans .chip')[idx] : null;
+      const chip = document.querySelector(`#recentBeans .chip[data-bean-id="${l.bean_ingredient_id}"]`);
       if (chip && !chip.disabled) chip.click();
       else alert('เมล็ดของรายการนี้หมดสต็อกหรือยังโหลดไม่เสร็จ — เลือกเมล็ดเองด้านล่าง');
     }
@@ -6428,7 +6446,18 @@
     updateSubmitState();
   });
 
+  let lastDrinkerSuggestFor = '';
+  async function loadDrinkerSuggestions(repName) {
+    const { data } = await sb.from('preorders').select('drinker_name').eq('customer_name', repName).not('drinker_name', 'is', null).limit(200);
+    const names = [...new Set((data || []).map(r => r.drinker_name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+    document.getElementById('drinkerNameList').innerHTML = names.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
+  }
+
   function updateSubmitState() {
+    // ออเดอร์กลุ่ม + ค่าส่งที่ร้านออก: โชว์เมื่อเป็นออเดอร์ลูกค้าปกติของช่องทางขายเอง (ชิดลม/Standard) ที่เลือกช่องทางแล้ว
+    const groupVisible = orderType === 'customer' && orderMode === 'normal' && orderChannel === 'walk-in' && !!ownChannel;
+    const gb = document.getElementById('groupOrderBlock'); if (gb) gb.style.display = groupVisible ? 'block' : 'none';
+    if (groupVisible && customerName && customerName !== lastDrinkerSuggestFor) { lastDrinkerSuggestFor = customerName; loadDrinkerSuggestions(customerName); }
     const btn = document.getElementById('submitBtn');
     updateBeanNameField();
     let blendOk = true;
@@ -6528,6 +6557,7 @@
         menu_item_name: selectedMenu.name,
         price: platformCh ? platformPriceVal : (isMaxCup ? 0 : (orderType === 'reward' ? rewardCharge : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)))),
         discount_amount: platformCh ? (selectedListing ? Number(selectedListing.discount_amount) || 0 : 0) : (isMaxCup ? 0 : discount),
+        drinker_name: (!platformCh && orderType === 'customer' && document.getElementById('drinkerName').value.trim()) || null,
         wanted_date: selectedDate,
         bean_name: beanName,
         bean_surcharge: (platformCh || isMaxCup) ? 0 : beanSur,
@@ -6632,6 +6662,12 @@
       document.getElementById('basketCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    const deliverySubsidyVal = (!platformCh && orderType === 'customer' && orderMode === 'normal' && ownChannel) ? (Number(document.getElementById('deliverySubsidy').value) || 0) : 0;
+    if (deliverySubsidyVal > 0) {
+      const drinkerVal = document.getElementById('drinkerName').value.trim();
+      const { error: spendErr } = await sb.from('marketing_spend').insert({ spend_date: selectedDate, channel_key: ownChannel, kind: 'delivery', amount: deliverySubsidyVal, campaign: 'ค่าส่งออเดอร์กลุ่ม', note: `${name}${drinkerVal ? ' → ' + drinkerVal : ''} · ${selectedMenu.name}` });
+      if (spendErr) alert('บันทึกออเดอร์แล้ว แต่บันทึกค่าส่งไม่สำเร็จ: ' + spendErr.message + '\nบันทึกค่าส่งเองได้ที่ Owner → รายงาน → ＋ บันทึกค่าการตลาด');
+    }
     statusEl.textContent = '✅ บันทึกแล้ว';
     statusEl.className = 'status-msg success';
     document.getElementById('customerName').value = '';
@@ -6648,6 +6684,8 @@
     selectedSweetness = 'ไม่หวาน';
     setOrderChannel('walk-in'); // กลับเป็นหน้าร้านทุกครั้งหลังบันทึก — กันกดแท็ก Grab ค้างไปโดนออเดอร์ถัดไป
     ownChannel = null; autoDiscountOn = false; renderChannelRow(); // ช่องทางต้องเลือกใหม่ทุกออเดอร์
+    document.getElementById('drinkerName').value = ''; document.getElementById('deliverySubsidy').value = ''; lastDrinkerSuggestFor = '';
+    updateSubmitState();
     selectedMenu = null; selectedDate = null; selectedMemberLineId = null; customerName = '';
     document.getElementById('lastOrderHint').innerHTML = '';
     if (name && !platformCh && !allGuestNamesCache.includes(name)) allGuestNamesCache.unshift(name); // เติมชื่อที่เพิ่งบันทึกเข้า cache ทันที ไม่ต้องรีโหลดหน้า
@@ -7032,7 +7070,7 @@
           });
         } else {
           lines.push({
-            label: `${o.menu_item_name}${o.bean_name ? ` · ${o.bean_name}` : ''}`,
+            label: `${o.menu_item_name}${o.bean_name ? ` · ${o.bean_name}` : ''}${o.drinker_name ? ` (${o.drinker_name})` : ''}`,
             price: Number(o.price),
             ids: [o.id],
             cups: [{ id: o.id, name: o.menu_item_name, bean_name: o.bean_name, sweetness: o.sweetness }],
