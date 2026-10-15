@@ -138,6 +138,7 @@
 </div>
 
 <div class="screen" id="screen-add">
+  <div id="birthdayBanner" style="display:none;margin:0 0 12px;padding:8px 12px;border-radius:12px;background:#FFF8E1;border:1px solid #F5D98A;font-size:13px;color:#7A5A00;line-height:1.9;"></div>
   <div class="field-label">ประเภทออเดอร์</div>
   <div class="sweetness-row box-row" id="orderTypeRow">
     <button type="button" class="sweetness-btn selected" data-order-type="customer">ลูกค้า</button>
@@ -932,6 +933,7 @@
     if (name !== 'add' && typeof orderChannel !== 'undefined' && orderChannel !== 'walk-in') { closeBasket(); setOrderChannel('walk-in'); } // ออกจากหน้าเพิ่มออเดอร์ = จบตะกร้า Grab (กันค้างไปโดนออเดอร์หน้าร้านถัดไป)
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-' + name).classList.add('active');
+    if (name === 'add') renderBirthdayBanner();
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`.nav-btn[data-screen="${name}"]`).classList.add('active');
     document.getElementById('screenTitle').textContent = TITLES[name];
@@ -3247,9 +3249,10 @@
   async function loadMembers() {
     const { data, error } = await sb
       .from('members')
-      .select('line_user_id, display_name, price_group, is_group_rep')
+      .select('line_user_id, display_name, price_group, is_group_rep, birthday')
       .order('display_name', { ascending: true });
     membersCache = (!error && data) ? data : [];
+    renderBirthdayBanner();
 
     // เช็คว่าใครเปิด Always On ของ Omakase (Solo/Classic/Full Week) อยู่บ้าง — เอาไว้เรียงชิปให้ขึ้นบนสุด + ใส่สี/ไอคอนเตือนบาริสต้า
     omakaseAlwaysOnMap = {};
@@ -3492,6 +3495,32 @@
     box.appendChild(btn);
   }
 
+  // วันเกิดสมาชิก: วันนี้ตรงกับวัน/เดือนเกิด → 👑 บนชื่อในหน้าเพิ่มออเดอร์ + แถบแจ้งด้านบน (เกิด 29 ก.พ. นับ 28 ก.พ. ในปีที่ไม่มี 29)
+  function isBirthdayToday(m) {
+    const b = m && m.birthday ? String(m.birthday).slice(5, 10) : '';
+    if (!/^\d\d-\d\d$/.test(b)) return false;
+    const t = new Date();
+    const today = String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    if (b === today) return true;
+    const leap = (y) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+    return b === '02-29' && today === '02-28' && !leap(t.getFullYear());
+  }
+
+  function renderBirthdayBanner() {
+    const el = document.getElementById('birthdayBanner');
+    if (!el) return;
+    const list = (membersCache || []).filter(isBirthdayToday);
+    if (!list.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+    el.innerHTML = '👑 วันนี้วันเกิด: ' + list.map(m => `<button type="button" class="chip" data-bday-line="${m.line_user_id}" style="border-color:#E8B84A;background:#fff;">👑 ${String(m.display_name || '').replace(/</g, '&lt;')}</button>`).join(' ');
+    el.querySelectorAll('[data-bday-line]').forEach(btn => btn.addEventListener('click', () => {
+      const typeBtn = document.querySelector('#customerTypeRow [data-type="member"]');
+      if (typeBtn) typeBtn.click();
+      const chip = [...document.querySelectorAll('#memberChips .chip')].find(c => c.dataset.lineId === btn.dataset.bdayLine);
+      if (chip) { chip.click(); chip.scrollIntoView({ block: 'center' }); }
+    }));
+  }
+
   function renderMemberChips() {
     const el = document.getElementById('memberChips');
     el.innerHTML = '';
@@ -3514,6 +3543,12 @@
         chip.textContent = m.display_name;
       }
       chip.dataset.search = (m.display_name || '').toLowerCase();
+      chip.dataset.lineId = m.line_user_id;
+      if (isBirthdayToday(m)) {
+        chip.textContent = '👑 ' + chip.textContent;
+        chip.title = (chip.title ? chip.title + ' · ' : '') + '🎂 วันนี้วันเกิด';
+        chip.style.boxShadow = '0 0 0 2px #F5D98A';
+      }
       const rewardProgressInChip = rewardEligibleMap[m.line_user_id];
       if (rewardProgressInChip) {
         chip.textContent += ` · 🎁 ครบ ${Math.floor(rewardProgressInChip / 10) * 10}`;
