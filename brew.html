@@ -59,6 +59,12 @@
   .cup-type-note{flex-basis:100%;font-size:11px;color:#A8876F;}
   .box-row{display:grid !important;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;margin-bottom:6px;}
   .box-row .sweetness-btn{border-radius:14px;min-height:62px;padding:8px 4px;font-size:13.5px;line-height:1.35;white-space:normal;overflow-wrap:anywhere;text-align:center;display:flex;align-items:center;justify-content:center;margin:0;}
+  .shot-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 10px;margin:0 0 8px;border-radius:12px;background:#FFF3E8;border:1px solid #F0E4D8;font-size:12.5px;color:#4A3428;}
+  .shot-line .shot-total{font-weight:700;white-space:nowrap;}
+  .shot-chip{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #E8863A;background:#fff;color:#4A3428;border-radius:999px;padding:3px 11px;font-size:12.5px;font-weight:600;font-family:inherit;line-height:1.4;}
+  .shot-chip b{color:#E8621A;font-size:13.5px;}
+  .shot-chip.done{opacity:.5;border-style:dashed;text-decoration:line-through;}
+  .shot-reset{margin-left:auto;background:none;border:none;color:#A8876F;font-size:12px;font-family:inherit;padding:2px 4px;}
 </style>
 </head>
 <body>
@@ -106,6 +112,7 @@
 <div class="theme-banner" id="themeBanner" style="display:none;"></div>
 
 <div class="screen active" id="screen-today">
+  <div class="shot-line" id="shotLine" style="display:none;"></div>
   <div id="staffReminderBanner"></div>
   <div class="summary-bar" id="todaySummary">กำลังโหลด...</div>
 
@@ -2155,12 +2162,56 @@
     renderTodayList();
   }
 
+  // ===== สรุปช็อตกาแฟที่ต้องชง แยกตามเมล็ด (บรรทัดบนสุดของหน้าวันนี้) =====
+  // ติ๊กต่อแก้วด้วยการแตะชิปเมล็ด (แตะ 1 ครั้ง = ดึงช็อตเสร็จ 1 แก้ว) — ติ๊กอยู่แค่บรรทัดนี้ ไม่กระทบรายการแก้วด้านล่าง
+  // เก็บเป็น order id ที่ติ๊กไว้ จึงถูกต้องแม้แก้วนั้นถูกชงเสร็จแล้วหายจากรายการ (นับเฉพาะแก้วที่ยังค้างอยู่)
+  let shotDoneIds = new Set();
+  try { shotDoneIds = new Set(JSON.parse(localStorage.getItem('brewShotDoneIds') || '[]')); } catch (e) { /* เริ่มใหม่ */ }
+  let lastShotCups = [];
+  function persistShotDone() {
+    const live = new Set((lastLoadedOrders || []).map(o => o.id));
+    shotDoneIds = new Set([...shotDoneIds].filter(id => live.has(id)));
+    try { localStorage.setItem('brewShotDoneIds', JSON.stringify([...shotDoneIds])); } catch (e) { /* ไม่มี storage ก็ใช้ในหน้านี้ได้ */ }
+  }
+  function shotBeanKey(o) {
+    const b = String(o.bean_name || '').trim();
+    if (!b) return 'ยังไม่เลือกเมล็ด';
+    if (b.startsWith('เบลนด์')) return 'เบลนด์';
+    return b;
+  }
+  function renderShotLine(visibleOrders) {
+    const el = document.getElementById('shotLine');
+    if (!el) return;
+    lastShotCups = (visibleOrders || []).filter(o => needsBean(o.menu_item_name) && !o.no_coffee);
+    if (!lastShotCups.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const groups = new Map();
+    lastShotCups.forEach(o => { const k = shotBeanKey(o); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(o); });
+    const rows = [...groups.entries()].map(([bean, cups]) => ({ bean, cups, left: cups.filter(o => !shotDoneIds.has(o.id)) }))
+      .sort((a, b) => b.cups.length - a.cups.length || a.bean.localeCompare(b.bean, 'th'));
+    const remaining = rows.reduce((t, r) => t + r.left.length, 0);
+    const anyDone = rows.some(r => r.left.length < r.cups.length);
+    el.style.display = 'flex';
+    el.innerHTML = `<span class="shot-total">${remaining ? `☕ ${remaining} ช็อต` : '✓ ช็อตครบแล้ว'}</span>` +
+      rows.map(r => `<button type="button" class="shot-chip${r.left.length === 0 ? ' done' : ''}" data-shot-bean="${r.bean.replace(/"/g, '&quot;')}" title="แตะ = ดึงช็อตเสร็จ 1 แก้ว">${r.bean.replace(/</g, '&lt;')} <b>${r.left.length === 0 ? '✓' : r.left.length}</b></button>`).join('') +
+      (anyDone ? '<button type="button" class="shot-reset" id="shotReset">⟲ ล้างติ๊ก</button>' : '');
+    el.querySelectorAll('[data-shot-bean]').forEach(btn => btn.addEventListener('click', () => {
+      const row = rows.find(r => r.bean === btn.dataset.shotBean);
+      if (!row) return;
+      if (row.left.length) shotDoneIds.add(row.left[0].id);
+      else { const ticked = row.cups.filter(o => shotDoneIds.has(o.id)); if (ticked.length) shotDoneIds.delete(ticked[ticked.length - 1].id); } // แตะชิปที่ครบแล้ว = ยกเลิกติ๊กล่าสุด 1 แก้ว
+      persistShotDone(); renderShotLine(visibleOrders);
+    }));
+    const rs = document.getElementById('shotReset');
+    if (rs) rs.addEventListener('click', () => { lastShotCups.forEach(o => shotDoneIds.delete(o.id)); persistShotDone(); renderShotLine(visibleOrders); });
+  }
+
   function renderTodayList() {
     const listEl = document.getElementById('todayList');
     const summaryEl = document.getElementById('todaySummary');
     const data = lastLoadedOrders;
 
     if (data.length === 0) {
+      renderShotLine([]);
       summaryEl.textContent = 'ไม่มีออเดอร์ค้างชง 🎉';
       listEl.innerHTML = '<div class="empty-state">ว่างครับ พักได้เลย</div>';
       return;
@@ -2197,6 +2248,7 @@
       <div style="font-size:11.5px;opacity:0.75;margin-top:3px;">วันนี้ ${data.filter(o => o.wanted_date === todayISO && (includeStaffInToday || o.order_type !== 'staff')).length} · สัปดาห์นี้ ${thisWeekOrders.length} · สัปดาห์หน้า ${nextWeekOrders.length} แก้ว</div>
     `;
     appendStockAlert(summaryEl);
+    renderShotLine(visibleOrders);
 
     if (visibleOrders.length === 0) {
       listEl.innerHTML = `<div class="empty-state">ไม่มีออเดอร์ค้างชง${filterLabel !== 'ทั้งหมด' ? 'ของ' + filterLabel : ''} 🎉</div>`;
