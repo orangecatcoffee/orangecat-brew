@@ -7113,6 +7113,9 @@
     // ลูกค้ากลุ่มนี้สำคัญ (ลุ้นให้กลับมาเป็นลูกค้าประจำ) เลยอยากขอฟีดแบ็คได้เหมือนแก้วเสียเงิน แค่ไม่มีปุ่มเก็บเงิน
     const { data: freeRaw } = await sb
       .from('preorders').select('*').eq('paid', false).eq('brewed', true).is('omakase_set_id', null).in('order_type', ['our_treat', 'reward']);
+    // ค่าส่งที่ร้านออกที่บันทึกจากหน้านี้ (ผูกกับบิลด้วย external_ref = bill|<ลูกค้า>|<วันที่ล่าสุดของบิล>)
+    const { data: dlvRows } = await sb.from('marketing_spend').select('id, amount, external_ref').eq('kind', 'delivery').like('external_ref', 'bill|%');
+    const deliveryByRef = {}; (dlvRows || []).forEach(r => { deliveryByRef[r.external_ref] = r; });
     const freeGrouped = {};
     (freeRaw || []).forEach(o => {
       if (!freeGrouped[o.customer_name]) freeGrouped[o.customer_name] = [];
@@ -7275,6 +7278,17 @@
         </div>
         <div class="bill-items">${itemsHtml}</div>
         ${orders.some(o => !o.omakase_set_id) ? `<div style="text-align:right;margin:-2px 0 8px;"><button type="button" class="btn-bill-treat" style="font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid #E8863A;background:#fff;color:#E8863A;font-family:inherit;">🎁 เลี้ยงทั้งบิล (Our Treat)</button></div>` : ''}
+        ${(() => {
+          const lastDate = orders.reduce((m, o) => o.wanted_date > m ? o.wanted_date : m, '0000-00-00');
+          const ref = `bill|${orders[0].line_user_id || name}|${lastDate}`;
+          const ex = deliveryByRef[ref];
+          return `<div class="bill-delivery" data-ref="${String(ref).replace(/"/g, '&quot;')}" style="display:flex;align-items:center;gap:6px;margin:0 0 8px;flex-wrap:wrap;">
+            <span style="font-size:11.5px;color:#6B5445;white-space:nowrap;">🛵 ค่าส่งที่ร้านออก</span>
+            <input type="number" min="0" step="1" class="bill-delivery-input" placeholder="บาท" value="${ex ? Number(ex.amount) : ''}" style="width:84px;padding:5px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:12px;font-family:inherit;">
+            <button type="button" class="bill-delivery-btn" style="padding:5px 12px;border-radius:8px;border:1px solid #E8863A;background:#FFF3E8;color:#E8863A;font-size:11.5px;font-weight:700;font-family:inherit;">บันทึก</button>
+            <span class="bill-delivery-status" style="font-size:11px;color:#2E7D46;">${ex ? '✓ บันทึกแล้ว' : ''}</span>
+          </div>`;
+        })()}
         <div style="display:flex;align-items:center;gap:6px;background:#FFF3E8;border-radius:10px;padding:8px 10px;margin-bottom:10px;">
           <input type="number" min="0" step="1" placeholder="ส่วนลดรวมทั้งบิลนี้ (บาท)" class="bill-discount-input" style="flex:1;padding:6px 8px;border-radius:8px;border:2px solid #F0E4D8;font-size:11.5px;font-family:inherit;background:#fff;">
           <button type="button" class="bill-discount-btn" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:none;background:#E8863A;color:#fff;font-size:11px;font-weight:700;">ใช้ส่วนลดทั้งบิล</button>
@@ -7376,6 +7390,29 @@
           const ok = await markOurTreat(orders.filter(o => ids.includes(o.id)), `"${line ? line.label : 'แก้วนี้'}" ของ ${name}`);
           if (ok) loadBills(); else btn.disabled = false;
         });
+      });
+      const dlvWrap = div.querySelector('.bill-delivery');
+      if (dlvWrap) dlvWrap.querySelector('.bill-delivery-btn').addEventListener('click', async () => {
+        const ref = dlvWrap.dataset.ref;
+        const inputEl = dlvWrap.querySelector('.bill-delivery-input'), statusEl2 = dlvWrap.querySelector('.bill-delivery-status'), btn2 = dlvWrap.querySelector('.bill-delivery-btn');
+        const amount = Number(inputEl.value) || 0;
+        const ex = deliveryByRef[ref];
+        if (amount < 0) { statusEl2.style.color = '#D64545'; statusEl2.textContent = 'ใส่จำนวนเงินให้ถูกต้อง'; return; }
+        if (!ex && amount === 0) { statusEl2.style.color = '#A8876F'; statusEl2.textContent = 'ใส่ค่าส่งก่อน'; return; }
+        btn2.disabled = true;
+        const lastDate = ref.split('|')[2];
+        const chan = (orders.find(o => o.channel === 'office' || o.channel === 'standard') || {}).channel || 'standard';
+        let err = null;
+        if (ex && amount === 0) { ({ error: err } = await sb.from('marketing_spend').delete().eq('id', ex.id)); if (!err) delete deliveryByRef[ref]; }
+        else if (ex) { ({ error: err } = await sb.from('marketing_spend').update({ amount }).eq('id', ex.id)); if (!err) ex.amount = amount; }
+        else {
+          const ins = await sb.from('marketing_spend').insert({ spend_date: lastDate, channel_key: chan, kind: 'delivery', amount, campaign: 'ค่าส่งออเดอร์กลุ่ม', external_ref: ref, note: `${name} · ${orders.length} แก้ว (บันทึกจากหน้าบิล)` }).select('id');
+          err = ins.error; if (!err && ins.data && ins.data[0]) deliveryByRef[ref] = { id: ins.data[0].id, amount, external_ref: ref };
+        }
+        btn2.disabled = false;
+        if (err) { statusEl2.style.color = '#D64545'; statusEl2.textContent = 'บันทึกไม่สำเร็จ: ' + err.message; return; }
+        statusEl2.style.color = '#2E7D46';
+        statusEl2.textContent = amount === 0 ? 'ลบแล้ว' : `✓ บันทึกแล้ว ฿${amount}`;
       });
       const billTreatBtn = div.querySelector('.btn-bill-treat');
       if (billTreatBtn) billTreatBtn.addEventListener('click', async () => {
