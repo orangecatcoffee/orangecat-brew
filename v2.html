@@ -37,6 +37,18 @@ img{max-width:100%}
 .cal-day{color:#2A1F17 !important}
 .btn-done{background:var(--accent) !important;color:var(--on-accent) !important;border:none !important;min-height:48px;font-weight:700}
 .btn-done:disabled{opacity:.5}
+.pkg-line{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;color:var(--muted);margin:2px 0 8px}
+.pkg-line b{color:var(--text);font-weight:600}
+.pkg-change{background:none;border:none;color:var(--info);text-decoration:underline;text-underline-offset:3px;padding:10px 4px;font-size:13.5px;min-height:44px}
+.undo-toast{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));max-width:456px;margin:0 auto;background:var(--text);color:var(--bg);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;font-size:15px;z-index:60;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .18s,transform .18s}
+.undo-toast.show{opacity:1;transform:none;pointer-events:auto}
+.undo-toast button{margin-left:auto;background:none;border:none;color:var(--accent-text);font-weight:700;font-size:15px;padding:8px 4px;min-height:44px}
+:root[data-theme="day"] .undo-toast button{color:#C25A08}
+.step-h{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;margin:20px 0 6px;color:var(--text)}
+.step-h i{font-style:normal;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center;font-size:13.5px}
+.submit-btn{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:5;width:100%;min-height:52px;box-shadow:0 -10px 18px var(--bg)}
+.submit-btn:disabled{box-shadow:0 -10px 18px var(--bg)}
+
 </style>
 <style>* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, "Segoe UI", "Mitr", sans-serif; background: var(--bg); color: var(--text); padding-bottom: 84px; min-height: 100vh; } .header { background: linear-gradient(135deg, var(--accent-soft), var(--accent-soft)); padding: 20px 20px 16px; text-align: center; } .header .brand { font-size: 12px; color: var(--muted); letter-spacing: 1px; margin-bottom: 2px; } .header h1 { font-size: 20px; color: var(--text); } .header .date { font-size: 13px; color: var(--accent-text); font-weight: 600; margin-top: 4px; } .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; } .screen.active { display: block; } .summary-bar { background: var(--bar); color: var(--bar-ink); border-radius: 12px; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; } .card { background: var(--surface); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 4px solid var(--line); } .card.today { border-left-color: var(--accent); } .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .card-name { font-size: 15px; font-weight: 700; } .card-date { font-size: 11px; color: var(--muted); cursor: pointer; border-bottom: 1px dotted var(--muted); padding-bottom: 1px; } .card-item-name { cursor: pointer; border-bottom: 1px dotted var(--muted); padding-bottom: 1px; } .card-menu { font-size: 13px; color: var(--muted); margin-bottom: 10px; } .card-menu .price { color: var(--accent-text); font-weight: 600; } .btn-done { width: 100%; padding: 10px; border-radius: 10px; border: none; background: var(--raised); color: var(--text); font-size: 13px; font-weight: 600; } .btn-done.checked { background: var(--ok); color: var(--on-accent); } .pkg-row { display: flex; gap: 4px; margin-bottom: 8px; } .pkg-btn { flex: 1; padding: 6px 1px; border-radius: 8px; border: 2px solid var(--line); background: var(--surface); font-size: 9.5px; color: var(--text); font-family: inherit; white-space: nowrap; } .pkg-btn.selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); font-weight: 700; } .bean-picker { margin-top: 4px; } .bean-picker select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--line); font-size: 13px; font-family: inherit; margin-bottom: 6px; background: var(--surface); color: var(--text); } .bean-picker-row { display: flex; gap: 6px; } .btn-bean-confirm { flex: 1; padding: 9px; border-radius: 8px; border: none; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 700; } .btn-bean-confirm:disabled { background: var(--line); } .btn-bean-cancel { padding: 9px 12px; border-radius: 8px; border: 2px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12px; } .bean-empty-note { font-size: 11px; color: var(--bad); } .card-top-right { display: flex; align-items: center; gap: 8px; } .btn-delete { background: none; border: none; color: var(--bad); font-size: 16px; padding: 2px 6px; line-height: 1; } .bill-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--raised); } .bill-item:last-child { border-bottom: none; } .btn-item-delete { background: none; border: none; color: var(--bad); font-size: 14px; padding: 2px 8px; } .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; } .field-label { font-size: 12px; color: var(--muted); margin: 16px 0 8px; font-weight: 600; } .field-label:first-child { margin-top: 0; } .field-hint { font-size: 10.5px; color: var(--muted); margin-top: -4px; margin-bottom: 8px; } .sweetness-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; } .sweetness-btn { padding: 10px 16px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface); font-size: 13px; color: var(--text); font-family: inherit; cursor: pointer; } .sweetness-btn.selected { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; box-shadow: 0 2px 6px rgba(232,134,58,0.4); } .chip-row { display: flex; gap: 8px; flex-wrap: wrap; } .chip { padding: 8px 14px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface); font-size: 13px; color: var(--text); font-family: inherit; } .chip.selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); font-weight: 700; } .chip.member { border-style: dashed; } .chip.member.selected { border-style: solid; } .chip:disabled { opacity: .4; } input[type="text"], input[type="number"] { width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid var(--line); font-size: 15px; font-family: inherit; } input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: var(--accent); } .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .menu-card { position: relative; border: 2px solid var(--line); border-radius: 10px; padding: 4px 4px 6px; text-align: center; cursor: pointer; transition: all 0.15s; overflow: hidden; background: var(--surface); } .menu-card.selected { border-color: var(--accent); background: var(--accent-soft); } .menu-card.allergy-severe { border-color: var(--bad); background: #FFF0F0; } .menu-card.allergy-severe.selected { border-color: var(--bad); background: #FFE0E0; } .menu-card.allergy-mild { border-color: var(--accent); background: #FFF6EC; } .menu-card.allergy-tolerate { border-color: var(--info); background: var(--info-soft); } .allergy-warn-badge { position: absolute; top: 2px; right: 2px; font-size: 13px; line-height: 1; z-index: 2; filter: drop-shadow(0 0 1px var(--surface)); } .menu-card .icon { margin: -4px -4px 4px; font-size: 24px; line-height: 1.4; } .cup-icon { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px 8px 0 0; display: block; } .menu-card .name { font-size: 9.5px; font-weight: 600; line-height: 1.25; margin-bottom: 2px; min-height: 23px; } .menu-card .price { font-size: 9.5px; color: var(--accent-text); font-weight: 700; } .date-row-viewport { max-height: 152px; overflow-y: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: y proximity; } .date-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; } .date-btn { padding: 8px 2px; border-radius: 10px; border: 2px solid var(--line); background: var(--surface); font-size: 11px; text-align: center; line-height: 1.3; scroll-snap-align: start; } .date-btn.selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); font-weight: 700; } .submit-btn { width: 100%; padding: 15px; margin-top: 24px; border: none; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-size: 16px; font-weight: 700; } .submit-btn:disabled { background: var(--line); } .status-msg { text-align: center; margin-top: 12px; font-size: 13px; } .status-msg.success { color: var(--ok); } .status-msg.error { color: var(--bad); } .link-hint { font-size: 11px; color: var(--muted); margin-top: 6px; } .link-hint.linked { color: var(--ok); font-weight: 600; } .bill-card { background: var(--surface); border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .bill-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; } .bill-name { font-size: 16px; font-weight: 700; } .bill-total { font-size: 20px; font-weight: 700; color: var(--accent-text); } .bill-detail { font-size: 12px; color: var(--muted); margin-bottom: 12px; } .btn-paid { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px solid var(--text); background: var(--surface); color: var(--text); font-size: 12.5px; font-weight: 700; } .btn-request { width: 100%; padding: 11px; border-radius: 10px; border: none; background: var(--accent); color: var(--on-accent); font-size: 13px; font-weight: 700; margin-bottom: 8px; } .btn-request:disabled { background: var(--line); } .request-note { font-size: 11.5px; color: var(--muted); text-align: center; margin-bottom: 8px; line-height: 1.5; } .request-note.sent { color: var(--ok); font-weight: 600; } .bill-err { color: var(--bad); font-size: 11.5px; margin-top: 6px; text-align: center; } .stamp-note { color: var(--accent-text); font-size: 11.5px; margin-top: 6px; text-align: center; font-weight: 600; } .slip-box { margin-bottom: 10px; } .btn-slip { display: block; width: 100%; text-align: center; padding: 11px; border: 2px dashed var(--line); border-radius: 10px; font-size: 12.5px; color: var(--muted); cursor: pointer; box-sizing: border-box; } .btn-slip:active { background: var(--accent-soft); } .slip-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid var(--line); cursor: pointer; display: block; margin-bottom: 4px; background: var(--bg); } .slip-label { font-size: 11px; color: var(--ok); font-weight: 600; } .nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); display: flex; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); } .nav-btn { flex: 1; padding: 12px 0 8px; text-align: center; background: none; border: none; color: var(--muted); font-size: 11px; font-family: inherit; } .nav-btn .nav-icon { font-size: 20px; display: block; margin-bottom: 2px; } .nav-btn.active { color: var(--accent-text); font-weight: 700; } .loading { text-align: center; color: var(--muted); font-size: 13px; padding: 20px; } .blend-gram-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--accent-soft); border: 2px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; } .blend-gram-row .blend-bean-name { font-size: 12.5px; font-weight: 600; color: var(--text); } .blend-gram-row input[type="number"] { width: 64px; padding: 7px 8px; border-radius: 8px; border: 2px solid var(--line); font-size: 13px; font-family: inherit; text-align: center; } .blend-gram-hint { font-size: 10.5px; color: var(--accent-text); margin-top: 2px; margin-bottom: 8px; font-weight: 600; } .week-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: var(--muted); margin: 4px 0 2px; } .theme-banner { background: linear-gradient(135deg,var(--bar),#2E1B0D); color: #FFE4CC; font-size: 12px; text-align: center; padding: 8px 16px; font-weight: 600; } .staff-reminder { background: var(--accent-soft); border: 2px solid var(--accent); color: var(--accent-text); font-size: 12.5px; font-weight: 600; text-align: center; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; } .cal-widget { margin-bottom: 4px; } .cal-week-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; } .cal-week-label { font-size: 11px; color: var(--muted); font-weight: 600; } .cal-today-link { font-size: 11px; color: var(--accent-text); font-weight: 700; cursor: pointer; border-bottom: 1px dotted var(--accent); padding-bottom: 1px; } .cal-row { display: flex; align-items: center; gap: 2px; } .cal-arrow { flex-shrink: 0; width: 20px; height: 36px; border: none; background: none; color: var(--muted); font-size: 18px; font-family: inherit; } .cal-arrow:active { color: var(--accent-text); } .cal-days { display: flex; flex: 1; gap: 5px; touch-action: pan-y; } .cal-day { flex: 1 1 0; aspect-ratio: 1 / 1; max-width: 42px; border-radius: 50%; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-family: inherit; font-weight: 700; font-size: 13px; color: var(--text); padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } .cal-day:active { transform: scale(0.92); } .cal-day.is-today { outline: 2px dashed var(--text); outline-offset: 2px; } .cal-day.selected { border-color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.18); } .menu-group-card { background: var(--surface); border-radius: 14px; padding: 12px 14px 4px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); } .menu-group-header { display: flex; justify-content: space-between; align-items: center; font-size: 14.5px; font-weight: 700; color: var(--text); padding-bottom: 8px; border-bottom: 2px solid var(--line); margin-bottom: 8px; } .menu-group-count { color: var(--accent-text); font-weight: 700; font-size: 13px; white-space: nowrap; } .menu-group-milk-breakdown { background: var(--accent-soft); color: var(--accent-text); font-size: 11.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; margin: -2px 0 10px; } .card.compact { box-shadow: none; border-radius: 10px; background: var(--surface); margin-bottom: 8px; padding: 10px 12px; border-left-width: 3px; } .coffee-toggle-btn { width: 100%; margin-bottom: 8px; padding: 8px; border-radius: 8px; border: 2px solid var(--line); background: var(--surface); color: var(--muted); font-size: 11.5px; font-weight: 700; font-family: inherit; } .coffee-toggle-btn.no-coffee-active { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); } .coffee-toggle-btn:disabled { opacity: .5; } .lab-filter-label { font-size: 11px; font-weight: 700; color: var(--muted); margin: 14px 0 6px; } .lab-filter-label:first-of-type { margin-top: 4px; } .lab-chip-verdict-go.selected { border-color: #B87333; background: #B87333; color: var(--on-accent); } .lab-chip-verdict-launched.selected { border-color: var(--ok); background: var(--ok); color: var(--on-accent); } .lab-chip-verdict-notyet.selected { border-color: var(--muted); background: var(--line); color: var(--on-accent); } .lab-chip-verdict-cut.selected { border-color: var(--bad); background: var(--bad); color: var(--on-accent); } .lab-tab-track { display: flex; background: var(--raised); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 16px; } .lab-tab-btn { flex: 1; padding: 10px 4px; border: none; border-radius: 9px; background: transparent; color: var(--muted); font-size: 13.5px; font-weight: 600; font-family: inherit; } .lab-tab-btn.selected { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(74,52,40,0.15); font-weight: 700; } .lab-taste-btn { padding: 9px 12px; border-radius: 8px; border: none; background: var(--ok); color: var(--on-accent); font-size: 12px; font-weight: 700; white-space: nowrap; font-family: inherit; } .lab-filter-toggle-btn { padding: 8px 16px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface); color: var(--text); font-size: 12.5px; font-weight: 700; font-family: inherit; } .lab-filter-toggle-btn.open { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); } .lab-clear-filters-link { font-size: 11.5px; color: var(--bad); text-decoration: underline dotted; cursor: pointer; } .lab-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; } .lab-ing-chip { padding: 9px 14px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface); font-size: 13px; color: var(--text); font-family: inherit; line-height: 1.3; display: inline-flex; align-items: center; gap: 5px; } .lab-ing-chip .lab-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; } .lab-ing-chip .lab-chip-score { font-size: 11px; color: var(--accent-text); font-weight: 700; } .lab-ing-chip.src-seven_eleven { border-color: #B8DFC4; background: #EAF7EE; color: var(--ok); } .lab-ing-chip.src-crafting { border-color: #D3C0EC; background: #F4EEFC; color: #6B4E8A; } .lab-ing-chip.src-finish_drink { border-color: #EBD48C; background: #FFF8E6; color: #A87C1E; } .lab-ing-chip.src-sous_vide { border-color: #B8D4E0; background: #EAF4F8; color: var(--info); } .lab-sv-ing-chip { padding: 8px 13px; border-radius: 999px; border: 2px solid var(--line); background: var(--surface); font-size: 12.5px; color: var(--text); font-family: inherit; } .lab-sv-ing-chip.selected { border-color: var(--info); background: #EAF4F8; color: var(--info); font-weight: 700; } .lab-ing-chip.active { outline: 2px solid var(--text); outline-offset: 1px; } .lab-create-divider { border-top: 2px dashed var(--line); margin: 28px 0 16px; } .lab-create-btn { width: 100%; padding: 16px; border: none; border-radius: 14px; background: var(--bar); color: #FFE4CC; font-size: 15px; font-weight: 700; font-family: inherit; } .lab-detail-panel { background: var(--surface); border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 2px solid var(--line); margin-top: 12px; } .lab-detail-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 4px; } .lab-detail-meta { font-size: 11.5px; color: var(--muted); margin-bottom: 10px; } .lab-detail-notes { font-size: 13px; color: var(--muted); white-space: pre-wrap; line-height: 1.6; background: var(--surface); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; } .lab-detail-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; } .lab-detail-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 16px; color: var(--muted); } .lab-detail-panel { position: relative; } .lab-field-autosaved { font-size: 10.5px; color: var(--ok); font-weight: 600; margin-top: -4px; margin-bottom: 6px; opacity: 0; transition: opacity 0.3s; } .lab-field-autosaved.show { opacity: 1; } .lab-filter-box { background: var(--raised); border: 1px solid #E8DCC8; border-radius: 14px; padding: 14px 14px 6px; margin-top: 10px; } .lab-list-header { font-size: 13px; font-weight: 700; color: var(--text); margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }  .header{position:sticky;top:0;z-index:30;display:flex;align-items:baseline;justify-content:space-between;gap:10px;text-align:left;padding:10px 16px 8px;box-shadow:0 1px 0 var(--line)}
   .header .brand{display:none}
@@ -168,6 +180,7 @@ img{max-width:100%}
 
 <div class="screen" id="screen-add">
   <div id="birthdayBanner" style="display:none;margin:0 0 12px;padding:8px 12px;border-radius:12px;background:#FFF8E1;border:1px solid #F5D98A;font-size:13px;color:#7A5A00;line-height:1.9;"></div>
+  <div class="step-h"><i>1</i>ใคร</div>
   <div class="field-label">ประเภทออเดอร์</div>
   <div class="sweetness-row box-row" id="orderTypeRow">
     <button type="button" class="sweetness-btn selected" data-order-type="customer">ลูกค้า</button>
@@ -219,6 +232,7 @@ img{max-width:100%}
   </div>
 
   <div id="orderModeBlock">
+  <div class="step-h"><i>2</i>อะไร</div>
   <div class="field-label">โหมดสั่ง</div>
   <div class="sweetness-row" id="orderModeRow">
     <button type="button" class="sweetness-btn selected" data-order-mode="normal">ปกติ (1 แก้ว)</button>
@@ -246,6 +260,7 @@ img{max-width:100%}
     <div class="menu-grid" id="menuGrid"></div>
   </div>
 
+  <div class="step-h"><i>3</i>ตัวเลือก</div>
   <div class="field-label">เมล็ดกาแฟ</div>
   <div class="field-hint">ตัวเลข = กรัมที่เหลือ · เลือกได้สูงสุด 3 ตัว</div>
   <div class="chip-row" id="recentBeans"></div>
@@ -1270,7 +1285,46 @@ img{max-width:100%}
     });
   }
 
+
+  // ---- v2: packaging defaults + brew-with-undo ----
+  const PKG_LABEL = { tumbler: '♻️ กระติก', bag: '🛍️ ถุง', cup: '🧋 แก้ว', cup_topping: '🧋 แก้ว+ท็อปปิ้ง' };
+  // from 45 days of real orders: Grab 88% and Standard 100% used the large cup with topping lid; in store the most common is the same
+  const PKG_BY_CHANNEL = { grab: 'cup_topping', standard: 'cup_topping' };
+  function pkgMemory() { try { return JSON.parse(localStorage.getItem('ocosPkg') || '{}'); } catch (e) { return {}; } }
+  function defaultPackaging(order) { const m = pkgMemory()[(order.customer_name || '').trim()]; return m || PKG_BY_CHANNEL[order.channel] || 'cup_topping'; }
+  function rememberPkg(order, cardEl) {
+    try { const m = pkgMemory(); m[(order.customer_name || '').trim()] = cardEl.dataset.selectedPkg; localStorage.setItem('ocosPkg', JSON.stringify(m)); } catch (e) {}
+  }
+  function applyPkgSelection(div, collapse) {
+    const k = div.dataset.selectedPkg;
+    div.querySelectorAll('.pkg-btn').forEach(b => b.classList.toggle('selected', b.dataset.pkg === k));
+    const nm = div.querySelector('.pkg-name'); if (nm) nm.textContent = PKG_LABEL[k] || k;
+    if (collapse) { const row = div.querySelector('.pkg-row'); if (row) row.style.display = 'none'; }
+  }
+  let undoTimer = null;
+  function showUndoToast(msg, onUndo) {
+    let el = document.getElementById('undoToast');
+    if (!el) { el = document.createElement('div'); el.id = 'undoToast'; el.className = 'undo-toast'; el.innerHTML = '<span id="undoMsg"></span><button type="button" id="undoBtn">ย้อนกลับ</button>'; document.body.appendChild(el); }
+    el.querySelector('#undoMsg').textContent = msg; el.classList.add('show');
+    el.querySelector('#undoBtn').onclick = onUndo;
+  }
+  function hideUndoToast() { const el = document.getElementById('undoToast'); if (el) el.classList.remove('show'); }
+  // one tap = brewed, with 4 seconds to take it back. The database is only written after the window closes.
+  function brewWithUndo(order, div, doneBtn) {
+    return new Promise(resolve => {
+      let undone = false, timer;
+      showUndoToast(`${order.menu_item_name} · ชงแล้ว`, () => { undone = true; clearTimeout(timer); hideUndoToast(); div.style.opacity = ''; resolve(false); });
+      doneBtn.textContent = '✓ ชงแล้ว'; div.style.opacity = '.55';
+      timer = setTimeout(async () => { if (undone) return; hideUndoToast(); const ok = await markBrewed(order, div, null); div.style.opacity = ''; resolve(ok); }, 4000);
+    });
+  }
   async function markBrewed(order, cardEl, beanIngredient, noCoffee) {
+    const ok = await markBrewedCore(order, cardEl, beanIngredient, noCoffee);
+    if (ok) rememberPkg(order, cardEl);
+    return ok;
+  }
+
+  async function markBrewedCore(order, cardEl, beanIngredient, noCoffee) {
     try {
       const packagingType = cardEl.dataset.selectedPkg || 'bag';
       const packagingCosts = await loadPackagingCosts();
@@ -2427,19 +2481,21 @@ img{max-width:100%}
       ` : ''}
       ${menuDef && menuDef.needsMatcha ? `
         <select class="card-matcha-select" data-id="${order.id}" style="width:100%;margin-bottom:8px;padding:9px 10px;border-radius:8px;border:2px solid var(--line);font-size:12.5px;font-family:inherit;color:var(--text);">
-          ${availableMatchaBrew.map(mt => `<option value="${mt.name}" ${order.matcha_name === mt.name ? 'selected' : ''}>🍵 ${mt.name} (฿${(Number(mt.cost_per_base_unit) * MATCHA_DOSE_G).toFixed(1)}/แก้ว)</option>`).join('')}
+          ${availableMatchaBrew.map(mt => `<option value="${mt.name}" ${order.matcha_name === mt.name ? 'selected' : ''}>🍵 ${mt.name}</option>`).join('')}
         </select>
       ` : ''}
       ${typeControlHtml}
-      <div class="pkg-row">
+      <div class="pkg-line"><span>บรรจุภัณฑ์: <b class="pkg-name"></b></span><button type="button" class="pkg-change">เปลี่ยน</button></div>
+      <div class="pkg-row" style="display:none;">
         <button type="button" class="pkg-btn" data-pkg="tumbler">♻️ กระติก</button>
-        <button type="button" class="pkg-btn selected" data-pkg="bag">🛍️ ถุง</button>
+        <button type="button" class="pkg-btn" data-pkg="bag">🛍️ ถุง</button>
         <button type="button" class="pkg-btn" data-pkg="cup">🧋 แก้ว</button>
         <button type="button" class="pkg-btn" data-pkg="cup_topping">🧋 แก้ว+ท็อป</button>
       </div>
       <button class="btn-done" data-id="${order.id}">ชงแล้ว</button>
     `;
-    div.dataset.selectedPkg = 'bag';
+    div.dataset.selectedPkg = defaultPackaging(order);
+    applyPkgSelection(div, false);
     const recipeQuickBtn = div.querySelector('.btn-recipe-quick');
     if (recipeQuickBtn) {
       recipeQuickBtn.addEventListener('click', (e) => {
@@ -2563,11 +2619,10 @@ img{max-width:100%}
       });
     }
     div.querySelectorAll('.pkg-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        div.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        div.dataset.selectedPkg = btn.dataset.pkg;
-      });
+      btn.addEventListener('click', () => { div.dataset.selectedPkg = btn.dataset.pkg; applyPkgSelection(div, true); });
+    });
+    div.querySelector('.pkg-change').addEventListener('click', () => {
+      const row = div.querySelector('.pkg-row'); row.style.display = row.style.display === 'none' ? '' : 'none';
     });
     div.querySelector('.btn-delete').addEventListener('click', async () => {
       if (!confirm(`ลบออเดอร์ "${order.customer_name} - ${order.menu_item_name}" ใช่ไหม?`)) return;
@@ -2589,9 +2644,8 @@ img{max-width:100%}
     doneBtn.addEventListener('click', async () => {
       if (order.no_coffee) {
         // ตั้งค่าไว้แล้วตอนสั่งว่าไม่ใช้กาแฟแก้วนี้ — ข้ามตัวเลือกเมล็ดไปเลย ไม่ตัดสต็อก ไม่บวกต้นทุนกาแฟ
-        doneBtn.textContent = 'กำลังบันทึก...';
         doneBtn.disabled = true;
-        const ok = await markBrewed(order, div, null);
+        const ok = await brewWithUndo(order, div, doneBtn);
         if (!ok) {
           doneBtn.textContent = 'ชงแล้ว';
           doneBtn.disabled = false;
@@ -2599,9 +2653,8 @@ img{max-width:100%}
       } else if (needsBean(order.menu_item_name) || isSecretMenuName(order.menu_item_name)) {
         await showBeanPicker(div, order, doneBtn);
       } else {
-        doneBtn.textContent = 'กำลังบันทึก...';
         doneBtn.disabled = true;
-        const ok = await markBrewed(order, div, null);
+        const ok = await brewWithUndo(order, div, doneBtn);
         if (!ok) {
           doneBtn.textContent = 'ชงแล้ว';
           doneBtn.disabled = false;
