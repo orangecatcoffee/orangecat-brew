@@ -844,7 +844,7 @@
     }
     const { data: recipeRows, error } = await sb
       .from('menu_recipes')
-      .select('quantity, notes, ingredients(name, base_unit, category)')
+      .select('quantity, notes, ingredients(name, base_unit, category, stock_group)')
       .eq('menu_item_id', menuDef.id);
 
     if (error) {
@@ -856,8 +856,8 @@
       return;
     }
     // เรียงตามหมวด: base > coffee_bean > milk > syrup > topping > other ให้อ่านง่ายตามลำดับการชงจริง
-    const catOrder = { base: 0, coffee_bean: 1, milk: 2, syrup: 3, topping: 4, other: 5 };
-    const sorted = [...recipeRows].sort((a, b) => (catOrder[a.ingredients?.category] ?? 9) - (catOrder[b.ingredients?.category] ?? 9));
+    await loadIngredientGroups();
+    const sorted = [...recipeRows].sort((a, b) => ingGroupRank(a.ingredients?.stock_group) - ingGroupRank(b.ingredients?.stock_group));
     bodyEl.innerHTML = sorted.map(r => `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #F0E4D8;">
         <div>
@@ -1699,7 +1699,7 @@
           renderQtyBlock();
           updateSaveState();
         });
-        row.appendChild(chip);
+        ingChipAppend(row, ing, chip);
       });
     }
 
@@ -2917,20 +2917,48 @@
     checkPendingOmakaseSet(selectedMemberLineId);
   });
 
+  // ===== หมวดวัตถุดิบ — Single Source of Truth = ตาราง ingredient_groups (แก้ที่ตารางเดียว ทุกหน้าตาม) =====
+  let INGREDIENT_GROUPS = [];
+  async function loadIngredientGroups(force) {
+    if (INGREDIENT_GROUPS.length && !force) return INGREDIENT_GROUPS;
+    const { data, error } = await sb.from('ingredient_groups').select('key, label_th, icon, sort_order').eq('active', true).order('sort_order', { ascending: true });
+    if (!error && data) INGREDIENT_GROUPS = data;
+    return INGREDIENT_GROUPS;
+  }
+  function ingGroupRank(key) { const i = INGREDIENT_GROUPS.findIndex(g => g.key === key); return i < 0 ? 999 : i; }
+  function ingGroupLabel(key) { const g = INGREDIENT_GROUPS.find(x => x.key === key); return g ? `${g.icon} ${g.label_th}` : (key || 'อื่นๆ'); }
+  function sortByIngGroup(list) { return [...list].sort((a, b) => (ingGroupRank(a.stock_group) - ingGroupRank(b.stock_group)) || String(a.name).localeCompare(String(b.name), 'th')); }
+  // ใส่ชิปวัตถุดิบลงแถว โดยแทรกหัวข้อกลุ่มเมื่อกลุ่มเปลี่ยน (รายการต้องเรียงตามกลุ่มมาแล้ว)
+  function ingChipAppend(row, ing, chip) {
+    const g = ing.stock_group || '';
+    const prev = row.lastElementChild;
+    const prevG = prev ? (prev.dataset.g !== undefined ? prev.dataset.g : prev.dataset.hg) : null;
+    if (prevG !== g) {
+      const h = document.createElement('div');
+      h.dataset.hg = g;
+      h.textContent = ingGroupLabel(g);
+      h.style.cssText = 'flex-basis:100%;font-size:10.5px;font-weight:700;color:#A8876F;margin:8px 0 0;';
+      row.appendChild(h);
+    }
+    chip.dataset.g = g;
+    row.appendChild(chip);
+  }
+
   // ตัวเลือกวัตถุดิบสำหรับ "สูตรท็อปปิ้ง" — รวมวัตถุดิบดิบ (prep_component เช่น ผงวุ้น ผงครีมชีส) ที่ตัวเลือกสูตรเมนูปกติซ่อนไว้
   let toppingRecipePoolCache = null;
   async function loadToppingRecipePool() {
     if (toppingRecipePoolCache) return toppingRecipePoolCache;
     const { data, error } = await sb
       .from('ingredients')
-      .select('id, name, category, base_unit, stock_quantity, cost_per_base_unit, ingredient_role')
+      .select('id, name, category, stock_group, base_unit, stock_quantity, cost_per_base_unit, ingredient_role')
       .eq('active', true)
       .eq('is_packaging', false)
       .in('ingredient_role', ['cup_ready', 'prep_component'])
       .neq('category', 'coffee_bean')
       .order('category', { ascending: true })
       .order('name', { ascending: true });
-    if (!error && data) toppingRecipePoolCache = data;
+    await loadIngredientGroups();
+    if (!error && data) toppingRecipePoolCache = sortByIngGroup(data);
     return toppingRecipePoolCache || allIngredientsCache;
   }
 
@@ -2938,14 +2966,15 @@
     if (allIngredientsCache.length) return allIngredientsCache;
     const { data, error } = await sb
       .from('ingredients')
-      .select('id, name, category, base_unit, stock_quantity, cost_per_base_unit')
+      .select('id, name, category, stock_group, base_unit, stock_quantity, cost_per_base_unit')
       .eq('active', true)
       .eq('is_packaging', false) // อุปกรณ์บรรจุภัณฑ์ (แก้ว/ฝา/ถุง/กระดาษ/ถุงกรอง/หลอด) ไม่ใช่วัตถุดิบในสูตร คิดต้นทุนแยกผ่าน packaging_type_items แล้ว
       .eq('ingredient_role', 'cup_ready') // ของที่ต้องแปรรูปก่อน (เช่น ผงวุ้น -> วุ้น, แป้งไดฟูกุ -> มอจิท็อปปิ้ง) ไม่ใส่แก้วตรงๆ จึงไม่โผล่ในตัวเลือกสูตร — ต้องสร้างเป็น ingredient แปรรูปแยกก่อนถึงจะใช้ในสูตรได้
       .neq('category', 'coffee_bean') // เมล็ดกาแฟแยกจัดการผ่าน checkbox "ต้องเลือกเมล็ดกาแฟ" + FLAT_COFFEE_COST ต่างหาก ไม่ต้องมาปนในตัวเลือกส่วนผสม (ลดจำนวนชิปเหลือแต่ที่จำเป็น โหลดเร็วขึ้น)
       .order('category', { ascending: true })
       .order('name', { ascending: true });
-    if (!error && data) allIngredientsCache = data;
+    await loadIngredientGroups();
+    if (!error && data) allIngredientsCache = sortByIngGroup(data);
     return allIngredientsCache;
   }
 
@@ -4893,10 +4922,11 @@
   async function loadLabIngPool(force) {
     if (labIngPool && !force) return labIngPool;
     const { data, error } = await sb.from('ingredients')
-      .select('id, name, category, base_unit, stock_quantity, cost_per_base_unit, track_stock')
+      .select('id, name, category, stock_group, base_unit, stock_quantity, cost_per_base_unit, track_stock')
       .eq('active', true).eq('is_packaging', false)
       .order('category', { ascending: true }).order('name', { ascending: true });
-    if (!error && data) { labIngPool = data; labIngPoolById = Object.fromEntries(data.map(i => [i.id, i])); }
+    await loadIngredientGroups();
+    if (!error && data) { labIngPool = sortByIngGroup(data); labIngPoolById = Object.fromEntries(data.map(i => [i.id, i])); }
     return labIngPool || [];
   }
   function labNormName(s) { return String(s || '').trim().toLowerCase(); }
@@ -4959,9 +4989,9 @@
     const rows = (labIngPool || []).filter(i => !q || labNormName(i.name).includes(q));
     let html = '', lastCat = null;
     rows.forEach(i => {
-      if (i.category !== lastCat) {
-        html += `<div style="font-size:10.5px;font-weight:700;color:#A8876F;margin:10px 0 4px;">${escapeHtml(i.category || 'อื่นๆ')}</div>`;
-        lastCat = i.category;
+      if (i.stock_group !== lastCat) {
+        html += `<div style="font-size:10.5px;font-weight:700;color:#A8876F;margin:10px 0 4px;">${escapeHtml(ingGroupLabel(i.stock_group))}</div>`;
+        lastCat = i.stock_group;
       }
       html += `<button type="button" data-pick-ing="${i.id}" style="display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;padding:10px 6px;border:none;border-bottom:1px solid var(--line,#F5EEE5);background:transparent;color:inherit;font-family:inherit;font-size:13.5px;"><span>${escapeHtml(i.name)}</span><span style="font-size:11px;color:#A8876F;white-space:nowrap;">${Number(i.stock_quantity || 0).toFixed(0)} ${escapeHtml(i.base_unit || '')}</span></button>`;
     });
@@ -5402,7 +5432,7 @@
           renderQtyBlock();
           updateState();
         });
-        row.appendChild(chip);
+        ingChipAppend(row, ing, chip);
       });
     }
     function renderQtyBlock() {
@@ -5990,7 +6020,7 @@
             renderAddQtyBlock();
             updateCostSummary();
           });
-          row.appendChild(chip);
+          ingChipAppend(row, ing, chip);
         });
     }
     function renderAddQtyBlock() {
@@ -6121,7 +6151,7 @@
           renderQtyBlock();
           updateState();
         });
-        row.appendChild(chip);
+        ingChipAppend(row, ing, chip);
       });
     }
     function renderQtyBlock() {
