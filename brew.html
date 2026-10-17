@@ -441,8 +441,21 @@
     </div>
   </div>
 
-  <div class="lab-list-header" id="labListHeader">รายการ</div>
-  <div id="labChipGrid" class="lab-chip-grid"></div>
+  <style>
+    /* กล่องรายการแล็บ: สูงคงที่ให้พอดีหน้าจอ เลื่อนดูข้างในกล่อง · กดปุ่ม "ขยาย" เพื่อดูทั้งหมด */
+    .lab-list-headrow { display:flex; align-items:flex-end; justify-content:space-between; gap:8px; margin:18px 0 8px; border-bottom:2px solid var(--line,#F0E4D8); }
+    .lab-list-headrow .lab-list-header { margin:0; border:none; padding-bottom:6px; }
+    .lab-list-expand-btn { margin-bottom:6px; padding:5px 12px; border-radius:999px; border:2px solid var(--line,#F0E4D8); background:transparent; color:inherit; font-size:12px; font-weight:700; font-family:inherit; }
+    .lab-list-box { max-height:38vh; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; border:1px solid var(--line,#E8DCC8); border-radius:14px; padding:10px; }
+    .lab-list-box.expanded { max-height:none; overflow-y:visible; }
+  </style>
+  <div class="lab-list-headrow">
+    <div class="lab-list-header" id="labListHeader">รายการ</div>
+    <button type="button" class="lab-list-expand-btn" id="labListExpandBtn">ขยาย ⌄</button>
+  </div>
+  <div class="lab-list-box" id="labListBox">
+    <div id="labChipGrid" class="lab-chip-grid"></div>
+  </div>
 
 
   <div class="lab-create-divider"></div>
@@ -4324,6 +4337,18 @@
     renderLabResultsGrid();
     if (labActiveTrialId) openLabDetail(labActiveTrialId);
   }
+
+  // ปุ่ม ขยาย/ย่อ กล่องรายการแล็บ
+  (function () {
+    const btn = document.getElementById('labListExpandBtn');
+    const box = document.getElementById('labListBox');
+    if (!btn || !box) return;
+    btn.addEventListener('click', () => {
+      const on = box.classList.toggle('expanded');
+      btn.textContent = on ? 'ย่อ ⌃' : 'ขยาย ⌄';
+      if (!on) box.scrollTop = 0;
+    });
+  })();
 
   function renderLabChipGrid() {
     const gridEl = document.getElementById('labChipGrid');
