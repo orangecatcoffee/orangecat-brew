@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#0F2036">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<script>try{if(localStorage.getItem('ocosTheme')!=='dark')document.documentElement.setAttribute('data-theme','day')}catch(e){}</script>
+<script>try{if(localStorage.getItem('ocosTheme')==='day')document.documentElement.setAttribute('data-theme','day')}catch(e){}</script>
 <style id="ocos-tokens">
 /* Orange OS v2 — shared tokens (navy + orange). Day mode = data-theme="day" */
 :root{color-scheme:dark;
@@ -639,7 +639,7 @@ img{max-width:100%}
     <button type="button" class="more-item" onclick="openFromMore('menu')">📋 จัดการเมนู</button>
     <button type="button" class="more-item" onclick="openFromMore('recipe')">🧾 สูตร</button>
     <button type="button" class="more-item" onclick="openFromMore('members')">🎫 สมาชิก</button>
-    <button type="button" class="more-item" onclick="toggleTheme()">🌓 สลับโหมด กลางวัน / มืด</button>
+    <button type="button" class="more-item" onclick="toggleTheme()">🌓 สลับโหมด มืด / กลางวัน</button>
   </div>
 </div>
 <div id="toastBox" style="position:fixed;left:0;right:0;top:56px;z-index:80;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;padding:0 16px;"></div>
