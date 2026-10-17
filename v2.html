@@ -409,10 +409,11 @@ img{max-width:100%}
 </div>
 
 <div class="screen" id="screen-menu">
-  <div class="field-label" style="margin-top:0;">📋 เมนูทั้งหมด</div>
-  <div class="field-hint">ชื่อ ราคา สถานะ รูป หมวดหมู่ · ส่วนผสมอยู่ที่ "สูตร"</div>
-  <div id="listingManager"></div>
-  <div id="allMenuList"></div>
+  <div class="field-label" style="margin-top:0;">📋 สถานะเมนูวันนี้</div>
+  <div class="field-hint">เปิด / พักเมนูได้ทันที · ราคา สูตร และต้นทุนอยู่ที่แอป Owner แท็บ "เมนู"</div>
+  <input type="text" id="menuLeanSearch" placeholder="🔍 ค้นหาเมนู" autocomplete="off" style="margin-bottom:10px">
+  <div id="menuLeanList"></div>
+  <details id="secretDetails" style="margin-top:22px"><summary style="min-height:48px;display:flex;align-items:center;font-weight:600;color:var(--info)">＋ สร้างเมนูลับใหม่ (แบบเร็ว)</summary><div id="secretCreateBlock"></div></details>
 </div>
 
 <div class="screen" id="screen-recipe">
@@ -428,8 +429,7 @@ img{max-width:100%}
   <div class="field-hint">เพิ่ม/แก้/ย้ายหมวดหมู่ได้เอง มีผลกับเมนูลูกค้าทันที</div>
   <div id="categoryAdminBlock"></div>
 
-  <div class="field-label" style="margin-top:28px;">+ สร้างเมนูลับใหม่ (แบบเร็ว)</div>
-  <div id="secretCreateBlock"></div>
+
 </div>
 
 <div class="screen" id="screen-lab">
@@ -641,7 +641,7 @@ img{max-width:100%}
 <div id="moreSheet" style="display:none;position:fixed;left:0;right:0;bottom:64px;z-index:60;padding:0 12px calc(8px + env(safe-area-inset-bottom));">
   <div style="max-width:480px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 -4px 18px rgba(74,52,40,.15);padding:8px;">
     <button type="button" class="more-item" onclick="openFromMore('menu')">📋 จัดการเมนู</button>
-    <button type="button" class="more-item" onclick="openFromMore('recipe')">🧾 สูตร</button>
+    
     <button type="button" class="more-item" onclick="openFromMore('members')">🎫 สมาชิก</button>
     <button type="button" class="more-item" onclick="toggleTheme()">🌓 สลับโหมด มืด / กลางวัน</button>
   </div>
@@ -8568,6 +8568,46 @@ function toggleTheme(){var d=document.documentElement,day=d.getAttribute('data-t
  try{localStorage.setItem('ocosTheme',day?'dark':'day')}catch(e){}
  var s=document.getElementById('moreSheet');if(s)s.style.display='none'}
 (function(){var t=document.querySelector('.header h1');if(t)t.insertAdjacentHTML('beforeend',' <span class="v2tag">v2</span>')})();
+
+  // ---- v2: lean menu page — status only. Price / recipe / cost live in the Owner app (one place, one calculation). ----
+  async function loadMenuLean() {
+    const el = document.getElementById('menuLeanList');
+    if (!el) return;
+    if (!el.dataset.ready) el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+    const [{ data, error }, { data: cats }] = await Promise.all([
+      sb.from('menu_items').select('id, name, category, status, show_in_add_order, thumb_url, image_url')
+        .eq('is_omakase_placeholder', false).in('status', ['live', 'on_hold', 'resting']).order('name'),
+      sb.from('menu_categories').select('category, label_th, sort_order'),
+    ]);
+    if (error || !data) { el.innerHTML = '<div class="empty-state">โหลดไม่สำเร็จ: ' + (error ? error.message : 'unknown') + '</div>'; return; }
+    const order = {}; (cats || []).forEach(c => order[c.category] = { l: c.label_th || c.category, s: c.sort_order ?? 99 });
+    const q = (document.getElementById('menuLeanSearch').value || '').trim().toLowerCase();
+    const groups = {};
+    data.filter(i => !q || i.name.toLowerCase().includes(q)).forEach(i => (groups[i.category] = groups[i.category] || []).push(i));
+    const keys = Object.keys(groups).sort((a, b) => ((order[a] || {}).s ?? 99) - ((order[b] || {}).s ?? 99));
+    el.dataset.ready = '1';
+    el.innerHTML = keys.map(k => `<div class="week-label" style="margin:14px 0 6px;">${(order[k] || {}).l || k}</div>` + groups[k].map(i => `
+      <div class="card lean-row" style="display:flex;align-items:center;gap:10px;">
+        ${(i.thumb_url || i.image_url) ? `<img src="${i.thumb_url || thumbSrc(i.image_url)}" loading="lazy" decoding="async" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex:none;" alt="">` : '<span style="width:44px;height:44px;flex:none;"></span>'}
+        <span class="card-name" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${i.name}</span>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);flex:none;"><input type="checkbox" class="lean-show" data-id="${i.id}" ${i.show_in_add_order ? 'checked' : ''} style="width:20px;height:20px;margin:0;"> ออเดอร์</label>
+        <select class="lean-status" data-id="${i.id}" style="width:auto;min-width:92px;min-height:44px;margin:0;"><option value="live" ${i.status === 'live' ? 'selected' : ''}>Live</option><option value="on_hold" ${i.status === 'on_hold' ? 'selected' : ''}>On Hold</option><option value="resting" ${i.status === 'resting' ? 'selected' : ''}>Resting</option></select>
+      </div>`).join('')).join('') || '<div class="empty-state">ไม่พบเมนู</div>';
+  }
+  document.getElementById('menuLeanSearch').addEventListener('input', loadMenuLean);
+  document.getElementById('menuLeanList').addEventListener('change', async (e) => {
+    const t = e.target, id = t.dataset.id; if (!id) return;
+    const patch = t.classList.contains('lean-status') ? { status: t.value } : t.classList.contains('lean-show') ? { show_in_add_order: t.checked } : null;
+    if (!patch) return;
+    const { error } = await sb.from('menu_items').update(patch).eq('id', id);
+    alert(error ? 'บันทึกไม่สำเร็จ: ' + error.message : 'บันทึกแล้ว');
+  });
+  document.getElementById('secretDetails').addEventListener('toggle', async (e) => {
+    if (e.target.open && !e.target.dataset.init) { e.target.dataset.init = '1'; try { await loadAllIngredients(); } catch (er) {} renderSecretCreateBlock(); }
+  });
+  // every old entry point (after saving a secret menu, tab switches, ...) now lands on the lean page
+  loadMenuContentList = loadMenuLean;
+  loadMenuRecipeList = loadMenuLean;
 </script>
 </body>
 </html>
