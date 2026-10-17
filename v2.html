@@ -567,9 +567,14 @@ img{max-width:100%}
   <div id="labComponentPanel" style="display:none;margin-top:12px;"></div>
 
   <div class="lab-create-divider"></div>
-  <div class="field-label" style="margin-top:0;">🍓 ทดลองวัตถุดิบผลไม้ (สกัดเย็น)</div>
+  <style>#fruitRefTable thead th { position: sticky; top: 0; z-index: 1; background: var(--surface, #FFF8F0); }</style>
+  <div class="lab-list-headrow" style="margin-top:0;border-bottom:none;">
+    <div class="field-label" style="margin:0 0 6px;">🍓 ทดลองวัตถุดิบผลไม้ (สกัดเย็น)</div>
+    <button type="button" class="lab-list-expand-btn" id="fruitRefExpandBtn">ขยาย ⌄</button>
+  </div>
   <div class="field-hint">ผลไม้ไหนเหมาะกับอะไร · แตะหัวคอลัมน์เพื่อเรียง</div>
-  <table id="fruitRefTable" style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;">
+  <div class="lab-list-box" id="fruitRefBox">
+  <table id="fruitRefTable" style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:0;">
     <thead>
       <tr>
         <th style="text-align:left;padding:8px 4px;border-bottom:2px solid var(--line);color:var(--muted);font-weight:600;">ผลไม้</th>
@@ -581,6 +586,7 @@ img{max-width:100%}
     </thead>
     <tbody id="fruitRefBody"></tbody>
   </table>
+  </div>
 
   </div>
 
@@ -4353,6 +4359,18 @@ img{max-width:100%}
     });
   });
   renderFruitRefTable();
+
+  // ปุ่ม ขยาย/ย่อ กล่องตารางผลไม้สกัดเย็น
+  (function () {
+    const btn = document.getElementById('fruitRefExpandBtn');
+    const box = document.getElementById('fruitRefBox');
+    if (!btn || !box) return;
+    btn.addEventListener('click', () => {
+      const on = box.classList.toggle('expanded');
+      btn.textContent = on ? 'ย่อ ⌃' : 'ขยาย ⌄';
+      if (!on) box.scrollTop = 0;
+    });
+  })();
 
   document.getElementById('labAddBtn').addEventListener('click', async () => {
     const nameEl = document.getElementById('labNewName');
