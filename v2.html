@@ -4934,7 +4934,7 @@ img{max-width:100%}
     const comp = labComponentsCache.find(c => c.id === id);
     const panel = document.getElementById('labComponentPanel');
     if (!comp) { panel.style.display = 'none'; return; }
-    labCompDraftIngredients = (Array.isArray(comp.ingredients) ? comp.ingredients : []).map(i => ({ label: i.label, amount: i.amount }));
+    labCompDraftIngredients = (Array.isArray(comp.ingredients) ? comp.ingredients : []).map(i => ({ label: i.label, amount: i.amount, ingredient_id: i.ingredient_id || null }));
 
     panel.innerHTML = `
       <div class="lab-detail-panel">
@@ -4947,6 +4947,8 @@ img{max-width:100%}
 
         <div class="field-label">ผลคำนวณ</div>
         <div id="labCompResult"></div>
+        <button type="button" class="btn-bean-confirm" data-comp-make style="width:100%;margin-top:10px;padding:12px;font-size:13px;">✅ ทำล็อตนี้แล้ว — ตัดสต็อกตามผลคำนวณ</button>
+        <div class="status-msg" id="labCompMakeStatus"></div>
 
         <div class="field-label">แก้ไขสูตรฐาน (วัตถุดิบ + ปริมาณที่สัดส่วนนี้)</div>
         <div id="labCompIngredientsEdit"></div>
@@ -4960,9 +4962,119 @@ img{max-width:100%}
     panel.style.display = 'block';
     renderLabCompIngredientsEdit();
     renderLabCompCalc(comp, comp.base_total);
+    labCompHydrate();
 
     document.getElementById('labCompTarget').addEventListener('input', (e) => {
       renderLabCompCalc(comp, parseFloat(e.target.value) || 0);
+    });
+  }
+
+  // ===== วัตถุดิบของ Batch Calculator ดึงจากสต็อกร้าน (ingredients) — เพื่อตัดสต็อกและคิดต้นทุน =====
+  let labIngPool = null;
+  let labIngPoolById = {};
+  let labIngPickIdx = null;
+  async function loadLabIngPool(force) {
+    if (labIngPool && !force) return labIngPool;
+    const { data, error } = await sb.from('ingredients')
+      .select('id, name, category, base_unit, stock_quantity, cost_per_base_unit, track_stock')
+      .eq('active', true).eq('is_packaging', false)
+      .order('category', { ascending: true }).order('name', { ascending: true });
+    if (!error && data) { labIngPool = data; labIngPoolById = Object.fromEntries(data.map(i => [i.id, i])); }
+    return labIngPool || [];
+  }
+  function labNormName(s) { return String(s || '').trim().toLowerCase(); }
+
+  // วัตถุดิบเก่าที่เคยพิมพ์ชื่อเอง: ถ้าชื่อตรงกับของในสต็อกเป๊ะ ผูกให้อัตโนมัติ (ยังไม่บันทึกจนกว่าจะกด บันทึกสูตรฐาน)
+  async function labCompHydrate() {
+    await loadLabIngPool();
+    labCompDraftIngredients.forEach(i => {
+      if (i.ingredient_id || !i.label) return;
+      const n = labNormName(i.label);
+      const hits = (labIngPool || []).filter(x => labNormName(x.name) === n).sort((a, b) => Number(b.stock_quantity || 0) - Number(a.stock_quantity || 0));
+      if (hits.length) { i.ingredient_id = hits[0].id; i.label = hits[0].name; }
+    });
+    renderLabCompIngredientsEdit();
+    const comp = labComponentsCache.find(c => c.id === labActiveComponentId);
+    const targetEl = document.getElementById('labCompTarget');
+    if (comp && targetEl) renderLabCompCalc(comp, parseFloat(targetEl.value) || 0);
+  }
+
+  // หน้าต่างเลือกวัตถุดิบ (bottom sheet) พร้อมช่องค้นหา
+  function ensureLabIngPicker() {
+    let m = document.getElementById('labIngPicker');
+    if (m) return m;
+    m = document.createElement('div');
+    m.id = 'labIngPicker';
+    m.style.cssText = 'display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.45);';
+    m.innerHTML = `
+      <div style="position:absolute;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;max-height:80vh;display:flex;flex-direction:column;background:var(--surface,#fff);color:var(--text,#4A3428);border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:15px;font-weight:700;">เลือกวัตถุดิบจากสต็อกร้าน</div>
+          <button type="button" id="labIngPickerClose" style="background:none;border:none;font-size:18px;color:inherit;">✕</button>
+        </div>
+        <input type="text" id="labIngPickerSearch" placeholder="🔍 ค้นหาชื่อวัตถุดิบ" style="margin-bottom:8px;">
+        <div id="labIngPickerList" style="overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;"></div>
+      </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click', (e) => { if (e.target === m) closeLabIngPicker(); });
+    m.querySelector('#labIngPickerClose').addEventListener('click', closeLabIngPicker);
+    m.querySelector('#labIngPickerSearch').addEventListener('input', (e) => renderLabIngPickerList(e.target.value));
+    m.querySelector('#labIngPickerList').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pick-ing]');
+      if (!btn) return;
+      const ing = labIngPoolById[btn.dataset.pickIng];
+      if (ing && labCompDraftIngredients[labIngPickIdx]) {
+        labCompDraftIngredients[labIngPickIdx].ingredient_id = ing.id;
+        labCompDraftIngredients[labIngPickIdx].label = ing.name;
+        renderLabCompIngredientsEdit();
+        const comp = labComponentsCache.find(c => c.id === labActiveComponentId);
+        const targetEl = document.getElementById('labCompTarget');
+        if (comp && targetEl) renderLabCompCalc(comp, parseFloat(targetEl.value) || 0);
+      }
+      closeLabIngPicker();
+    });
+    return m;
+  }
+  function renderLabIngPickerList(query) {
+    const list = document.getElementById('labIngPickerList');
+    if (!list) return;
+    const q = labNormName(query);
+    const rows = (labIngPool || []).filter(i => !q || labNormName(i.name).includes(q));
+    let html = '', lastCat = null;
+    rows.forEach(i => {
+      if (i.category !== lastCat) {
+        html += `<div style="font-size:10.5px;font-weight:700;color:#A8876F;margin:10px 0 4px;">${escapeHtml(i.category || 'อื่นๆ')}</div>`;
+        lastCat = i.category;
+      }
+      html += `<button type="button" data-pick-ing="${i.id}" style="display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;padding:10px 6px;border:none;border-bottom:1px solid var(--line,#F5EEE5);background:transparent;color:inherit;font-family:inherit;font-size:13.5px;"><span>${escapeHtml(i.name)}</span><span style="font-size:11px;color:#A8876F;white-space:nowrap;">${Number(i.stock_quantity || 0).toFixed(0)} ${escapeHtml(i.base_unit || '')}</span></button>`;
+    });
+    list.innerHTML = html || '<div class="empty-state">ไม่พบวัตถุดิบ</div>';
+  }
+  async function openLabIngPicker(idx) {
+    labIngPickIdx = idx;
+    const m = ensureLabIngPicker();
+    await loadLabIngPool();
+    const search = m.querySelector('#labIngPickerSearch');
+    search.value = '';
+    renderLabIngPickerList('');
+    m.style.display = 'block';
+    setTimeout(() => search.focus(), 50);
+  }
+  function closeLabIngPicker() {
+    const m = document.getElementById('labIngPicker');
+    if (m) m.style.display = 'none';
+  }
+
+  // คำนวณปริมาณ + ต้นทุนต่อบรรทัด (คิดต้นทุนเฉพาะวัตถุดิบที่ผูกสต็อกและหน่วยเป็น g/ml)
+  function labCompLineCosts(comp, target) {
+    const baseTotal = labCompDraftIngredients.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+    const ratio = baseTotal > 0 ? target / baseTotal : 0;
+    return labCompDraftIngredients.map(ing => {
+      const qty = (parseFloat(ing.amount) || 0) * ratio;
+      const st = ing.ingredient_id ? labIngPoolById[ing.ingredient_id] : null;
+      const unitOk = !!(st && (st.base_unit === 'g' || st.base_unit === 'ml'));
+      const cost = unitOk ? qty * Number(st.cost_per_base_unit || 0) : null;
+      return { ing, qty, st, unitOk, cost };
     });
   }
 
@@ -4970,23 +5082,43 @@ img{max-width:100%}
     const resultEl = document.getElementById('labCompResult');
     if (!resultEl) return;
     if (!labCompDraftIngredients.length) { resultEl.innerHTML = '<div class="empty-state">ยังไม่มีสูตรฐาน กรอกด้านล่างก่อน</div>'; return; }
-    const baseTotal = labCompDraftIngredients.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
-    const ratio = baseTotal > 0 ? target / baseTotal : 0;
-    resultEl.innerHTML = labCompDraftIngredients.map(ing => `
-      <div class="bill-item"><span>${escapeHtml(ing.label || '(ยังไม่ตั้งชื่อ)')}</span><span style="font-weight:700;color:var(--accent-text);">${(((parseFloat(ing.amount) || 0) * ratio)).toFixed(1)} ${escapeHtml(comp.unit || 'g')}</span></div>
-    `).join('');
+    const unit = comp.unit || 'g';
+    const lines = labCompLineCosts(comp, target);
+    const rows = lines.map(l => {
+      const name = escapeHtml(l.ing.label || '(ยังไม่เลือกวัตถุดิบ)');
+      let costTxt;
+      if (!l.ing.ingredient_id) costTxt = '<span style="color:#D64545;">ยังไม่ผูกสต็อก</span>';
+      else if (!l.st) costTxt = 'กำลังโหลดสต็อก…';
+      else if (!l.unitOk) costTxt = `<span style="color:#D64545;">หน่วยสต็อกเป็น ${escapeHtml(l.st.base_unit || '')} — ไม่คิดต้นทุน</span>`;
+      else costTxt = `฿${l.cost.toFixed(2)}`;
+      const short = l.st && l.unitOk && l.st.track_stock !== false && l.qty > Number(l.st.stock_quantity || 0);
+      const warn = short ? `<div style="font-size:10.5px;color:#D64545;">⚠️ สต็อกไม่พอ (มี ${Number(l.st.stock_quantity || 0).toFixed(1)} ${escapeHtml(l.st.base_unit)})</div>` : '';
+      return `<div class="bill-item" style="align-items:flex-start;"><span>${name}${warn}</span><span style="text-align:right;"><span style="font-weight:700;color:#E8863A;">${l.qty.toFixed(1)} ${escapeHtml(unit)}</span><br><span style="font-size:11px;color:#A8876F;">${costTxt}</span></span></div>`;
+    }).join('');
+    const costed = lines.filter(l => l.cost != null);
+    const total = costed.reduce((s, l) => s + l.cost, 0);
+    const missing = lines.length - costed.length;
+    const per100 = target > 0 ? total / target * 100 : null;
+    const summary = costed.length ? `<div style="margin-top:10px;background:#EAF6EC;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#2E6B3C;font-weight:700;">💰 ต้นทุนรวม ฿${total.toFixed(2)}${per100 != null ? ` · ต่อ 100 ${escapeHtml(unit)} ฿${per100.toFixed(2)}` : ''}${missing ? `<div style="font-weight:500;color:#8a6a4a;font-size:11px;margin-top:2px;">ยังไม่รวม ${missing} รายการที่ไม่ได้ผูกสต็อก/คิดต้นทุนไม่ได้</div>` : ''}</div>` : '';
+    resultEl.innerHTML = rows + summary;
   }
 
   function renderLabCompIngredientsEdit() {
     const el = document.getElementById('labCompIngredientsEdit');
     if (!el) return;
-    el.innerHTML = labCompDraftIngredients.map((ing, i) => `
+    el.innerHTML = labCompDraftIngredients.map((ing, i) => {
+      const st = ing.ingredient_id ? labIngPoolById[ing.ingredient_id] : null;
+      const title = ing.label ? escapeHtml(ing.label) : 'แตะเพื่อเลือกวัตถุดิบ';
+      const sub = !ing.label ? 'จากสต็อกร้าน'
+        : (st ? `สต็อก ${Number(st.stock_quantity || 0).toFixed(0)} ${escapeHtml(st.base_unit || '')} · ฿${Number(st.cost_per_base_unit || 0).toFixed(3)}/${escapeHtml(st.base_unit || '')}`
+              : '⚠️ ยังไม่ผูกสต็อก — แตะเพื่อเลือก');
+      return `
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-        <input type="text" class="lab-comp-ing-label" data-idx="${i}" value="${escapeHtml(ing.label || '')}" placeholder="ชื่อวัตถุดิบ" style="flex:2;padding:8px 10px;border-radius:8px;border:2px solid var(--line);font-size:12.5px;font-family:inherit;">
-        <input type="number" class="lab-comp-ing-amount" data-idx="${i}" value="${ing.amount != null ? ing.amount : ''}" placeholder="ปริมาณ" step="0.1" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid var(--line);font-size:12.5px;font-family:inherit;">
+        <button type="button" class="lab-comp-ing-pick" data-idx="${i}" style="flex:2;text-align:left;padding:7px 10px;border-radius:8px;border:2px solid ${st ? '#F0E4D8' : '#E8B4B4'};background:transparent;color:inherit;font-family:inherit;line-height:1.3;min-width:0;"><div style="font-size:12.5px;font-weight:600;">${title}</div><div style="font-size:10.5px;color:#A8876F;">${sub}</div></button>
+        <input type="number" class="lab-comp-ing-amount" data-idx="${i}" value="${ing.amount != null ? ing.amount : ''}" placeholder="ปริมาณ" step="0.1" style="flex:1;padding:8px 10px;border-radius:8px;border:2px solid #F0E4D8;font-size:12.5px;font-family:inherit;">
         <button type="button" class="btn-delete" style="padding:4px 8px;" data-comp-remove-ing data-idx="${i}">✕</button>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   }
 
   document.getElementById('labComponentPanel').addEventListener('input', (e) => {
@@ -5004,6 +5136,38 @@ img{max-width:100%}
   });
 
   document.getElementById('labComponentPanel').addEventListener('click', async (e) => {
+    const makeBtn = e.target.closest('[data-comp-make]');
+    if (makeBtn) {
+      const comp = labComponentsCache.find(c => c.id === labActiveComponentId);
+      const target = parseFloat((document.getElementById('labCompTarget') || {}).value) || 0;
+      const statusEl = document.getElementById('labCompMakeStatus');
+      if (!comp || target <= 0) { statusEl.textContent = 'ใส่เป้าหมายรวมก่อน'; statusEl.className = 'status-msg error'; return; }
+      await loadLabIngPool();
+      const lines = labCompLineCosts(comp, target);
+      const doable = lines.filter(l => l.st && l.unitOk && l.st.track_stock !== false && l.qty > 0);
+      const skipped = lines.length - doable.length;
+      if (!doable.length) { statusEl.textContent = 'ยังไม่มีวัตถุดิบที่ผูกสต็อก — แตะชื่อวัตถุดิบเพื่อเลือกจากสต็อกก่อน'; statusEl.className = 'status-msg error'; return; }
+      const msg = `ตัดสต็อกสำหรับล็อต ${target} ${comp.unit || 'g'} ของ "${comp.name}":\n` +
+        doable.map(l => `• ${l.st.name} −${l.qty.toFixed(1)} ${l.st.base_unit}`).join('\n') +
+        (skipped ? `\n(ไม่ตัด ${skipped} รายการที่ยังไม่ผูกสต็อก / ไม่ต้องตัดสต็อก)` : '') + '\n\nยืนยัน?';
+      if (!confirm(msg)) return;
+      makeBtn.disabled = true; makeBtn.textContent = 'กำลังตัดสต็อก...';
+      const warns = [];
+      await Promise.all(doable.map(async (l) => {
+        const { data: ns, error } = await sb.rpc('adjust_stock', { p_ingredient_id: l.st.id, p_delta: -l.qty });
+        if (error) warns.push(`${l.st.name}: ${error.message}`);
+        else if (Number(ns) < 0) warns.push(`${l.st.name} ติดลบ (${Number(ns).toFixed(1)} ${l.st.base_unit})`);
+      }));
+      makeBtn.disabled = false; makeBtn.textContent = '✅ ทำล็อตนี้แล้ว — ตัดสต็อกตามผลคำนวณ';
+      await loadLabIngPool(true);
+      renderLabCompIngredientsEdit();
+      renderLabCompCalc(comp, target);
+      statusEl.textContent = warns.length ? 'ตัดสต็อกแล้ว แต่มีเตือน: ' + warns.join(' · ') : `ตัดสต็อกแล้ว ✓ ${doable.length} รายการ`;
+      statusEl.className = warns.length ? 'status-msg error' : 'status-msg success';
+      return;
+    }
+    const pickBtn = e.target.closest('.lab-comp-ing-pick');
+    if (pickBtn) { openLabIngPicker(parseInt(pickBtn.dataset.idx, 10)); return; }
     const closeBtn = e.target.closest('[data-comp-close]');
     if (closeBtn) {
       labActiveComponentId = null;
@@ -5013,10 +5177,9 @@ img{max-width:100%}
     }
     const addIngBtn = e.target.closest('[data-comp-add-ing]');
     if (addIngBtn) {
-      labCompDraftIngredients.push({ label: '', amount: 0 });
+      labCompDraftIngredients.push({ label: '', amount: 0, ingredient_id: null });
       renderLabCompIngredientsEdit();
-      const inputs = document.querySelectorAll('.lab-comp-ing-label');
-      if (inputs.length) inputs[inputs.length - 1].focus();
+      openLabIngPicker(labCompDraftIngredients.length - 1);
       return;
     }
     const removeIngBtn = e.target.closest('[data-comp-remove-ing]');
@@ -5032,7 +5195,7 @@ img{max-width:100%}
     const saveBtn = e.target.closest('[data-comp-save]');
     if (saveBtn) {
       const statusEl = document.getElementById('labCompSaveStatus');
-      const cleanIngredients = labCompDraftIngredients.filter(i => i.label && i.label.trim()).map(i => ({ label: i.label.trim(), amount: parseFloat(i.amount) || 0 }));
+      const cleanIngredients = labCompDraftIngredients.filter(i => i.label && i.label.trim()).map(i => ({ label: i.label.trim(), amount: parseFloat(i.amount) || 0, ingredient_id: i.ingredient_id || null }));
       const newBaseTotal = cleanIngredients.reduce((s, i) => s + i.amount, 0);
       saveBtn.disabled = true; saveBtn.textContent = 'กำลังบันทึก...';
       const { error } = await sb.from('lab_components').update({
