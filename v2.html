@@ -1039,8 +1039,40 @@ img{max-width:100%}
     'Condensed milk': { 'หวานปกติ': 20, 'หวานน้อย': 10, 'ไม่หวาน': 0 },
   };
 
+  // ตัดสต็อกวัตถุดิบดิบของท็อปปิ้งแบบมีสูตร (preorder_toppings.menu_item_id) = ปริมาณในสูตร × จำนวนพอร์ชัน
+  // จองสิทธิ์ด้วย stock_deducted ก่อน กันกดชงซ้ำแล้วตัดสองรอบ · ใช้ adjust_stock (ตัดแบบ atomic ในฐานข้อมูล)
+  async function deductToppingRecipes(order) {
+    const warnings = [];
+    if (!order || !order.id) return warnings;
+    const { data: tops } = await sb.from('preorder_toppings')
+      .select('id, menu_item_id, quantity')
+      .eq('preorder_id', order.id).eq('stock_deducted', false).not('menu_item_id', 'is', null);
+    for (const t of (tops || [])) {
+      try {
+        const { data: claimed } = await sb.from('preorder_toppings').update({ stock_deducted: true }).eq('id', t.id).eq('stock_deducted', false).select('id');
+        if (!claimed || !claimed.length) continue;
+        const { data: rows } = await sb.from('menu_recipes')
+          .select('quantity, ingredients(id, name, category, base_unit, track_stock)')
+          .eq('menu_item_id', t.menu_item_id);
+        await Promise.all((rows || []).map(async (r) => {
+          const ing = r.ingredients;
+          if (!ing || ing.category === 'coffee_bean' || ing.track_stock === false) return;
+          const delta = Number(r.quantity) * Number(t.quantity);
+          if (!delta) return;
+          const { data: newStock, error } = await sb.rpc('adjust_stock', { p_ingredient_id: ing.id, p_delta: -delta });
+          if (error) { warnings.push(`ตัดสต็อก ${ing.name} (ท็อปปิ้ง) ไม่สำเร็จ: ${error.message} — เช็คสต็อกมือด้วย`); return; }
+          if (Number(newStock) < 0) warnings.push(`${ing.name} เหลือ ${newStock}${ing.base_unit} (ติดลบ — เช็คสต็อกจริง)`);
+        }));
+      } catch (err) {
+        warnings.push(`ตัดสต็อกท็อปปิ้งไม่สำเร็จ: ${err.message || err} — เช็คสต็อกมือด้วย`);
+      }
+    }
+    return warnings;
+  }
+
   async function deductRecipeIngredients(order) {
     const warnings = [];
+    try { warnings.push(...await deductToppingRecipes(order)); } catch (err) { warnings.push(`ตัดสต็อกท็อปปิ้งไม่สำเร็จ: ${err.message || err} — เช็คสต็อกมือด้วย`); }
     const { data: menuItem } = await sb.from('menu_items').select('id').eq('name', order.menu_item_name).maybeSingle();
     if (!menuItem) return warnings;
 
@@ -2949,6 +2981,23 @@ img{max-width:100%}
     checkPendingOmakaseSet(selectedMemberLineId);
   });
 
+  // ตัวเลือกวัตถุดิบสำหรับ "สูตรท็อปปิ้ง" — รวมวัตถุดิบดิบ (prep_component เช่น ผงวุ้น ผงครีมชีส) ที่ตัวเลือกสูตรเมนูปกติซ่อนไว้
+  let toppingRecipePoolCache = null;
+  async function loadToppingRecipePool() {
+    if (toppingRecipePoolCache) return toppingRecipePoolCache;
+    const { data, error } = await sb
+      .from('ingredients')
+      .select('id, name, category, base_unit, stock_quantity, cost_per_base_unit, ingredient_role')
+      .eq('active', true)
+      .eq('is_packaging', false)
+      .in('ingredient_role', ['cup_ready', 'prep_component'])
+      .neq('category', 'coffee_bean')
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+    if (!error && data) toppingRecipePoolCache = data;
+    return toppingRecipePoolCache || allIngredientsCache;
+  }
+
   async function loadAllIngredients() {
     if (allIngredientsCache.length) return allIngredientsCache;
     const { data, error } = await sb
@@ -3260,15 +3309,28 @@ img{max-width:100%}
     document.getElementById('toppingQtyBlock').innerHTML = '';
     document.getElementById('toppingCostPreview').style.display = 'none';
 
-    if (toppingIngredientsCache.length === 0) {
-      const { data } = await sb
-        .from('ingredients')
-        .select('id, name, base_unit, cost_per_base_unit')
-        .eq('category', 'topping')
-        .eq('active', true)
-        .order('name', { ascending: true });
-      toppingIngredientsCache = data || [];
-    }
+    // ท็อปปิ้งแบบเดิม: วัตถุดิบหมวด topping (ผูก ingredient_id ตรงๆ)
+    const { data: ingData } = await sb
+      .from('ingredients')
+      .select('id, name, base_unit, cost_per_base_unit')
+      .eq('category', 'topping')
+      .eq('active', true)
+      .order('name', { ascending: true });
+
+    // ท็อปปิ้งแบบมีสูตร: เมนูหมวด topping ที่สร้างในหน้า สูตร/ต้นทุน (ไม่โชว์ลูกค้า)
+    // ต้นทุนต่อพอร์ชัน = ผลรวม (ปริมาณในสูตร × ต้นทุนวัตถุดิบ) คิดสดทุกครั้ง ราคาวัตถุดิบเปลี่ยนก็ตามเอง
+    let menuToppings = [];
+    try {
+      const { data: tItems } = await sb.from('menu_items').select('id, name').eq('category', 'topping').eq('status', 'live').order('name', { ascending: true });
+      if (tItems && tItems.length) {
+        const { data: tRecipes } = await sb.from('menu_recipes').select('menu_item_id, quantity, ingredients(cost_per_base_unit)').in('menu_item_id', tItems.map(t => t.id));
+        const costBy = {};
+        (tRecipes || []).forEach(r => { costBy[r.menu_item_id] = (costBy[r.menu_item_id] || 0) + Number(r.quantity) * Number(r.ingredients?.cost_per_base_unit || 0); });
+        menuToppings = tItems.map(t => ({ id: 'mi:' + t.id, menu_item_id: t.id, name: t.name, base_unit: 'พอร์ชัน', cost_per_base_unit: costBy[t.id] || 0 }));
+      }
+    } catch (e) { /* โหลดแบบมีสูตรไม่ได้ ก็ยังใช้แบบเดิมได้ */ }
+
+    toppingIngredientsCache = [...menuToppings, ...(ingData || [])];
     renderToppingChips();
   }
 
@@ -4954,6 +5016,7 @@ img{max-width:100%}
     const listEl = document.getElementById('recipeMenuList');
     listEl.innerHTML = '<div class="loading">กำลังโหลด...</div>';
     await loadAllIngredients();
+    await loadToppingRecipePool();
 
     const [{ data, error }, { data: allRecipeRows }, { data: catMapRows }] = await Promise.all([
       sb.from('menu_items')
@@ -5165,6 +5228,7 @@ img{max-width:100%}
       <select id="genCategory" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid var(--line);font-size:15px;font-family:inherit;margin-bottom:8px;background:var(--surface);color:var(--text);">
         ${categoryOptionsHtml('', true)}
       </select>
+      <div class="field-hint" id="genToppingHint" style="display:none;background:#FFF3E8;border-radius:10px;padding:10px 12px;margin-bottom:8px;">🍓 ท็อปปิ้ง: ใส่สูตรเป็นวัตถุดิบต่อ 1 พอร์ชัน · ราคาเว้นว่างได้ · ไม่โชว์ในเมนูลูกค้า · โผล่ในหน้า "เพิ่มออเดอร์" ให้บาริสต้าเลือก · ตัดสต็อกวัตถุดิบตามสูตรตอนกดชง</div>
       <div class="field-label" style="margin-top:0;">สถานะเริ่มต้น</div>
       <select id="genStatus" style="width:100%;padding:12px 14px;border-radius:10px;border:2px solid var(--line);font-size:15px;font-family:inherit;margin-bottom:8px;background:var(--surface);color:var(--text);">
         <option value="draft" selected>📝 Draft (ยังไม่คิดราคา/สูตรเสร็จ)</option>
@@ -5173,7 +5237,7 @@ img{max-width:100%}
         <option value="resting">🔁 Resting (Signature — เคยขาย ลูกค้ายังเห็นแต่สั่งไม่ได้ "รอรอบต่อไป")</option>
         <option value="on_hold">⏸️ On Hold (พักการขาย ซ่อนจากลูกค้าเลย)</option>
       </select>
-      <div class="field-label" style="margin-top:0;">ต้องเลือกเมล็ดกาแฟไหม?</div>
+      <div class="field-label" id="genNeedsBeanLabel" style="margin-top:0;">ต้องเลือกเมล็ดกาแฟไหม?</div>
       <div class="sweetness-row" id="genNeedsBeanRow">
         <button type="button" class="sweetness-btn" data-needs-bean="yes">ใช่ ต้องเลือกเมล็ด</button>
         <button type="button" class="sweetness-btn" data-needs-bean="no">ไม่ต้อง</button>
@@ -5194,13 +5258,16 @@ img{max-width:100%}
 
     const sels = {};
     let needsBeanChoice = null;
+    let prepPool = null; // วัตถุดิบรวมของดิบ ใช้เฉพาะตอนเลือกหมวดท็อปปิ้ง
+    let toppingAutoStatus = false;
+    const isTopping = () => document.getElementById('genCategory').value === 'topping';
 
     function renderChips() {
       const row = document.getElementById('genRecipeChips');
       const noRecipe = document.getElementById('genNoRecipe').checked;
       row.innerHTML = '';
       if (noRecipe) return;
-      allIngredientsCache.forEach(ing => {
+      (isTopping() && prepPool ? prepPool : allIngredientsCache).forEach(ing => {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'chip' + (sels[ing.id] ? ' selected' : '');
@@ -5249,6 +5316,14 @@ img{max-width:100%}
         return;
       }
       const ingredientCost = list.reduce((sum, s) => sum + (s.qty * (s.ingredient.cost_per_base_unit || 0)), 0);
+      if (isTopping()) {
+        summaryEl.innerHTML = `
+          <div style="grid-column:1 / -1;background:rgba(255,255,255,0.6);border:1px solid #F0E4D8;border-radius:10px;padding:8px 6px;text-align:center;">
+            <div style="font-size:9px;color:#A8876F;letter-spacing:0.5px;margin-bottom:3px;">ต้นทุนต่อ 1 พอร์ชัน</div>
+            <div style="font-size:14px;font-weight:700;color:#4A3428;">฿${ingredientCost.toFixed(2)}</div>
+          </div>`;
+        return;
+      }
       const needsBean = needsBeanChoice === 'yes';
       const totalCost = ingredientCost + (needsBean ? FLAT_COFFEE_COST : 0);
       const price = Number(document.getElementById('genPrice').value) || 0;
@@ -5277,14 +5352,43 @@ img{max-width:100%}
       const category = document.getElementById('genCategory').value;
       const noRecipe = document.getElementById('genNoRecipe').checked;
       const list = Object.values(sels);
-      const recipeOk = noRecipe || (list.length > 0 && list.every(s => s.qty && s.qty > 0));
-      btn.disabled = !(name && priceStr !== '' && category && needsBeanChoice !== null && recipeOk);
+      const topping = isTopping();
+      const recipeOk = (topping ? false : noRecipe) || (list.length > 0 && list.every(s => s.qty && s.qty > 0));
+      btn.disabled = !(name && (priceStr !== '' || topping) && category && (needsBeanChoice !== null || topping) && recipeOk);
       updateCostPreview();
     }
 
     document.getElementById('genName').addEventListener('input', updateState);
     document.getElementById('genPrice').addEventListener('input', updateState);
-    document.getElementById('genCategory').addEventListener('change', updateState);
+    // หมวด "ท็อปปิ้ง": ซ่อนช่องเลือกเมล็ด · ราคาเว้นว่างได้ · ใช้ตัวเลือกวัตถุดิบที่รวมของดิบ · ตั้งสถานะ Live ให้อัตโนมัติ (แก้เองได้)
+    let toppingModeOn = false;
+    function applyToppingMode() {
+      const on = isTopping();
+      const hintEl = document.getElementById('genToppingHint');
+      if (hintEl) hintEl.style.display = on ? 'block' : 'none';
+      const beanLabel = document.getElementById('genNeedsBeanLabel');
+      const beanRow = document.getElementById('genNeedsBeanRow');
+      if (beanLabel) beanLabel.style.display = on ? 'none' : '';
+      if (beanRow) beanRow.style.display = on ? 'none' : '';
+      document.getElementById('genPrice').placeholder = on ? 'ราคา (บาท) — ท็อปปิ้งเว้นว่างได้' : 'ราคา (บาท)';
+      if (on !== toppingModeOn) {
+        toppingModeOn = on;
+        Object.keys(sels).forEach(k => delete sels[k]); // ชุดวัตถุดิบเปลี่ยน ล้างที่เลือกไว้กันปนกัน
+        const statusSel = document.getElementById('genStatus');
+        if (on) {
+          needsBeanChoice = 'no';
+          document.getElementById('genNoRecipe').checked = false;
+          if (statusSel.value === 'draft') { statusSel.value = 'live'; toppingAutoStatus = true; }
+          loadToppingRecipePool().then(p => { prepPool = p; renderChips(); renderQtyBlock(); updateState(); });
+        } else {
+          needsBeanChoice = null;
+          document.querySelectorAll('#genNeedsBeanRow [data-needs-bean]').forEach(b => b.classList.remove('selected'));
+          if (toppingAutoStatus) { statusSel.value = 'draft'; toppingAutoStatus = false; }
+        }
+        renderChips(); renderQtyBlock();
+      }
+    }
+    document.getElementById('genCategory').addEventListener('change', () => { applyToppingMode(); updateState(); });
     document.getElementById('genNoRecipe').addEventListener('change', () => { renderChips(); renderQtyBlock(); updateState(); });
     document.querySelectorAll('#genNeedsBeanRow [data-needs-bean]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -5340,7 +5444,7 @@ img{max-width:100%}
       }
 
       statusEl.className = 'status-msg success';
-      statusEl.textContent = `✅ เพิ่มเมนู "${name}" แล้ว`;
+      statusEl.textContent = `✅ เพิ่มเมนู "${name}" แล้ว` + (category === 'topping' ? (status === 'live' ? ' · ท็อปปิ้งนี้โผล่ในหน้า "เพิ่มออเดอร์" ของบาริสต้าแล้ว (ไม่โชว์ลูกค้า)' : ' · ตั้งสถานะเป็น Live เมื่อพร้อม ท็อปปิ้งจะโผล่ในหน้า "เพิ่มออเดอร์"') : '');
       loadMenuRecipeList();
     });
   }
@@ -5749,7 +5853,7 @@ img{max-width:100%}
     function renderAddChips() {
       const row = card.querySelector('.sm-add-chips');
       row.innerHTML = '';
-      allIngredientsCache
+      (item.category === 'topping' && toppingRecipePoolCache ? toppingRecipePoolCache : allIngredientsCache)
         .filter(ing => !recipe.some(r => r.ingredients.id === ing.id))
         .forEach(ing => {
           const chip = document.createElement('button');
@@ -6801,7 +6905,8 @@ img{max-width:100%}
     if (selectedToppingList.length && inserted && inserted[0]) {
       const toppingRows = selectedToppingList.map(s => ({
         preorder_id: inserted[0].id,
-        ingredient_id: s.ingredient.id,
+        ingredient_id: s.ingredient.menu_item_id ? null : s.ingredient.id,
+        menu_item_id: s.ingredient.menu_item_id || null,
         quantity: s.qty,
         cost: Math.round(s.qty * (s.ingredient.cost_per_base_unit || 0) * 100) / 100,
       }));
