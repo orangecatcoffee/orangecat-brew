@@ -1,0 +1,23 @@
+/* MAEWSOM OS — shared design tokens for every in-store tool (Barista, Owner, Admin, Buyer).
+   One file, one place to change colours. Dark = default, Day = [data-theme="day"] (set by ocos.js). */
+:root{color-scheme:dark;
+  --bg:#0B1628;--surface:#12233D;--raised:#1A2F4F;--line:#2A4266;--text:#EAF0F8;--muted:#8FA3BF;
+  --accent:#F28C38;--accent-text:#F28C38;--accent-soft:#3B2A1B;--on-accent:#1A0F05;--bar:#0F2036;--bar-ink:#FFFFFF;
+  --ok:#4CC38A;--ok-soft:#10301F;--bad:#F27D6B;--bad-soft:#3A1B1B;--warn:#F2C14E;--info:#6FA8FF;--info-soft:#132B4F;
+  --font:"IBM Plex Sans Thai","Noto Sans Thai",-apple-system,"Segoe UI",system-ui,sans-serif;
+  /* names used by the older Owner / Admin / Buyer stylesheets */
+  --card:var(--surface);--orange:var(--accent);--ol:var(--muted);--cream:var(--text);--border:var(--line);--green:var(--ok);--red:var(--bad)}
+:root[data-theme="day"]{color-scheme:light;
+  --bg:#EDF1F7;--surface:#FFFFFF;--raised:#E4EAF3;--line:#D3DBE8;--text:#0F1E36;--muted:#586A86;
+  --accent:#E36F14;--accent-text:#C25A08;--accent-soft:#FDE8D6;--on-accent:#FFFFFF;--bar:#0F1E36;--bar-ink:#FFFFFF;
+  --ok:#1D8A5B;--ok-soft:#E3F4EB;--bad:#C1432C;--bad-soft:#FBE7E3;--warn:#A8700E;--info:#2358C4;--info-soft:#E4ECFB}
+body{font-family:var(--font) !important;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font-family:inherit}
+input,select,textarea{color:var(--text);background-color:var(--surface)}
+::placeholder{color:var(--muted);opacity:.8}
+/* the one theme switch, same place in every tool: top-right corner */
+#ocosTheme{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:100000;width:38px;height:38px;padding:0;border-radius:50%;
+  border:1px solid var(--line);background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,.28);-webkit-tap-highlight-color:transparent}
+#ocosTheme svg{width:20px;height:20px;display:block}
+#ocosTheme:active{transform:scale(.94)}
