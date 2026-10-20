@@ -1324,7 +1324,8 @@ img{max-width:100%}
   const PKG_LABEL = { tumbler: '♻️ กระติก', bag: '🛍️ ถุง', cup: '🧋 แก้ว', cup_topping: '🧋 แก้ว+ท็อปปิ้ง' };
   const PKG_BY_CHANNEL = { grab: 'cup_topping', standard: 'cup_topping' };
   function pkgMemory() { try { return JSON.parse(localStorage.getItem('ocosPkg') || '{}'); } catch (e) { return {}; } }
-  function defaultPackaging(order) { const m = pkgMemory()[(order.customer_name || '').trim()]; return m || PKG_BY_CHANNEL[order.channel] || 'cup_topping'; }
+  // staff cups (the daily auto cups for อาบุ้ง and ซีเซีย, and manual "Staff กินเอง") start as the tumbler = no packaging cost; lab test cups are left alone
+  function defaultPackaging(order) { if (order.order_type === 'staff' && order.channel !== 'lab') return 'tumbler'; const m = pkgMemory()[(order.customer_name || '').trim()]; return m || PKG_BY_CHANNEL[order.channel] || 'cup_topping'; }
   function rememberPkg(order, cardEl) { try { const m = pkgMemory(); m[(order.customer_name || '').trim()] = cardEl.dataset.selectedPkg; localStorage.setItem('ocosPkg', JSON.stringify(m)); } catch (e) {} }
   function applyPkgSelection(div, collapse) {
     const k = div.dataset.selectedPkg;
