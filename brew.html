@@ -25,6 +25,9 @@ img{max-width:100%}
 .cal-day{color:#2A1F17 !important}
 .btn-done{background:var(--accent) !important;color:var(--on-accent) !important;border:none !important;min-height:48px;font-weight:700}
 .btn-done:disabled{opacity:.5}
+.sw-edit{background:var(--surface);color:var(--warn);font-weight:700;border:1px solid var(--line);border-radius:8px;padding:2px 4px;font:inherit;font-weight:700;min-height:34px;margin-left:2px}
+.sw-prev{font-size:12px;color:var(--muted);font-weight:500;white-space:nowrap}
+
 .pkg-line{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;color:var(--muted);margin:2px 0 8px}
 .pkg-line b{color:var(--text);font-weight:600}
 .pkg-change{background:none;border:none;color:var(--info);text-decoration:underline;text-underline-offset:3px;padding:10px 4px;font-size:13.5px;min-height:44px}
@@ -973,6 +976,7 @@ img{max-width:100%}
   let viewMode = 'customer'; // 'customer' | 'menu'
   let includeStaffInToday = true; // ฟิลเตอร์รวม/ไม่รวมสตาฟในหน้าเตรียมชง ค่าเริ่มต้น = รวมทุกอย่าง
   let lastLoadedOrders = [];
+  let prevSweetMap = {};   // 'line_user_id|menu' -> the sweetness that member had the last time they had this menu
   const DAY_COLORS = ['#FFECA8', '#FFD1E0', '#C9F2D6', '#FFD3A8', '#C6E7FF', '#DCC9FF', '#FFC9C9']; // จ อ พ พฤ ศ ส อา — สีวันแบบไทยโทนพาสเทล
   const DAY_LABELS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
 
@@ -2259,9 +2263,29 @@ img{max-width:100%}
       return;
     }
     lastLoadedOrders = data || [];
+    try {
+      const ids = [...new Set(lastLoadedOrders.map(o => o.line_user_id).filter(Boolean))];
+      prevSweetMap = {};
+      if (ids.length) {
+        const { data: past } = await sb.from('preorders').select('line_user_id, menu_item_name, sweetness, wanted_date')
+          .in('line_user_id', ids).eq('order_type', 'customer').eq('brewed', true).not('sweetness', 'is', null)
+          .order('wanted_date', { ascending: false }).limit(1000);
+        (past || []).forEach(r => { const k = r.line_user_id + '|' + r.menu_item_name; if (!(k in prevSweetMap)) prevSweetMap[k] = r.sweetness; });
+      }
+    } catch (e) { prevSweetMap = {}; }   // the hint is optional — never block the queue
     renderCalendarRow();
     renderTodayList();
   }
+  // the barista can change the sweetness right up to brewing; the brew then uses the new value (syrup / condensed milk amounts follow it)
+  document.getElementById('todayList').addEventListener('change', async (e) => {
+    const sel = e.target.closest('.sw-edit'); if (!sel) return;
+    const order = lastLoadedOrders.find(o => o.id === sel.dataset.id); if (!order) return;
+    const old = order.sweetness; sel.disabled = true;
+    const { error } = await sb.from('preorders').update({ sweetness: sel.value }).eq('id', order.id).eq('brewed', false);
+    sel.disabled = false;
+    if (error) { sel.value = old; alert('แก้ความหวานไม่สำเร็จ: ' + error.message); return; }
+    order.sweetness = sel.value;
+  });
 
   // ===== สรุปช็อตกาแฟที่ต้องชง แยกตามเมล็ด (บรรทัดบนสุดของหน้าวันนี้) =====
   // ติ๊กต่อแก้วด้วยการแตะชิปเมล็ด (แตะ 1 ครั้ง = ดึงช็อตเสร็จ 1 แก้ว) — ติ๊กอยู่แค่บรรทัดนี้ ไม่กระทบรายการแก้วด้านล่าง
@@ -2484,7 +2508,7 @@ img{max-width:100%}
           <button class="btn-delete" data-id="${order.id}" title="ลบ">✕</button>
         </div>
       </div>
-      <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:var(--ok);font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.sweetness ? ` <span style="color:var(--warn);font-weight:700;">🍯 ${order.sweetness}</span>` : ''}${order.no_coffee ? ` <span style="color:var(--bad);font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}${order.milk_name ? ` <span style="color:#7B4F9E;font-weight:700;">🥛 ${order.milk_name}</span>` : ''}${order.matcha_name ? ` <span style="color:var(--ok);font-weight:700;">🍵 ${order.matcha_name}</span>` : ''} <button type="button" class="btn-recipe-quick" data-menu-name="${order.menu_item_name.replace(/"/g,'&quot;')}" style="background:var(--raised);border:none;border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:700;color:var(--muted);font-family:inherit;vertical-align:middle;">📋 สูตร</button></div>
+      <div class="card-menu"><span class="card-item-name" data-id="${order.id}" data-name="${order.menu_item_name.replace(/"/g,'&quot;')}" data-discount="${order.discount_amount || 0}" title="แตะเพื่อแก้เมนู">${order.menu_item_name}</span> <span class="price">${order.price}฿</span>${order.discount_amount > 0 ? ` <span style="color:var(--ok);font-weight:600;">(ลด ${order.discount_amount}฿)</span>` : ''}${order.sweetness ? ` <span style="color:var(--warn);font-weight:700;white-space:nowrap;">🍯 <select class="sw-edit" data-id="${order.id}" aria-label="ระดับความหวาน">${['ไม่หวาน','หวานน้อย','หวานปกติ'].map(s => `<option value="${s}" ${s === order.sweetness ? 'selected' : ''}>${s}</option>`).join('')}</select></span>${(() => { const p = order.line_user_id && prevSweetMap[order.line_user_id + '|' + order.menu_item_name]; return p ? ` <span class="sw-prev">ครั้งก่อนสั่ง: ${p}</span>` : ''; })()}` : ''}${order.no_coffee ? ` <span style="color:var(--bad);font-weight:700;">☕🚫 ไม่ใส่กาแฟ</span>` : (order.bean_name ? ` · ${order.bean_name}` : '')}${order.milk_name ? ` <span style="color:#7B4F9E;font-weight:700;">🥛 ${order.milk_name}</span>` : ''}${order.matcha_name ? ` <span style="color:var(--ok);font-weight:700;">🍵 ${order.matcha_name}</span>` : ''} <button type="button" class="btn-recipe-quick" data-menu-name="${order.menu_item_name.replace(/"/g,'&quot;')}" style="background:var(--raised);border:none;border-radius:8px;padding:3px 8px;font-size:10.5px;font-weight:700;color:var(--muted);font-family:inherit;vertical-align:middle;">📋 สูตร</button></div>
       <div class="card-notes-field" data-id="${order.id}" data-notes="${(order.notes || '').replace(/"/g, '&quot;')}" title="แตะเพื่อ${order.notes ? 'แก้' : 'เพิ่ม'}หมายเหตุ" style="font-size:11.5px;${order.notes ? 'color:#A85A1E;background:var(--accent-soft);' : 'color:#A8876F;background:var(--raised);border:1px dashed var(--line);'}border-radius:8px;padding:6px 10px;margin-bottom:8px;cursor:pointer;">${order.notes ? `📝 ${order.notes}` : '📝 + หมายเหตุ'}</div>
       ${order.mood_note ? `<div style="font-size:11.5px;color:#7B4F9E;background:#F3ECFB;border-radius:8px;padding:6px 10px;margin-bottom:8px;">🎨 Freestyle mood: “${order.mood_note}” — ตีโจทย์แล้วชงได้เลย ไม่มีสูตรตายตัว</div>` : ''}
       ${isCoffeeFlexible ? `<button type="button" class="coffee-toggle-btn${order.no_coffee ? ' no-coffee-active' : ''}" data-id="${order.id}">${order.no_coffee ? '☕🚫 ไม่ใช้กาแฟแก้วนี้ — แตะเพื่อกลับมาใช้กาแฟ' : '☕ ใช้กาแฟแก้วนี้ — แตะถ้าจะไม่ใช้กาแฟ'}</button>` : ''}
