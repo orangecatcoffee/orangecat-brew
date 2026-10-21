@@ -176,6 +176,7 @@ img{max-width:100%}
     <button type="button" class="sweetness-btn" data-order-type="our_treat">Our Treat (ฟรี)</button>
   </div>
   <div class="field-hint" id="orderTypeHint" style="display:none;"></div>
+<label id="rewardFullFreeRow" style="display:none;align-items:center;gap:10px;font-size:14px;margin:8px 0 4px;color:var(--text);"><input type="checkbox" id="rewardFullFree" style="width:22px;height:22px;flex-shrink:0;"><span>🎁 ฟรีทั้งแก้ว <span style="color:var(--muted);">(ไม่เก็บส่วนต่าง)</span></span></label>
   <div class="chip-row" id="staffChips" style="display:none;margin-top:6px;"></div>
 
   <div id="channelBlock" style="display:none;">
@@ -6553,6 +6554,9 @@ img{max-width:100%}
     document.querySelectorAll('#orderTypeRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b === btn));
     const hintEl = document.getElementById('orderTypeHint');
     const staffChipsEl = document.getElementById('staffChips');
+    const rfRow = document.getElementById('rewardFullFreeRow');
+    rfRow.style.display = orderType === 'reward' ? 'flex' : 'none';
+    if (orderType !== 'reward') document.getElementById('rewardFullFree').checked = false;
     if (orderType === 'customer') {
       hintEl.style.display = 'none';
       staffChipsEl.style.display = 'none';
@@ -7060,11 +7064,13 @@ img{max-width:100%}
       // แลกแต้ม (ฟรี): มูลค่าจริงของเมนู (รวม surcharge) ไม่เกิน cap = ฟรีเต็ม เกิน cap = เก็บส่วนต่าง
       const rewardFullPrice = selectedMenu.price + milkSurchargeBrew(milkName) + (noCoffeeChecked ? 0 : beanSurchargeForSelection(blendPayload));
       const rewardCharge = Math.max(0, rewardFullPrice - REWARD_CAP_AMOUNT);
+      const rewardWaive = orderType === 'reward' && document.getElementById('rewardFullFree').checked && rewardCharge > 0; // ฟรีทั้งแก้ว: ร้านเลี้ยงส่วนต่าง
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
-        price: platformCh ? platformPriceVal : (isMaxCup ? 0 : (orderType === 'reward' ? rewardCharge : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)))),
-        discount_amount: platformCh ? (selectedListing ? Number(selectedListing.discount_amount) || 0 : 0) : (isMaxCup ? 0 : discount),
+        price: platformCh ? platformPriceVal : (isMaxCup ? 0 : (orderType === 'reward' ? (rewardWaive ? 0 : rewardCharge) : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)))),
+        discount_amount: platformCh ? (selectedListing ? Number(selectedListing.discount_amount) || 0 : 0) : (isMaxCup ? 0 : (rewardWaive ? rewardCharge : discount)),
+        discount_reason: rewardWaive ? 'แถมครบ 10 แก้ว — ไม่เก็บส่วนต่าง' : null,
         drinker_name: (!platformCh && orderType === 'customer' && document.getElementById('drinkerName').value.trim()) || null,
         is_group_order: !platformCh && orderType === 'customer' && document.getElementById('groupOrderFlag').checked,
         wanted_date: selectedDate,
@@ -7075,7 +7081,7 @@ img{max-width:100%}
         matcha_name: isMaxCup ? null : matchaName,
         line_user_id: platformCh ? null : selectedMemberLineId,
         order_type: orderType,
-        paid: platformCh ? false : (isMaxCup ? false : (orderType === 'reward' ? rewardCharge <= 0 : isFree)),
+        paid: platformCh ? false : (isMaxCup ? false : (orderType === 'reward' ? (rewardWaive || rewardCharge <= 0) : isFree)),
         sweetness: selectedSweetness,
         channel: platformCh ? platformCh.channel_key : (isMaxCup ? 'liff-omakase-fullweek' : ((orderType === 'customer' && orderMode === 'normal' && ownChannel) ? ownChannel : 'walk-in')),
         platform_gp_pct: platformCh ? platformCh.gp_pct : null,
@@ -7190,6 +7196,7 @@ img{max-width:100%}
     document.querySelectorAll('#sweetnessRow .sweetness-btn').forEach(b => b.classList.toggle('selected', b.dataset.sweet === 'ไม่หวาน'));
     document.getElementById('orderTypeHint').style.display = 'none';
     document.getElementById('staffChips').style.display = 'none';
+    document.getElementById('rewardFullFreeRow').style.display = 'none'; document.getElementById('rewardFullFree').checked = false;
     orderType = 'customer';
     selectedSweetness = 'ไม่หวาน';
     setOrderChannel('walk-in'); // กลับเป็นหน้าร้านทุกครั้งหลังบันทึก — กันกดแท็ก Grab ค้างไปโดนออเดอร์ถัดไป
