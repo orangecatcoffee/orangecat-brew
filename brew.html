@@ -3087,6 +3087,7 @@ img{max-width:100%}
     thisMonday.setDate(today.getDate() + diffToMonday);
 
     const todayISO = toISODate(today);
+    const tomorrowISO = toISODate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1));
     let firstButtonSet = false;
     const totalWeeks = 9; // ~2 เดือน
 
@@ -3107,7 +3108,7 @@ img{max-width:100%}
         btn.dataset.iso = dISO;
         const label = dISO === todayISO ? 'วันนี้' : `${dayNames[d.getDay()]} ${d.getDate()}`;
         btn.textContent = label;
-        if (!firstButtonSet) {
+        if (!firstButtonSet && dISO === tomorrowISO) {   // default = tomorrow; the barista taps another day if it is not
           btn.classList.add('selected');
           selectedDate = dISO;
           firstButtonSet = true;
@@ -3638,6 +3639,48 @@ img{max-width:100%}
       c.style.display = !q || (c.dataset.search || '').includes(q) ? '' : 'none';
     });
   });
+
+  // ---- member's usual order: choosing a member pre-fills menu + bean + sweetness, so the barista only has to pick the day ----
+  // Rule: use the member's most frequent menu when it is clearly their habit (>= 60% of their last 30 cups, at least 3 cups);
+  // otherwise their latest menu. Bean and sweetness = the most frequent ones for THAT menu (ties -> the most recent).
+  const modeOfRows = (rows, key) => {
+    const c = {}, first = {}; rows.forEach((r, i) => { const v = r[key]; if (!v) return; c[v] = (c[v] || 0) + 1; if (!(v in first)) first[v] = i; });
+    const e = Object.keys(c).sort((a, b) => (c[b] - c[a]) || (first[a] - first[b])); return e.length ? { value: e[0], n: c[e[0]] } : null;
+  };
+  async function applyMemberUsualOrder(lineUserId, box) {
+    try {
+      if (orderType !== 'customer' || orderMode !== 'normal' || selectedMenu) return;   // never override what the barista already chose
+      const { data: rows } = await sb.from('preorders').select('menu_item_name, bean_name, sweetness, created_at')
+        .eq('line_user_id', lineUserId).eq('order_type', 'customer').is('omakase_set_id', null).eq('is_secret_cup', false)
+        .order('created_at', { ascending: false }).limit(30);
+      if (selectedMemberLineId !== lineUserId || selectedMenu || !rows || !rows.length) return;
+      const known = rows.filter(r => MENU.some(x => x.name === r.menu_item_name));
+      if (!known.length) return;
+      const topMenu = modeOfRows(known, 'menu_item_name');
+      const habit = known.length >= 3 && topMenu.n / known.length >= 0.6;
+      const menuName = habit ? topMenu.value : known[0].menu_item_name;
+      const card = [...document.querySelectorAll('#menuGrid .menu-card')].find(c => c.dataset.menuName === menuName);
+      if (!card) return;
+      const ofMenu = known.filter(r => r.menu_item_name === menuName);
+      const sweet = modeOfRows(ofMenu, 'sweetness'), bean = modeOfRows(ofMenu, 'bean_name');
+      card.click();                                   // same path as a manual tap on the menu card
+      if (sweet) setSweetnessValue(sweet.value);
+      let beanUsed = null;
+      if (bean && !/[+,]/.test(bean.value)) {         // single bean only; blends are left for the barista
+        const b = (beanOptionsCache || []).find(x => x.name === bean.value && Number(x.stock_quantity) >= BEAN_DOSE_G);
+        const chip = b && document.querySelector(`#recentBeans .chip[data-bean-id="${b.id}"]`);
+        if (chip && !chip.classList.contains('selected')) { chip.click(); beanUsed = b.name; }
+      }
+      const who = (membersCache.find(m => m.line_user_id === lineUserId) || {}).display_name || 'ลูกค้า';
+      const parts = [menuName, beanUsed, sweet && sweet.value].filter(Boolean).join(' · ');
+      const why = habit ? `สั่งเมนูนี้ ${topMenu.n} จาก ${known.length} ครั้งล่าสุด` : 'ตามแก้วล่าสุด';
+      const note = document.createElement('div'); note.className = 'field-hint'; note.style.cssText = 'margin:6px 0 0;color:var(--accent-text);';
+      note.textContent = `🧠 ตั้งค่าตามที่ ${String(who).slice(0, 20)} สั่งบ่อย: ${parts} (${why}) — แตะเปลี่ยนได้ เลือกแค่วันแล้วบันทึกเลย`;
+      box.appendChild(note);
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (e) { /* defaults are a convenience — never block the order form */ }
+  }
+
   async function showLastOrderHint(lineUserId) {
     const box = document.getElementById('lastOrderHint');
     box.innerHTML = '';
@@ -3665,9 +3708,11 @@ img{max-width:100%}
         .eq('line_user_id', lineUserId).eq('order_type', 'customer').not('sweetness', 'is', null)
         .order('created_at', { ascending: false }).limit(120);
       if (selectedMemberLineId !== lineUserId) return;
-      (hist || []).forEach(r => { if (!(r.menu_item_name in memberSweetByMenu)) memberSweetByMenu[r.menu_item_name] = r.sweetness; });
+      const byMenu = {}; (hist || []).forEach(r => (byMenu[r.menu_item_name] = byMenu[r.menu_item_name] || []).push(r));
+      Object.entries(byMenu).forEach(([m, rs]) => { const md = modeOfRows(rs, 'sweetness'); if (md) memberSweetByMenu[m] = md.value; });
       if (selectedMenu) applyRememberedSweetness(selectedMenu);
     } catch (e) { memberSweetByMenu = {}; }
+    applyMemberUsualOrder(lineUserId, box);
     const { data } = await sb.from('preorders').select('menu_item_name, sweetness')
       .eq('line_user_id', lineUserId).eq('order_type', 'customer').is('omakase_set_id', null)
       .order('created_at', { ascending: false }).limit(1);
@@ -6886,7 +6931,7 @@ img{max-width:100%}
   function applyRememberedSweetness(item) {
     const hint = document.getElementById('sweetMemoryHint');
     const prev = selectedMemberLineId && item ? memberSweetByMenu[item.name] : null;
-    if (hint) hint.textContent = prev ? `🧠 ครั้งก่อนสั่ง ${prev} — ตั้งให้แล้ว (แตะเปลี่ยนได้)` : '';
+    if (hint) hint.textContent = prev ? `🧠 ความหวานที่เขาสั่งบ่อยสำหรับเมนูนี้: ${prev} — ตั้งให้แล้ว (แตะเปลี่ยนได้)` : '';
     if (prev) setSweetnessValue(prev);
   }
 
