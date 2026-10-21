@@ -273,6 +273,7 @@ img{max-width:100%}
     <button type="button" class="sweetness-btn" data-sweet="หวานน้อย">หวานน้อย</button>
     <button type="button" class="sweetness-btn" data-sweet="หวานปกติ">หวานปกติ</button>
   </div>
+<div class="field-hint" id="sweetMemoryHint" style="margin:6px 0 0;min-height:0;"></div>
 
   <div class="field-label">วันที่ต้องการ</div>
   <div class="date-row-viewport" id="dateRowViewport">
@@ -912,6 +913,7 @@ img{max-width:100%}
   let selectedMenu = null;
   let selectedDate = null;
   let selectedMemberLineId = null;
+  let memberSweetByMenu = {};   // menu name -> the sweetness the chosen member had last time
   let pendingOmakaseSetId = null; // เซ็ต Omakase ที่ค้างไม่ครบ 3 แก้วของลูกค้าที่เลือกอยู่ (ถ้ามี) — กันเคสแบบ jump/Kapook ที่แก้วปกติหลุดไม่ผูกเข้าเซ็ต
   let pendingOmakaseSetLinked = true;
   // ⚠️ แพ้/ไม่กิน — state ของลูกค้าที่เลือกอยู่ตอนนี้
@@ -2769,6 +2771,7 @@ img{max-width:100%}
           document.querySelectorAll('.menu-card').forEach(b => b.classList.remove('selected'));
           div.classList.add('selected');
           selectedMenu = item;
+          applyRememberedSweetness(item);
           const noCoffeeRow = document.getElementById('noCoffeeRow');
           noCoffeeRow.style.display = item.coffeeFlexible ? 'flex' : 'none';
           if (!item.coffeeFlexible) document.getElementById('noCoffeeCheckbox').checked = false;
@@ -3656,6 +3659,15 @@ img{max-width:100%}
       });
       box.appendChild(rb);
     }
+    memberSweetByMenu = {}; document.getElementById('sweetMemoryHint').textContent = '';
+    try {   // sweetness memory: the last sweetness this member had for each menu
+      const { data: hist } = await sb.from('preorders').select('menu_item_name, sweetness')
+        .eq('line_user_id', lineUserId).eq('order_type', 'customer').not('sweetness', 'is', null)
+        .order('created_at', { ascending: false }).limit(120);
+      if (selectedMemberLineId !== lineUserId) return;
+      (hist || []).forEach(r => { if (!(r.menu_item_name in memberSweetByMenu)) memberSweetByMenu[r.menu_item_name] = r.sweetness; });
+      if (selectedMenu) applyRememberedSweetness(selectedMenu);
+    } catch (e) { memberSweetByMenu = {}; }
     const { data } = await sb.from('preorders').select('menu_item_name, sweetness')
       .eq('line_user_id', lineUserId).eq('order_type', 'customer').is('omakase_set_id', null)
       .order('created_at', { ascending: false }).limit(1);
@@ -6867,6 +6879,15 @@ img{max-width:100%}
     if (!selectedMenu.coffeeFlexible) document.getElementById('noCoffeeCheckbox').checked = false;
     updateMilkRow(selectedMenu);
     updateMatchaRow(selectedMenu);
+  }
+
+
+  // Picking a menu for a member pre-selects the sweetness they had last time for that menu (so it is not forgotten), and says so.
+  function applyRememberedSweetness(item) {
+    const hint = document.getElementById('sweetMemoryHint');
+    const prev = selectedMemberLineId && item ? memberSweetByMenu[item.name] : null;
+    if (hint) hint.textContent = prev ? `🧠 ครั้งก่อนสั่ง ${prev} — ตั้งให้แล้ว (แตะเปลี่ยนได้)` : '';
+    if (prev) setSweetnessValue(prev);
   }
 
   function setSweetnessValue(val) {
