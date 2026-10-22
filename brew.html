@@ -25,6 +25,19 @@ img{max-width:100%}
 .cal-day{color:#2A1F17 !important}
 .btn-done{background:var(--accent) !important;color:var(--on-accent) !important;border:none !important;min-height:48px;font-weight:700}
 .btn-done:disabled{opacity:.5}
+.card-sum{display:flex;align-items:center;gap:8px;min-height:44px;margin:-4px -4px 2px;padding:0 4px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.cs-handle{flex:none;width:40px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--muted);touch-action:none;cursor:grab}
+.cs-text{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden;white-space:nowrap}
+.cs-name{font-weight:700;color:var(--text);font-size:15px;flex:none;max-width:42%;overflow:hidden;text-overflow:ellipsis}
+.cs-menu{color:var(--muted);font-size:13.5px;overflow:hidden;text-overflow:ellipsis}
+.cs-chev{flex:none;width:32px;text-align:center;color:var(--muted);font-size:14px}
+.card:not(.card-collapsed) .cs-text{display:none}
+.card:not(.card-collapsed) .card-sum{min-height:34px;justify-content:space-between;margin-bottom:0}
+.card:not(.card-collapsed) .cs-handle{height:34px}
+.card.card-collapsed{padding-top:4px;padding-bottom:4px;margin-bottom:8px}
+.card.card-collapsed > *:not(.card-sum){display:none !important}
+.card.dragging{opacity:.55;box-shadow:0 10px 24px rgba(0,0,0,.45);pointer-events:none;position:relative;z-index:50}
+
 .sw-edit{background:var(--surface);color:var(--warn);font-weight:700;border:1px solid var(--line);border-radius:8px;padding:2px 4px;font:inherit;font-weight:700;min-height:34px;margin-left:2px}
 .sw-prev{font-size:12px;color:var(--muted);font-weight:500;white-space:nowrap}
 
@@ -162,6 +175,10 @@ img{max-width:100%}
     <button type="button" class="chip selected" id="staffFilterToggle" style="margin-left:auto;">👥 รวมสตาฟ</button>
   </div>
 
+  <div id="cardsBar" style="display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;gap:8px;">
+    <span id="cardsCount" style="font-size:12px;color:var(--muted);"></span>
+    <button type="button" class="chip" id="cardsModeToggle" style="min-height:40px;">▤ หุบทั้งหมด</button>
+  </div>
   <div id="todayList"></div>
 </div>
 
@@ -2333,6 +2350,72 @@ img{max-width:100%}
     if (rs) rs.addEventListener('click', () => { lastShotCups.forEach(o => shotDoneIds.delete(o.id)); persistShotDone(); renderShotLine(visibleOrders); });
   }
 
+
+  // ---------- Today cards: collapse/expand, reorder by dragging, remembered order ----------
+  let cardsMode = (() => { try { return localStorage.getItem('ocosCardsMode') === 'collapsed' ? 'collapsed' : 'expanded'; } catch (e) { return 'expanded'; } })();
+  const cardOverride = new Map();   // id -> true (expanded) / false (collapsed) when the barista taps a single card
+  let cardOrder = (() => { try { return JSON.parse(localStorage.getItem('ocosCardOrder') || '[]'); } catch (e) { return []; } })();
+  function saveCardOrder() { try { localStorage.setItem('ocosCardOrder', JSON.stringify(cardOrder.slice(0, 600))); } catch (e) {} }
+  function applySavedCardOrder(list) {   // cards keep the place the barista gave them; unknown (new) cards go after, in their normal order
+    if (!cardOrder.length) return list;
+    const rank = new Map(cardOrder.map((id, i) => [id, i]));
+    return list.map((o, i) => [o, i]).sort((a, b) => {
+      const ra = rank.has(a[0].id) ? rank.get(a[0].id) : 1e9, rb = rank.has(b[0].id) ? rank.get(b[0].id) : 1e9;
+      return (ra - rb) || (a[1] - b[1]);
+    }).map(x => x[0]);
+  }
+  const isCardCollapsed = (id) => cardOverride.has(id) ? !cardOverride.get(id) : cardsMode === 'collapsed';
+  function updateCardsBar(n) {
+    const t = document.getElementById('cardsModeToggle'), c = document.getElementById('cardsCount');
+    if (t) t.textContent = cardsMode === 'collapsed' ? '▦ ขยายทั้งหมด' : '▤ หุบทั้งหมด';
+    if (c) c.textContent = n ? `${n} แก้ว` : '';
+  }
+  function enhanceTodayCards(listEl) {
+    const cards = [...listEl.querySelectorAll('.card')];
+    cards.forEach(card => {
+      const idEl = card.querySelector('[data-id]'); const id = idEl && idEl.dataset.id;
+      const order = id && lastLoadedOrders.find(o => o.id === id);
+      if (!order) return;
+      card.dataset.oid = id;
+      const menuLabel = order.menu_item_name === SECRET_PLACEHOLDER_NAME ? '🔮 แก้วลับ' : (order.omakase_pending ? '🎴 Omakase (รอเลือกเมนู)' : order.menu_item_name);
+      const sum = document.createElement('div'); sum.className = 'card-sum';
+      sum.innerHTML = `<span class="cs-handle" title="ลากเพื่อเปลี่ยนตำแหน่ง">⠿</span><span class="cs-text"><span class="cs-name"></span><span class="cs-menu"></span></span><span class="cs-chev"></span>`;
+      sum.querySelector('.cs-name').textContent = order.customer_name || '';
+      sum.querySelector('.cs-menu').textContent = [menuLabel, order.sweetness].filter(Boolean).join(' · ');
+      card.insertBefore(sum, card.firstChild);
+      const paint = () => { const col = isCardCollapsed(id); card.classList.toggle('card-collapsed', col); sum.querySelector('.cs-chev').textContent = col ? '▾' : '▴ หุบ'; };
+      paint();
+      sum.addEventListener('click', (e) => { if (e.target.closest('.cs-handle')) return; cardOverride.set(id, isCardCollapsed(id)); paint(); });   // tap = open / close this one card
+      // drag by the ⠿ handle (works with a finger or a mouse)
+      const handle = sum.querySelector('.cs-handle');
+      handle.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        const parent = card.parentNode; card.classList.add('dragging');
+        const move = (ev) => {
+          const el = document.elementFromPoint(ev.clientX, ev.clientY);
+          const over = el && el.closest('.card');
+          if (over && over !== card && over.parentNode === parent) {
+            const r = over.getBoundingClientRect(); parent.insertBefore(card, ev.clientY > r.top + r.height / 2 ? over.nextSibling : over);
+          }
+          if (ev.clientY < 140) window.scrollBy(0, -14); else if (ev.clientY > window.innerHeight - 170) window.scrollBy(0, 14);
+        };
+        const end = () => {
+          document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', end); document.removeEventListener('pointercancel', end);
+          card.classList.remove('dragging');
+          const ids = [...document.querySelectorAll('#todayList .card[data-oid]')].map(c => c.dataset.oid);
+          cardOrder = ids.concat(cardOrder.filter(x => !ids.includes(x))); saveCardOrder();
+        };
+        document.addEventListener('pointermove', move); document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+      });
+    });
+    updateCardsBar(cards.length);
+  }
+  document.getElementById('cardsModeToggle').addEventListener('click', () => {
+    cardsMode = cardsMode === 'collapsed' ? 'expanded' : 'collapsed'; cardOverride.clear();
+    try { localStorage.setItem('ocosCardsMode', cardsMode); } catch (e) {}
+    renderTodayList();
+  });
+
   function renderTodayList() {
     const listEl = document.getElementById('todayList');
     const summaryEl = document.getElementById('todaySummary');
@@ -2383,12 +2466,16 @@ img{max-width:100%}
       return;
     }
 
+    const keepY = window.scrollY;   // editing a card re-draws the list — keep the screen where it was
+    visibleOrders = applySavedCardOrder(visibleOrders);
     listEl.innerHTML = '';
     if (viewMode === 'menu') {
       renderMenuGroupedList(listEl, visibleOrders, todayISO);
     } else {
       visibleOrders.forEach(order => renderOrderCard(listEl, order, todayISO, false));
     }
+    enhanceTodayCards(listEl);
+    window.scrollTo(0, keepY);
   }
 
   function renderOrderCard(container, order, todayISO, compact) {
@@ -3252,7 +3339,7 @@ img{max-width:100%}
     return payload;
   }
 
-  // เมล็ดเดี่ยว: surcharge เต็มของเมล็ดนั้น | เฮ้าส์เบลนด์: ถ่วงน้ำหนักตามสัดส่วนกรัมจริงที่ใช้ (ไม่ใช่หารเท่ากัน)
+  // เมล็ดเดี่ยว: surcharge เต็มของเมล็ดนั้น | เฮ้าส์เบลนด์: ใช้ surcharge สูงสุดของเมล็ดที่ผสม เต็มจำนวน (เช่น มี Honduras = +15 เสมอ ไม่คิดตามสัดส่วนกรัม)
   function beanSurchargeForSelection(blendPayload) {
     if (selectedBeanIds.length === 0) return 0;
     if (selectedBeanIds.length === 1) {
@@ -3260,14 +3347,12 @@ img{max-width:100%}
       return bean ? (Number(bean.customer_bean_surcharge) || 0) : 0;
     }
     if (!blendPayload || blendPayload.incomplete) return 0;
-    const totalGrams = blendPayload.reduce((sum, p) => sum + p.grams, 0);
-    if (!totalGrams) return 0;
-    const weighted = blendPayload.reduce((sum, p) => {
+    // blend = the HIGHEST surcharge among the beans actually used, in full (not scaled by grams): using Honduras at all = +15
+    return blendPayload.reduce((mx, p) => {
+      if (!(p.grams > 0)) return mx;
       const bean = beanOptionsCache.find(b => b.id === p.ingredient_id);
-      const sur = bean ? (Number(bean.customer_bean_surcharge) || 0) : 0;
-      return sum + sur * (p.grams / totalGrams);
+      return Math.max(mx, bean ? (Number(bean.customer_bean_surcharge) || 0) : 0);
     }, 0);
-    return Math.round(weighted * 100) / 100;
   }
 
   async function loadBeanOptions() {
