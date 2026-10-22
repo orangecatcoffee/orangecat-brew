@@ -29,7 +29,8 @@ img{max-width:100%}
 .lab-card.active{outline:2.5px solid var(--accent);outline-offset:1px}
 .lab-card-img{position:relative;aspect-ratio:4/3;background:var(--raised);overflow:hidden}
 .lab-card-img img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}   /* never stretched: the photo keeps its own proportions */
-.lab-card-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:40px;background:linear-gradient(135deg,var(--accent-soft),var(--raised))}
+.lab-card-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:46px;background:linear-gradient(135deg,hsl(var(--h,25) 45% 30%),hsl(var(--h,25) 40% 17%))}
+:root[data-theme="day"] .lab-card-ph{background:linear-gradient(135deg,hsl(var(--h,25) 75% 88%),hsl(var(--h,25) 65% 78%))}
 .lab-card-cam{position:absolute;right:6px;bottom:6px;width:38px;height:38px;border-radius:50%;background:rgba(10,18,32,.72);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;border:1px solid rgba(255,255,255,.25)}
 .lab-card-cam.busy{opacity:.6;pointer-events:none}
 .lab-card-score{position:absolute;left:6px;top:6px;background:rgba(10,18,32,.78);color:#FFD479;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:999px}
@@ -4671,14 +4672,22 @@ img{max-width:100%}
 
     const LAB_STATUS_DOT = { idea: 'var(--muted)', in_progress: 'var(--accent)', done: 'var(--ok)' };
     const coverOf = (t) => (t.reference_url || '').split('\n').map(u => u.trim()).filter(Boolean).find(u => isLabImageUrl(u) || u.includes('/lab-references/')) || null;
-    const emojiOf = (t) => { const n = (t.name || '').toLowerCase();
-      return t.category === 'coffee' ? '☕' : /matcha|มัทฉะ/.test(n) ? '🍵' : /tea|ชา/.test(n) ? '🫖' : /cocoa|choco|โกโก้/.test(n) ? '🍫' : '🧪'; };
+    const EMOJI_RULES = [   // first match wins: flavours / ingredients before generic drink words
+      [/ส้ม|orange|mandarin|แมนดาริน|persimmon|ลูกพลับ/, '🍊'], [/ยูซุ|ยูสุ|yuzu|เลมอน|lemon|มะนาว|citrus|citron/, '🍋'], [/สตรอ|strawberry|เบอร์รี่|berry/, '🍓'],
+      [/พีช|peach/, '🍑'], [/ลิ้นจี่|lychee/, '🍒'], [/แอปเปิ้ล|apple/, '🍎'], [/องุ่น|grape/, '🍇'], [/มะพร้าว|coconut/, '🥥'], [/กล้วย|banana|banoffe/, '🍌'],
+      [/มะม่วง|mango/, '🥭'], [/ฝรั่ง|guava/, '🍈'], [/ใบเตย|pandan|baitoey|เตย/, '🌿'], [/มัทฉะ|matcha/, '🍵'],
+      [/โกโก้|cocoa|chocolate|นูเทล่า|nutella|mocha|มอคค่า/, '🍫'], [/วานิลลา|vanilla/, '🍦'], [/น้ำผึ้ง|honey/, '🍯'], [/หอมเจียว/, '🧅'], [/ขนม|ตุ้บตั้บ/, '🍰'],
+      [/ลาเวนเดอร์|lavender|มะลิ|jasmine|กุหลาบ|rose|เก็กฮวย|เกกฮวย|เก้กหวย|chrysanthemum|osmanthus|อัญชัน|ดอกไม้|flower/, '🌸'],
+      [/โค้ก|cola|tonic|โทนิค|sparkle|soda|โซดา/, '🥤'], [/วุ้น|jelly|โมจิ|mochi|มะตูม|มะตุม/, '🍡'], [/cloud|คลาวด์|ครีมชีส|cream cheese|foam|โฟม/, '☁️'],
+      [/ชา|tea|assam|assum|ceylon|earl|อู่หลง|oolong/, '🫖'], [/นม|milk|latte|ลาเต้/, '🥛']];
+    const emojiOf = (t) => { const n = (t.name || '').toLowerCase(); const r = EMOJI_RULES.find(([re]) => re.test(n)); return r ? r[1] : (t.category === 'coffee' ? '☕' : '🧪'); };
+    const hueOf = (t) => { let x = 0; for (const ch of (t.name || '')) x = (x * 31 + ch.charCodeAt(0)) % 360; return x; };
     gridEl.innerHTML = trials.map(trial => {
       const isActive = labActiveTrialId === trial.id;
       const cover = coverOf(trial);
       const planned = trial.planned_date ? `📅 ${new Date(trial.planned_date + 'T12:00:00+07:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}` : '';
       return `<div class="lab-card${isActive ? ' active' : ''}" data-lab-chip-trial="${trial.id}" role="button" tabindex="0">
-        <div class="lab-card-img">${cover ? `<img loading="lazy" src="${escapeHtml(cover)}" alt="">` : `<div class="lab-card-ph">${emojiOf(trial)}</div>`}
+        <div class="lab-card-img">${cover ? `<img loading="lazy" src="${escapeHtml(cover)}" alt="">` : `<div class="lab-card-ph" style="--h:${hueOf(trial)}">${emojiOf(trial)}</div>`}
           ${trial.score != null ? `<span class="lab-card-score">⭐ ${trial.score}</span>` : ''}
           <label class="lab-card-cam" title="${cover ? 'เพิ่ม/เปลี่ยนรูป' : 'ใส่รูป'}">📷<input type="file" accept="image/*" data-lab-photo="${trial.id}" hidden></label>
         </div>
