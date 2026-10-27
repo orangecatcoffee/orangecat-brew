@@ -976,6 +976,7 @@ img{max-width:100%}
   let orderChannel = 'walk-in';
   // ช่องทางของออเดอร์ที่ไม่ใช่แพลตฟอร์ม: 'office' = ชิดลม (ราคากลาง - ส่วนลดกลุ่ม) · 'standard' = Standard Price · null = ยังไม่เลือก (บาริสต้าต้องกดเลือกทุกออเดอร์ ไม่มีค่าเริ่มต้น กันบันทึกผิดช่องทาง)
   let ownChannel = null;
+  let beanChanMap = {};   // ingredient_id -> { office|standard|grab: surcharge } (per-channel bean prices set in Owner)
   let priceGroups = {};
   let autoDiscountOn = false; // true = ช่องส่วนลดถูกเติมโดยปุ่มชิดลม (ปุ่ม Standard จะเคลียร์ให้ ไม่แตะส่วนลดที่บาริสต้าพิมพ์เอง)
   let platformChannels = [];
@@ -3354,18 +3355,37 @@ img{max-width:100%}
   }
 
   // เมล็ดเดี่ยว: surcharge เต็มของเมล็ดนั้น | เฮ้าส์เบลนด์: ใช้ surcharge สูงสุดของเมล็ดที่ผสม เต็มจำนวน (เช่น มี Honduras = +15 เสมอ ไม่คิดตามสัดส่วนกรัม)
+
+  // special-bean surcharge for the channel of the order being built:
+  //   store/LINE/ชิดลม ('office') and Standard: the channel's own price if one is set, else the bean's default
+  //   platforms (Grab...): only if a platform price is set for that bean (nothing is added otherwise, as before)
+  function beanSurFor(bean) {
+    if (!bean) return 0;
+    const pc = (orderChannel && orderChannel !== 'walk-in') ? orderChannel : null;
+    const ch = pc || ownChannel || 'office';
+    const ov = beanChanMap[bean.id] && beanChanMap[bean.id][ch];
+    if (ov !== undefined) return Number(ov) || 0;
+    return pc ? 0 : (Number(bean.customer_bean_surcharge) || 0);
+  }
+  function refreshBeanChipLabels() {
+    document.querySelectorAll('[data-bean-id].chip').forEach(chip => {
+      const bean = beanOptionsCache.find(b => b.id === chip.dataset.beanId); if (!bean || chip.disabled) return;
+      const sur = beanSurFor(bean); chip.textContent = `${bean.name} (${Number(bean.stock_quantity)}g)${sur > 0 ? ` +${sur}฿` : ''}`;
+    });
+  }
+
   function beanSurchargeForSelection(blendPayload) {
     if (selectedBeanIds.length === 0) return 0;
     if (selectedBeanIds.length === 1) {
       const bean = beanOptionsCache.find(b => b.id === selectedBeanIds[0]);
-      return bean ? (Number(bean.customer_bean_surcharge) || 0) : 0;
+      return beanSurFor(bean);
     }
     if (!blendPayload || blendPayload.incomplete) return 0;
     // blend = the HIGHEST surcharge among the beans actually used, in full (not scaled by grams): using Honduras at all = +15
     return blendPayload.reduce((mx, p) => {
       if (!(p.grams > 0)) return mx;
       const bean = beanOptionsCache.find(b => b.id === p.ingredient_id);
-      return Math.max(mx, bean ? (Number(bean.customer_bean_surcharge) || 0) : 0);
+      return Math.max(mx, beanSurFor(bean));
     }, 0);
   }
 
@@ -3397,6 +3417,7 @@ img{max-width:100%}
     const uses = {}; (useRows || []).forEach(r => String(r.bean_name).split(/[+,]/).forEach(n => { n = n.trim(); if (n) uses[n] = (uses[n] || 0) + 1; }));
     data.sort((a, b) => ((b.must_have ? 1 : 0) - (a.must_have ? 1 : 0)) || ((uses[b.name] || 0) - (uses[a.name] || 0)) || a.name.localeCompare(b.name, 'th'));
     beanOptionsCache = data;
+    try { const { data: bcp } = await sb.from('bean_channel_prices').select('ingredient_id, channel_key, surcharge'); beanChanMap = {}; (bcp || []).forEach(r => { (beanChanMap[r.ingredient_id] = beanChanMap[r.ingredient_id] || {})[r.channel_key] = Number(r.surcharge); }); } catch (e) { beanChanMap = {}; }
     el.innerHTML = '';
     document.getElementById('beanName').value = '';
     const soldOutNames = [];
@@ -3405,7 +3426,7 @@ img{max-width:100%}
       const stock = Number(bean.stock_quantity);
       const low = stock < BEAN_DOSE_G;
       if (low) { soldOutNames.push(bean.name); return; } // Phase 2: sold-out beans no longer take up chip space
-      const sur = Number(bean.customer_bean_surcharge) || 0;
+      const sur = beanSurFor(bean);
       if (!bean.must_have && !dividerShown && el.children.length) {
         const dv = document.createElement('div'); dv.style.cssText = 'flex-basis:100%;font-size:11px;color:var(--muted);margin:4px 0 0;'; dv.textContent = 'เมล็ดอื่นๆ'; el.appendChild(dv); dividerShown = true;
       }
@@ -6801,6 +6822,7 @@ img{max-width:100%}
     row.innerHTML = `<button type="button" class="sweetness-btn${orderChannel === 'walk-in' && ownChannel === 'office' ? ' selected' : ''}" data-channel="office">🏢 ชิดลม${gd ? ' (−' + gd + ')' : ''}</button>` +
       `<button type="button" class="sweetness-btn${orderChannel === 'walk-in' && ownChannel === 'standard' ? ' selected' : ''}" data-channel="standard">💼 Standard Price</button>` +
       platformChannels.map(c => `<button type="button" class="sweetness-btn${orderChannel === c.channel_key ? ' selected' : ''}" data-channel="${c.channel_key}">🛵 ${c.label_th}</button>`).join('');
+    refreshBeanChipLabels();
   }
 
   function setOrderChannel(key) {
@@ -7273,6 +7295,7 @@ img{max-width:100%}
       const matchaName = (selectedMenu.needsMatcha ? document.getElementById('matchaSelect').value : '') || null;
       const noCoffeeChecked = selectedMenu.coffeeFlexible && document.getElementById('noCoffeeCheckbox').checked;
       const beanSur = (isFree || noCoffeeChecked) ? 0 : beanSurchargeForSelection(blendPayload);
+      const platformBeanSur = (platformCh && !noCoffeeChecked && !(selectedListing && selectedListing.bean_ingredient_id)) ? beanSur : 0;   // a listing already priced for its own bean adds nothing
       // แลกแต้ม (ฟรี): มูลค่าจริงของเมนู (รวม surcharge) ไม่เกิน cap = ฟรีเต็ม เกิน cap = เก็บส่วนต่าง
       const rewardFullPrice = selectedMenu.price + milkSurchargeBrew(milkName) + (noCoffeeChecked ? 0 : beanSurchargeForSelection(blendPayload));
       const rewardCharge = Math.max(0, rewardFullPrice - REWARD_CAP_AMOUNT);
@@ -7280,14 +7303,14 @@ img{max-width:100%}
       insertRows = [{
         customer_name: name,
         menu_item_name: selectedMenu.name,
-        price: platformCh ? platformPriceVal : (isMaxCup ? 0 : (orderType === 'reward' ? (rewardWaive ? 0 : rewardCharge) : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)))),
+        price: platformCh ? (platformPriceVal + platformBeanSur) : (isMaxCup ? 0 : (orderType === 'reward' ? (rewardWaive ? 0 : rewardCharge) : (isFree ? 0 : (selectedMenu.price - discount + milkSur + beanSur)))),
         discount_amount: platformCh ? (selectedListing ? Number(selectedListing.discount_amount) || 0 : 0) : (isMaxCup ? 0 : (rewardWaive ? rewardCharge : discount)),
         discount_reason: rewardWaive ? 'แถมครบ 10 แก้ว — ไม่เก็บส่วนต่าง' : null,
         drinker_name: (!platformCh && orderType === 'customer' && document.getElementById('drinkerName').value.trim()) || null,
         is_group_order: !platformCh && orderType === 'customer' && document.getElementById('groupOrderFlag').checked,
         wanted_date: selectedDate,
         bean_name: beanName,
-        bean_surcharge: (platformCh || isMaxCup) ? 0 : beanSur,
+        bean_surcharge: platformCh ? platformBeanSur : (isMaxCup ? 0 : beanSur),
         milk_name: isMaxCup ? null : milkName,
         milk_surcharge: isMaxCup ? 0 : milkSur,
         matcha_name: isMaxCup ? null : matchaName,
